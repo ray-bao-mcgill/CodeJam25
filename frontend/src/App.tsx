@@ -12,22 +12,10 @@ import TechnicalTheory from "./pages/TechnicalTheory";
 import TechnicalPractical from "./pages/TechnicalPractical";
 import WinLose from "./pages/WinLose";
 import Analytics from "./pages/Analytics";
+import DevTools from "./pages/DevTools";
+import DatabaseAdmin from "./pages/DevTools/DatabaseAdmin";
 
 const App: React.FC = () => {
-  const links = [
-    { to: "/landing", label: "Landing" },
-    { to: "/lobby-creation", label: "LobbyCreation" },
-    { to: "/waiting-room", label: "WaitingRoom" },
-    { to: "/round-start-counter", label: "RoundStartCounter" },
-    { to: "/behavioural-question", label: "BehaviouralQuestion" },
-    { to: "/behavioural-answer", label: "BehaviouralAnswer" },
-    { to: "/current-score", label: "CurrentScore" },
-    { to: "/technical-theory", label: "TechnicalTheory" },
-    { to: "/technical-practical", label: "TechnicalPractical" },
-    { to: "/win-lose", label: "WinLose" },
-    { to: "/analytics", label: "Analytics" },
-  ];
-
   return (
     <div className="min-h-screen flex flex-col">
       <header className="p-4 border-b">
@@ -58,25 +46,10 @@ const App: React.FC = () => {
           <Route path="/technical-practical" element={<TechnicalPractical />} />
           <Route path="/win-lose" element={<WinLose />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/dev" element={<DevTools />} />
+          <Route path="/admin" element={<DatabaseAdmin />} />
         </Routes>
       </main>
-
-      <aside className="border-t p-4">
-        <div className="max-w-6xl mx-auto">
-          <p className="font-medium mb-2">Quick links</p>
-          <div className="flex flex-wrap gap-2">
-            {links.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="px-3 py-1 rounded border hover:bg-gray-50 text-sm"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </aside>
     </div>
   );
 };

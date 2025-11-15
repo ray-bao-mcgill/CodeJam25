@@ -1,12 +1,8 @@
-import React, { useState } from "react";
-import Lobby from "../components/Lobby";
+import React from "react";
+import { useNavigate } from "react-router-dom";
 
 const Landing: React.FC = () => {
-  const [showLobby, setShowLobby] = useState(false);
-
-  if (showLobby) {
-    return <Lobby />;
-  }
+  const navigate = useNavigate();
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6">
@@ -15,7 +11,7 @@ const Landing: React.FC = () => {
         TODO: Team fills in UI for this page.
       </p>
       <button
-        onClick={() => setShowLobby(true)}
+        onClick={() => navigate("/lobby-creation")}
         className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
       >
         Join Lobby
