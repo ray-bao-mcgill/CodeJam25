@@ -120,9 +120,9 @@
       repeating-linear-gradient(
         0deg,
         transparent,
-        transparent 2px,
-        rgba(0,0,0,0.03) 2px,
-        rgba(0,0,0,0.03) 4px
+        transparent 8px,
+        rgba(0,0,0,0.1) 8px,
+        rgba(0,0,0,0.1) 9px
       );
   }
 }
@@ -135,9 +135,9 @@
       repeating-linear-gradient(
         0deg,
         transparent,
-        transparent 2px,
-        rgba(0,0,0,0.03) 2px,
-        rgba(0,0,0,0.03) 4px
+        transparent 8px,
+        rgba(0,0,0,0.09) 8px,
+        rgba(0,0,0,0.09) 9px
       );
     min-height: 100vh;
   }
