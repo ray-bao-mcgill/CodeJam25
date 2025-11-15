@@ -10,9 +10,9 @@
     --game-bg-purple: #2d1b69;
     
     /* Glowing Cyan/Blue for Primary Actions */
-    --game-cyan: #00d9ff;
-    --game-cyan-dark: #0099cc;
-    --game-cyan-glow: rgba(0, 217, 255, 0.5);
+    --game-cyan: #00b8d4;
+    --game-cyan-dark: #0088a3;
+    --game-cyan-glow: rgba(0, 184, 212, 0.4);
     
     /* Glowing Red for Secondary Actions */
     --game-red: #ff3366;
