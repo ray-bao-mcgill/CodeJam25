@@ -1,7 +1,7 @@
 import React from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
 
-import Landing from "./pages/onboarding/Landing";
+import LandingV1 from "./pages/onboarding/LandingV1";
 import LobbyCreation from "./pages/onboarding/LobbyCreation";
 import LobbyJoin from "./pages/onboarding/LobbyJoin";
 import JobInputSelection from "./pages/onboarding/JobInputSelection";
@@ -27,7 +27,7 @@ const App: React.FC = () => {
     <div className="min-h-screen">
       <Routes>
         <Route path="/" element={<Navigate to="/landing" replace />} />
-        <Route path="/landing" element={<Landing />} />
+        <Route path="/landing" element={<LandingV1 />} />
         <Route path="/lobby-creation" element={<LobbyCreation />} />
         <Route path="/lobby-join" element={<LobbyJoin />} />
         <Route path="/lobby-join/:lobbyId" element={<LobbyJoin />} />
