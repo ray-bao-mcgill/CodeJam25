@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Game Theme Colors - Dark Purple/Blue Base */
+    --game-bg-dark: #0f0a1f;
+    --game-bg-mid: #1a1436;
+    --game-bg-purple: #2d1b69;
+
+    /* Glowing Cyan/Blue for Primary Actions */
+    --game-cyan: #00d9ff;
+    --game-cyan-dark: #0099cc;
+    --game-cyan-glow: rgba(0, 217, 255, 0.5);
+
+    /* Glowing Red for Secondary Actions */
+    --game-red: #ff3366;
+    --game-red-dark: #cc0044;
+    --game-red-glow: rgba(255, 51, 102, 0.5);
+
+    /* Accent Colors */
+    --game-pink: #ff006e;
+    --game-purple: #8b5cf6;
+    --game-green: #00ff88;
+
+    /* Text Colors */
+    --game-text-primary: #ffffff;
+    --game-text-secondary: rgba(255, 255, 255, 0.7);
+    --game-text-dim: rgba(255, 255, 255, 0.4);
+
+    /* Shadcn defaults */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+  }
+}
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    @apply border-border;
+  }
+
+  body {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+      "Liberation Mono", monospace;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Game-specific utility classes */
+@layer utilities {
+  /* Scoped rem sizing: Use this class on game components to enable 1rem = 10px */
+  .game-rem-10 {
+    font-size: 62.5%; /* Makes 1rem = 10px for children */
+  }
+
+  .game-rem-10 * {
+    font-size: 1.6rem; /* Reset text to 16px by default */
+  }
+
+  .container {
+    max-width: 120rem; /* 1200px when used inside .game-rem-10 */
+    margin: 0 auto;
+    padding: 1rem; /* 10px when used inside .game-rem-10 */
+  }
+
+  .game-bg {
+    background: linear-gradient(
+      135deg,
+      var(--game-bg-dark) 0%,
+      var(--game-bg-mid) 50%,
+      var(--game-bg-purple) 100%
+    );
+  }
+
+  .game-text-glow-cyan {
+    text-shadow: 0 0 2rem var(--game-cyan-glow), 0 0 4rem var(--game-cyan-glow); /* 20px, 40px when used inside .game-rem-10 */
+  }
+
+  .game-text-glow-red {
+    text-shadow: 0 0 2rem var(--game-red-glow), 0 0 4rem var(--game-red-glow); /* 20px, 40px when used inside .game-rem-10 */
+  }
+
+  .game-border-glow-cyan {
+    box-shadow: 0 0 2rem var(--game-cyan-glow),
+      inset 0 0 2rem rgba(0, 217, 255, 0.1); /* 20px when used inside .game-rem-10 */
+  }
+
+  .game-border-glow-red {
+    box-shadow: 0 0 2rem var(--game-red-glow),
+      inset 0 0 2rem rgba(255, 51, 102, 0.1); /* 20px when used inside .game-rem-10 */
+  }
+}
