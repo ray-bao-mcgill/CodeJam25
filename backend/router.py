@@ -17,6 +17,15 @@ class LeaveLobbyRequest(BaseModel):
     player_name: str = None
 
 
+class TransferOwnershipRequest(BaseModel):
+    new_owner_id: str
+    current_owner_id: str
+
+
+class StartGameRequest(BaseModel):
+    player_id: str
+
+
 # Root route removed - frontend is served at / by main.py
 # @router.get("/")
 # async def root():
@@ -77,9 +86,23 @@ async def join_lobby(request: JoinLobbyRequest):
 
 
 @router.post("/api/lobby/{lobby_id}/start")
-async def start_game(lobby_id: str):
-    """Start the game"""
-    success, message = lobby_manager.start_game(lobby_id)
+async def start_game(lobby_id: str, request: StartGameRequest):
+    """Start the game - requires owner player_id"""
+    success, message = lobby_manager.start_game(lobby_id, request.player_id)
+    if success:
+        await lobby_manager.broadcast_lobby_update(lobby_id)
+        return {"success": True, "message": message}
+    return {"success": False, "message": message}
+
+
+@router.post("/api/lobby/{lobby_id}/transfer-ownership")
+async def transfer_ownership(lobby_id: str, request: TransferOwnershipRequest):
+    """Transfer ownership to another player"""
+    success, message = lobby_manager.transfer_ownership(
+        lobby_id, 
+        request.new_owner_id, 
+        request.current_owner_id
+    )
     if success:
         await lobby_manager.broadcast_lobby_update(lobby_id)
         return {"success": True, "message": message}

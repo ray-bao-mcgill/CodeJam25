@@ -55,14 +55,14 @@ class LobbyManager:
             print(f"Cleaning up empty lobby {lobby_id}")
             del self.lobbies[lobby.id]
     
-    def start_game(self, lobby_id: str) -> tuple[bool, str]:
+    def start_game(self, lobby_id: str, player_id: str = None) -> tuple[bool, str]:
         """Start the game in a lobby and create a Match instance"""
         lobby = self.get_lobby(lobby_id)
         if not lobby:
             return False, "Lobby not found"
         
         # Try to start the game in the lobby
-        success, message = lobby.start_game()
+        success, message = lobby.start_game(player_id)
         if not success:
             return False, message
         
@@ -102,6 +102,14 @@ class LobbyManager:
         
         print(f"Created and started match {match_id} for lobby {lobby_id}")
         return True, f"Game started with match {match_id}"
+    
+    def transfer_ownership(self, lobby_id: str, new_owner_id: str, current_owner_id: str) -> tuple[bool, str]:
+        """Transfer ownership in a lobby"""
+        lobby = self.get_lobby(lobby_id)
+        if not lobby:
+            return False, "Lobby not found"
+        
+        return lobby.transfer_ownership(new_owner_id, current_owner_id)
     
     def add_connection(self, lobby_id: str, websocket):
         """Add WebSocket connection to a lobby"""

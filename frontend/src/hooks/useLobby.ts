@@ -12,6 +12,7 @@ export interface LobbyData {
   players: Player[];
   created_at?: string;
   match?: any;
+  owner_id?: string;
 }
 
 export function useLobby() {
@@ -111,14 +112,18 @@ export function useLobby() {
   };
 
   const startGame = async () => {
-    if (!lobbyId) {
-      setError("No lobby ID");
-      return { success: false, error: "No lobby ID" };
+    if (!lobbyId || !playerId) {
+      setError("No lobby ID or player ID");
+      return { success: false, error: "No lobby ID or player ID" };
     }
 
     try {
       const response = await fetch(`${API_URL}/api/lobby/${lobbyId}/start`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          player_id: playerId,
+        }),
       });
       const data = await response.json();
 

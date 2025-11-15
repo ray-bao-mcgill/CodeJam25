@@ -16,6 +16,7 @@ class Lobby:
         self.status = "waiting"  # waiting, starting, in_progress, completed
         self.connections: List = []  # WebSocket connections
         self.match: Optional[Any] = None  # Match instance (imported from matches module to avoid circular import)
+        self.owner_id: str = None  # Player ID of the lobby owner
     
     def add_player(self, player_name: str) -> tuple[bool, str, str]:
         """Add a player to the lobby. Returns (success, message, player_id)"""
@@ -35,16 +36,36 @@ class Lobby:
             "joined_at": datetime.now().isoformat()
         }
         self.players.append(player)
+        
+        # Set first player as owner if no owner exists
+        if self.owner_id is None:
+            self.owner_id = player_id
+            print(f"Set {player_name} ({player_id}) as lobby owner")
+        
         return True, "Joined successfully", player_id
     
     def remove_player(self, player_id: str = None, player_name: str = None) -> bool:
         """Remove a player from the lobby. Returns True if player was removed"""
         initial_count = len(self.players)
         
+        # Find the player being removed
+        removed_player_id = None
         if player_id:
+            removed_player_id = player_id
             self.players = [p for p in self.players if p.get("id") != player_id]
         elif player_name:
+            player = next((p for p in self.players if p.get("name") == player_name), None)
+            if player:
+                removed_player_id = player.get("id")
             self.players = [p for p in self.players if p.get("name") != player_name]
+        
+        # If owner left, transfer ownership to next player
+        if removed_player_id == self.owner_id and len(self.players) > 0:
+            self.owner_id = self.players[0]["id"]
+            print(f"Owner left, transferred ownership to {self.players[0]['name']} ({self.owner_id})")
+        elif removed_player_id == self.owner_id:
+            self.owner_id = None
+            print("Owner left and lobby is now empty")
         
         return len(self.players) < initial_count
     
@@ -56,8 +77,12 @@ class Lobby:
         """Check if game can be started"""
         return len(self.players) >= self.MIN_PLAYERS and self.status == "waiting"
     
-    def start_game(self) -> tuple[bool, str]:
+    def start_game(self, player_id: str = None) -> tuple[bool, str]:
         """Start the game. Returns (success, message)"""
+        # Check if player is the owner
+        if player_id and player_id != self.owner_id:
+            return False, "Only the lobby owner can start the game"
+        
         if len(self.players) < self.MIN_PLAYERS:
             return False, f"Need at least {self.MIN_PLAYERS} players to start"
         
@@ -67,6 +92,23 @@ class Lobby:
         self.status = "starting"
         # Match will be created by LobbyManager after this returns
         return True, "Game started"
+    
+    def transfer_ownership(self, new_owner_id: str, current_owner_id: str) -> tuple[bool, str]:
+        """Transfer ownership to another player. Returns (success, message)"""
+        # Verify current owner
+        if current_owner_id != self.owner_id:
+            return False, "Only the current owner can transfer ownership"
+        
+        # Verify new owner exists in lobby
+        new_owner = next((p for p in self.players if p.get("id") == new_owner_id), None)
+        if not new_owner:
+            return False, "New owner not found in lobby"
+        
+        # Transfer ownership
+        old_owner_name = next((p["name"] for p in self.players if p.get("id") == self.owner_id), "Unknown")
+        self.owner_id = new_owner_id
+        print(f"Ownership transferred from {old_owner_name} to {new_owner['name']} ({new_owner_id})")
+        return True, f"Ownership transferred to {new_owner['name']}"
     
     def set_match(self, match_instance):
         """Set the match instance for this lobby"""
@@ -103,7 +145,8 @@ class Lobby:
             "id": self.id,
             "players": self.players,
             "created_at": self.created_at,
-            "status": self.status
+            "status": self.status,
+            "owner_id": self.owner_id
         }
         
         # Include match information if available

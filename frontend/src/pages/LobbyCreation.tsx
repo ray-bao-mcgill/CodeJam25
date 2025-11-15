@@ -15,6 +15,7 @@ const LobbyCreation: React.FC = () => {
     lobby,
     error,
     isCreating,
+    playerId,
     setLobbyId,
     setPlayerName,
     setLobby,
@@ -86,6 +87,8 @@ const LobbyCreation: React.FC = () => {
         lobby={lobby}
         onStartGame={handleStartGame}
         onLeaveLobby={handleLeaveLobby}
+        playerId={playerId}
+        onLobbyUpdate={handleLobbyUpdate}
       />
     );
   }
