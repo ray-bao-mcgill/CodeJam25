@@ -6,13 +6,24 @@ from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime
 import uuid
 from sqlalchemy.orm import Session
-from database import SessionLocal, MatchSummary
+from database import SessionLocal, OngoingMatch
 
 
 class Match:
     """Represents an active game match"""
     
-    def __init__(self, match_id: str, lobby_id: str, players: List[Dict], lobby_callback: Optional[Callable] = None):
+    def __init__(
+        self, 
+        match_id: str, 
+        lobby_id: str, 
+        players: List[Dict], 
+        match_type: str,
+        job_description: Optional[str] = None,
+        role: Optional[str] = None,
+        level: Optional[str] = None,
+        match_config: Optional[Dict] = None,
+        lobby_callback: Optional[Callable] = None
+    ):
         """
         Initialize a new match
         
@@ -20,6 +31,11 @@ class Match:
             match_id: Unique identifier for this match
             lobby_id: ID of the lobby this match belongs to
             players: List of player dictionaries from the lobby
+            match_type: Type of match - "job_posting" or "generalized"
+            job_description: Job description text (for job_posting type)
+            role: Role name (for generalized type) - e.g., "Frontend", "Backend"
+            level: Level name (for generalized type) - e.g., "Junior", "Senior"
+            match_config: Additional configuration as dictionary
             lobby_callback: Optional callback function to notify lobby of changes
         """
         self.match_id = match_id
@@ -28,6 +44,19 @@ class Match:
         self.created_at = datetime.utcnow()
         self.started_at: Optional[datetime] = None
         self.completed_at: Optional[datetime] = None
+        
+        # Match configuration - consolidate everything into match_config
+        self.match_type = match_type  # "job_posting" or "generalized"
+        self.match_config = match_config or {}
+        
+        # Store job-specific or role-specific config in match_config
+        if match_type == "job_posting" and job_description:
+            self.match_config["job_description"] = job_description
+        elif match_type == "generalized":
+            if role:
+                self.match_config["role"] = role
+            if level:
+                self.match_config["level"] = level
         
         # Game state
         self.status = "starting"  # starting, in_progress, completed
@@ -46,31 +75,40 @@ class Match:
         db: Session = SessionLocal()
         try:
             # Check if match already exists
-            existing = db.query(MatchSummary).filter(MatchSummary.match_id == self.match_id).first()
+            existing = db.query(OngoingMatch).filter(OngoingMatch.match_id == self.match_id).first()
             if existing:
                 print(f"Match {self.match_id} already exists in database")
                 return
             
-            # Create new match summary
-            match_summary = MatchSummary(
+            # Create new match record
+            match_record = OngoingMatch(
                 match_id=self.match_id,
+                lobby_id=self.lobby_id,
                 created_at=self.created_at,
                 started_at=None,
                 completed_at=None,
+                match_type=self.match_type,
+                match_config=self.match_config,
                 players=self.players,
-                results={},
+                game_state={
+                    "scores": {player["id"]: 0 for player in self.players},
+                    "current_round": 0,
+                    "total_questions": 0
+                },
                 match_summary_text=None,
                 winner_id=None,
                 total_questions=0,
                 duration_seconds=None
             )
             
-            db.add(match_summary)
+            db.add(match_record)
             db.commit()
-            print(f"Created match record {self.match_id} in database")
+            print(f"Created match record {self.match_id} in database (type: {self.match_type})")
         except Exception as e:
             db.rollback()
             print(f"Error creating match record: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
             db.close()
     
@@ -135,11 +173,13 @@ class Match:
         if self.started_at:
             duration_seconds = int((self.completed_at - self.started_at).total_seconds())
         
-        # Prepare final results
-        results = {
+        # Update game state with final state
+        final_game_state = {
             "scores": self.scores,
+            "current_round": self.current_round,
             "total_questions": self.total_questions,
-            "duration_seconds": duration_seconds
+            "duration_seconds": duration_seconds,
+            "status": "completed"
         }
         
         # Determine winner if not provided
@@ -149,14 +189,14 @@ class Match:
         # Update database
         db: Session = SessionLocal()
         try:
-            match_summary = db.query(MatchSummary).filter(MatchSummary.match_id == self.match_id).first()
-            if match_summary:
-                match_summary.completed_at = self.completed_at
-                match_summary.results = results
-                match_summary.winner_id = winner_id
-                match_summary.match_summary_text = match_summary_text
-                match_summary.total_questions = self.total_questions
-                match_summary.duration_seconds = duration_seconds
+            match_record = db.query(OngoingMatch).filter(OngoingMatch.match_id == self.match_id).first()
+            if match_record:
+                match_record.completed_at = self.completed_at
+                match_record.game_state = final_game_state
+                match_record.winner_id = winner_id
+                match_record.match_summary_text = match_summary_text
+                match_record.total_questions = self.total_questions
+                match_record.duration_seconds = duration_seconds
                 
                 db.commit()
                 print(f"Completed match {self.match_id} in database")
@@ -172,7 +212,7 @@ class Match:
             "completed_at": self.completed_at.isoformat(),
             "winner_id": winner_id,
             "final_scores": self.scores,
-            "results": results
+            "game_state": final_game_state
         })
         
         return True
@@ -181,14 +221,15 @@ class Match:
         """Update match record in database"""
         db: Session = SessionLocal()
         try:
-            match_summary = db.query(MatchSummary).filter(MatchSummary.match_id == self.match_id).first()
-            if match_summary:
-                match_summary.started_at = self.started_at
-                match_summary.total_questions = self.total_questions
-                match_summary.results = {
+            match_record = db.query(OngoingMatch).filter(OngoingMatch.match_id == self.match_id).first()
+            if match_record:
+                match_record.started_at = self.started_at
+                match_record.total_questions = self.total_questions
+                match_record.game_state = {
                     "scores": self.scores,
                     "current_round": self.current_round,
-                    "total_questions": self.total_questions
+                    "total_questions": self.total_questions,
+                    "status": self.status
                 }
                 
                 db.commit()
@@ -215,6 +256,8 @@ class Match:
             "created_at": self.created_at.isoformat(),
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "match_type": self.match_type,
+            "match_config": self.match_config,
             "players": self.players,
             "scores": self.scores,
             "current_round": self.current_round,

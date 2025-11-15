@@ -11,22 +11,30 @@ import os
 Base = declarative_base()
 
 
-class MatchSummary(Base):
-    """Stores the final summary/results of a completed match"""
-    __tablename__ = "match_summaries"
+class OngoingMatch(Base):
+    """Stores ongoing and completed matches"""
+    __tablename__ = "ongoing_matches"
     
     match_id = Column(String, primary_key=True)  # Primary key: match_id
+    lobby_id = Column(String, nullable=False, index=True)  # Reference to lobby
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, default=datetime.utcnow, index=True)
+    completed_at = Column(DateTime, nullable=True, index=True)
+    
+    # Match Configuration - determines question types
+    match_type = Column(String, nullable=False, index=True)  # "job_posting" or "generalized"
+    
+    # All match configuration stored as JSON for flexibility
+    # Contains: job_description, role, level, and any other configuration
+    match_config = Column(JSON, nullable=False, default={})  # Full match configuration
     
     # Players in the match - stored as JSON array
     players = Column(JSON, nullable=False)
     
-    # Final results - stored as JSON
-    results = Column(JSON, nullable=False)
+    # Game state - current state of the match (scores, rounds, etc.)
+    game_state = Column(JSON, nullable=False, default={})  # Current game state
     
-    # LLM-generated summary
+    # LLM-generated summary (only populated when match is completed)
     match_summary_text = Column(Text, nullable=True)
     winner_id = Column(String, nullable=True, index=True)
     
@@ -37,11 +45,14 @@ class MatchSummary(Base):
     def to_dict(self):
         return {
             "match_id": self.match_id,
+            "lobby_id": self.lobby_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "match_type": self.match_type,
+            "match_config": self.match_config or {},
             "players": self.players,
-            "results": self.results,
+            "game_state": self.game_state or {},
             "match_summary_text": self.match_summary_text,
             "winner_id": self.winner_id,
             "total_questions": self.total_questions,
