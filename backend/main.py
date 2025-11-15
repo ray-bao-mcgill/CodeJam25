@@ -48,13 +48,21 @@ if os.path.exists(frontend_dist):
     else:
         print(f"[STARTUP] WARNING: Assets directory not found at: {assets_dir}", flush=True)
     
-    # Serve index.html for all non-API routes (SPA routing)
-    # FastAPI matches routes in order - more specific routes (from router) match first
-    # This catch-all only matches if no other route matched
+    # Serve root path explicitly (register before catch-all)
+    @app.get("/")
+    async def serve_root():
+        index_path = os.path.join(frontend_dist, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return {"error": "Frontend not found"}, 404
+    
+    # Serve index.html for all other non-API routes (SPA routing)
+    # This catch-all matches any path that doesn't match API/WebSocket routes
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        # This should only be reached if no other route matched
-        # FastAPI will have already tried /, /api/*, /ws/* from the router
+        # Explicitly exclude API and WebSocket routes
+        if full_path.startswith("api/") or full_path.startswith("ws/"):
+            return {"error": "Not found"}, 404
         index_path = os.path.join(frontend_dist, "index.html")
         if os.path.exists(index_path):
             return FileResponse(index_path)

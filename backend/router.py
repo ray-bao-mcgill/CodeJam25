@@ -17,9 +17,10 @@ class LeaveLobbyRequest(BaseModel):
     player_name: str = None
 
 
-@router.get("/")
-async def root():
-    return {"message": "Hello World from FastAPI"}
+# Root route removed - frontend is served at / by main.py
+# @router.get("/")
+# async def root():
+#     return {"message": "Hello World from FastAPI"}
 
 
 @router.post("/api/lobby/create")
