@@ -1,22 +1,14 @@
 #!/bin/bash
 
-# Start backend
-cd backend
-if [ -f "requirements.txt" ]; then
-    python3 main.py &
-    BACKEND_PID=$!
-else
-    python main.py &
-    BACKEND_PID=$!
-fi
+# Start backend in background
+cd /app/backend
+python main.py &
+BACKEND_PID=$!
 
-# Start frontend
-cd ../frontend
-if [ -f "package.json" ]; then
-    npm run build
-    npm run start &
-    FRONTEND_PID=$!
-fi
+# Start frontend in background
+cd /app/frontend
+npm run start &
+FRONTEND_PID=$!
 
 # Wait for both processes
 wait $BACKEND_PID $FRONTEND_PID
