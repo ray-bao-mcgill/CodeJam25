@@ -7,15 +7,22 @@ const TAB_DRAW = 'DRAW' as const;
 type TabType = typeof TAB_IDE | typeof TAB_TEXT | typeof TAB_DRAW;
 const TAB_OPTIONS: TabType[] = [TAB_IDE, TAB_TEXT, TAB_DRAW];
 
+const SUPPORTED_LANGS = [
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'typescript', label: 'TypeScript' },
+  { value: 'python', label: 'Python' },
+  { value: 'java', label: 'Java' },
+  { value: 'cpp', label: 'C++' },
+  { value: 'c', label: 'C' }
+];
+
 const CANVAS_WIDTH = 540;
 const CANVAS_HEIGHT = 320;
-
-// CDN info
 const MONACO_LOADER_SRC = "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js";
 
 function loadMonacoLoaderScript(): Promise<void> {
   return new Promise((resolve, reject) => {
-    if ((window as any).require) return resolve(); // Already loaded
+    if ((window as any).require) return resolve();
     if (document.getElementById('monaco-loader')) return resolve();
     const script = document.createElement('script');
     script.id = 'monaco-loader';
@@ -49,6 +56,7 @@ function loadMonaco(): Promise<any> {
 const TechnicalPractical: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>(TAB_IDE);
   const [codeValue, setCodeValue] = useState('// Start coding here...');
+  const [editorLang, setEditorLang] = useState('javascript');
   const [textValue, setTextValue] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const monacoEditorRef = useRef<any>(null);
@@ -60,7 +68,6 @@ const TechnicalPractical: React.FC = () => {
   useEffect(() => {
     (async () => {
       if (activeTab !== TAB_IDE) return;
-      // Wait for tiny delay so container is rendered
       await new Promise(r => setTimeout(r, 0));
       const container = editorContainerRef.current;
       if (!container) {
@@ -76,7 +83,7 @@ const TechnicalPractical: React.FC = () => {
         const monaco = await loadMonaco();
         const editor = monaco.editor.create(container, {
           value: codeValue,
-          language: 'javascript',
+          language: editorLang,
           automaticLayout: true,
           minimap: { enabled: false },
           theme: "vs-dark",
@@ -102,7 +109,20 @@ const TechnicalPractical: React.FC = () => {
         console.log('[Monaco] Editor disposed');
       }
     };
+    // eslint-disable-next-line
   }, [activeTab]);
+
+  // Handle Monaco language switching
+  useEffect(() => {
+    if (activeTab !== TAB_IDE) return;
+    if (monacoEditorRef.current && (window as any).monaco) {
+      const monaco = (window as any).monaco;
+      const currModel = monacoEditorRef.current.getModel();
+      if (currModel) monaco.editor.setModelLanguage(currModel, editorLang);
+      console.log('[Monaco] Language switched to', editorLang);
+    }
+    // eslint-disable-next-line
+  }, [editorLang, activeTab]);
 
   // Draw tab: attach event listeners
   useEffect(() => {
@@ -207,7 +227,20 @@ const TechnicalPractical: React.FC = () => {
         {/* IDE TAB */}
         {activeTab === TAB_IDE && (
           <div className="px-4 py-2">
-            <label className="block font-bold mb-2 text-gray-700">Code Editor:</label>
+            <div className="mb-2 flex items-center gap-2">
+              <label className="font-bold text-gray-700">Code Editor:</label>
+              <select
+                className="game-sharp px-3 py-1 border-2 border-gray-600 bg-white rounded text-base font-bold"
+                style={{ minWidth: 120 }}
+                value={editorLang}
+                onChange={e => setEditorLang(e.target.value)}
+                aria-label="Choose editor language"
+              >
+                {SUPPORTED_LANGS.map(lang => (
+                  <option value={lang.value} key={lang.value}>{lang.label}</option>
+                ))}
+              </select>
+            </div>
             <div
               id="code-editor"
               ref={editorContainerRef}
