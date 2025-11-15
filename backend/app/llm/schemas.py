@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Dict
 
 class RoleQuestionsRequest(BaseModel):
     role: str
@@ -7,5 +8,10 @@ class RoleQuestionsRequest(BaseModel):
 class RoleQuestionsResponse(BaseModel):
     role: str
     behavioural_questions: list[str]
+
+class BehaviouralJudgeResult(BaseModel):
+    score: int
+    star_points: Dict[str, int]
+    reasoning: str
 
 
