@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Optional, Any
 from datetime import datetime
 import uuid
 
@@ -15,6 +15,7 @@ class Lobby:
         self.created_at = datetime.now().isoformat()
         self.status = "waiting"  # waiting, starting, in_progress, completed
         self.connections: List = []  # WebSocket connections
+        self.match: Optional[Any] = None  # Match instance (imported from matches module to avoid circular import)
     
     def add_player(self, player_name: str) -> tuple[bool, str, str]:
         """Add a player to the lobby. Returns (success, message, player_id)"""
@@ -64,7 +65,25 @@ class Lobby:
             return False, "Game already started"
         
         self.status = "starting"
+        # Match will be created by LobbyManager after this returns
         return True, "Game started"
+    
+    def set_match(self, match_instance):
+        """Set the match instance for this lobby"""
+        self.match = match_instance
+        if match_instance:
+            self.status = "in_progress"
+    
+    def handle_match_event(self, event_type: str, data: Dict[str, Any]):
+        """Handle events from the Match instance"""
+        # Update lobby status based on match events
+        if event_type == "match_started":
+            self.status = "in_progress"
+        elif event_type == "match_completed":
+            self.status = "completed"
+        
+        # This method will be called by Match, and LobbyManager will broadcast updates
+        # The actual broadcasting is handled by LobbyManager.broadcast_lobby_update()
     
     def add_connection(self, websocket):
         """Add a WebSocket connection to this lobby"""
@@ -80,10 +99,16 @@ class Lobby:
     
     def to_dict(self) -> Dict:
         """Convert lobby to dictionary for JSON serialization"""
-        return {
+        result = {
             "id": self.id,
             "players": self.players,
             "created_at": self.created_at,
             "status": self.status
         }
+        
+        # Include match information if available
+        if self.match:
+            result["match"] = self.match.get_state()
+        
+        return result
 

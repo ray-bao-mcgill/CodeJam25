@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 import uvicorn
 import os
 from router import router
+from database.router import db_router
 from database import init_db
 
 app = FastAPI()
@@ -26,8 +27,10 @@ app.add_middleware(
 )
 
 # Include API routes first (before static files)
-# Router includes: /, /api/*, /ws/*
+# Router includes: /api/*, /ws/*
+# DB router includes: /admin/db/*
 app.include_router(router)
+app.include_router(db_router)
 
 # Serve frontend static files
 frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
@@ -65,16 +68,24 @@ if os.path.exists(frontend_dist):
         return {"error": "Frontend not found"}, 404
     
     # Serve index.html for all other non-API routes (SPA routing)
-    # This catch-all matches any path that doesn't match API/WebSocket/Assets routes
+    # This catch-all matches any GET path that doesn't match API/WebSocket/Assets routes
+    # Note: /dev and /admin are handled by router.py before this catch-all
+    # Only register GET handler to avoid 405 errors on POST/PUT/DELETE requests
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
         # Explicitly exclude API, WebSocket, and Assets routes
-        if full_path.startswith("api/") or full_path.startswith("ws/") or full_path.startswith("assets/"):
-            return {"error": "Not found"}, 404
+        # These should never reach here if routes are registered correctly, but double-check
+        if (full_path.startswith("api/") or 
+            full_path.startswith("ws/") or 
+            full_path.startswith("assets/") or
+            full_path.startswith("admin/")):
+            from fastapi.responses import JSONResponse
+            return JSONResponse(status_code=404, content={"error": "Not found"})
         index_path = os.path.join(frontend_dist, "index.html")
         if os.path.exists(index_path):
             return FileResponse(index_path)
-        return {"error": "Frontend not found"}, 404
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=404, content={"error": "Frontend not found"})
 else:
     print(f"[STARTUP] ✗ ERROR: Frontend dist folder not found at {frontend_dist}", flush=True)
     print(f"[STARTUP] Attempting to list parent directory:", flush=True)
