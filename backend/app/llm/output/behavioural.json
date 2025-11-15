@@ -1,14 +1,58 @@
 {
-  "software engineering": [
-    "Describe a time when you encountered a significant technical challenge in a project. How did you approach the problem, and what was the outcome?",
-    "Can you give an example of a situation where you had to collaborate with a team member who had a different technical perspective? How did you handle the differences, and what did you learn from the experience?",
-    "Can you give an example of a situation where you had to collaborate with cross-functional teams? How did you ensure effective communication and alignment on project goals?",
-    "Describe a time when you faced a significant technical challenge in a project. How did you approach the problem, and what was the outcome?"
-  ],
-  "consulting": [
-    "Describe a time when you had to manage a difficult client relationship. What strategies did you use to improve the situation?",
-    "Can you share an experience where your analysis led to a significant change in a project or strategy? What was the outcome?"
-  ],
+  "software engineering": {
+    "intern": [
+      "Describe a time as an intern when you had to quickly learn a new technical tool or language. How did you manage the learning curve?",
+      "Can you give an example of when you volunteered for a new project or responsibility during your internship?",
+      "Tell me about a situation where you asked for help or feedback as an engineering intern."
+    ],
+    "junior": [
+      "Describe an experience where you made a mistake as a junior and how you handled it.",
+      "Share a time when you worked with a team to fix a bug. What was your role and what did you learn?",
+      "Tell me about how you managed your time to balance multiple technical tasks as a junior engineer."
+    ],
+    "midlevel": [
+      "Tell me about a time you led a technical task or project as a midlevel engineer. How did you coordinate with others?",
+      "Give an example of providing mentorship or guidance to an intern or junior team member.",
+      "Describe how you adapted to major project changes or critical feedback as a midlevel engineer."
+    ],
+    "senior": [
+      "Describe a time when you resolved a conflict within a software engineering team.",
+      "Share an example where you advocated for a technical improvement that was initially unpopular.",
+      "Tell me about leading a debrief or retrospective after a project as a senior engineer."
+    ],
+    "lead": [
+      "Give an example of defining team processes or standards as a software lead.",
+      "Describe a time you managed cross-team collaboration as a lead engineer.",
+      "Tell me about a situation where you handled a high-impact technical decision as a software lead and aligned the team."
+    ]
+  },
+  "consulting": {
+    "intern": [
+      "Describe a time you had to quickly understand a new client’s business as a consulting intern.",
+      "Can you share an example where you collected or organized information for a client project during your internship?",
+      "Tell me about a time you participated in a client presentation or meeting as an intern."
+    ],
+    "junior": [
+      "Tell me about your role in preparing deliverables for a client as a junior consultant.",
+      "Describe a challenging research or analysis task you tackled for a client as a junior consultant.",
+      "Share an example of collaborating with more experienced consultants and what you learned."
+    ],
+    "midlevel": [
+      "Describe a time you managed a segment of a consulting engagement and coordinated with the client.",
+      "Give an example of managing changing client requirements as a midlevel consultant.",
+      "Tell me about a situation where you resolved disagreements between internal project team and client stakeholders."
+    ],
+    "senior": [
+      "Describe a time you coached junior consultants through a client deliverable as a senior consultant.",
+      "Share an experience leading the problem-solving process for a client’s key issue.",
+      "Tell me about presenting critical recommendations to an executive-level client audience as a senior."
+    ],
+    "lead": [
+      "Describe a time you set engagement strategies or managed multiple projects for a client as a consulting lead.",
+      "Give an example of how you handled a high-stakes client crisis as a lead.",
+      "Tell me about innovating service offerings or business development as a consulting leader."
+    ]
+  },
   "ai/ml": {
     "intern": [
       "Tell me about a time you had to learn a new technical concept quickly. How did you approach it and what was the result?",

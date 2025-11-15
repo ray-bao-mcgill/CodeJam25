@@ -1,13 +1,58 @@
 {
-  "software engineering": [
-    "Write a function in Python that takes a list of integers and returns a new list containing only the prime numbers from the original list. Include test cases to demonstrate that your function works correctly.",
-    "Design a RESTful API using Node.js and Express that allows users to create, read, update, and delete (CRUD) tasks in a to-do list. Provide the necessary code and explain the steps to set up and test the API using Postman or a similar tool.",
-    "Implement a basic caching mechanism in an application of your choice using Redis. Describe how you would integrate it into your application, write the code to demonstrate the caching logic, and explain how you would handle cache invalidation."
-  ],
-  "consulting": [
-    "Design a simple RESTful API using a framework of your choice (e.g., Flask, Express, etc.) that manages a list of client projects. Include endpoints for creating, reading, updating, and deleting projects. Demonstrate how you would handle authentication and authorization for these endpoints.",
-    "Given a dataset of client feedback stored in a CSV file, write a Python script that analyzes the data to produce insights about client satisfaction. The script should identify the top three common issues mentioned, calculate the overall satisfaction score, and output the results in a readable format."
-  ],
+  "software engineering": {
+    "intern": [
+      "Implement a simple script to process and summarize log files. Provide sample output.",
+      "Write code to parse user input from the command line and validate required fields. Include tests.",
+      "Create a Git workflow to manage basic branches and pull requests as an intern. Document each step."
+    ],
+    "junior": [
+      "Write a unit test for an existing function and explain the test case logic.",
+      "Refactor a legacy function to improve its readability and maintainability. Show your before/after code.",
+      "Develop a simple REST endpoint that performs input validation and returns specific error messages."
+    ],
+    "midlevel": [
+      "Build a function that processes data and persists results to a new type of storage backend. Provide documentation.",
+      "Implement a logging system for an application and demonstrate searching/filtering logs.",
+      "Update an app to use environment variables for configuration. Explain tradeoffs and security implications."
+    ],
+    "senior": [
+      "Design and implement a caching layer for a web service. Explain your rationale and testing approach.",
+      "Develop an automated deployment script for a small project and describe the steps for using it.",
+      "Introduce type checking to a dynamic language codebase (like Python or JS) and discuss challenges."
+    ],
+    "lead": [
+      "Architect a migration plan from a monolith to microservices for a sample application, highlighting risk areas.",
+      "Define a process for reviewing and merging code contributions across multiple teams.",
+      "Devise a monitoring strategy and set of SLIs for a critical business service, explaining your choices."
+    ]
+  },
+  "consulting": {
+    "intern": [
+      "Analyze a small dataset (in Excel or Python) for a client to find the main trends and visualize key insights.",
+      "Document client meeting notes and distill the main points into an action-item list. Provide your approach.",
+      "Automate a recurring reporting task with a simple macro or script as a consulting intern."
+    ],
+    "junior": [
+      "Prepare a draft client presentation (slides or doc) on a project update and incorporate feedback from a senior consultant.",
+      "Create a checklist to ensure contract deliverables are met for a small project.",
+      "Demonstrate compiling a competitor research summary using public sources and present findings concisely."
+    ],
+    "midlevel": [
+      "Conduct stakeholder interviews for a consulting case, synthesize feedback, and outline suggested next steps.",
+      "Develop a simple project management template to track deliverable statuses and report progress to a client.",
+      "Automate repetitive data-cleaning steps for standard consulting deliverables using scripts and describe the impact."
+    ],
+    "senior": [
+      "Lead a requirements-gathering session with a client, document insights, and identify missing information.",
+      "Integrate feedback from various client departments into a coherent recommendation and document your decision process.",
+      "Design and run a lightweight pilot project for a client, then present metrics evaluating its success."
+    ],
+    "lead": [
+      "Draft a multi-phase delivery plan for a large-scale project, highlighting resource and risk management.",
+      "Negotiate engagement scope adjustments with a client and provide reasoning for changes in scope or deliverables.",
+      "Lead the post-engagement review for a series of client projects, summarizing lessons learned and process improvements."
+    ]
+  },
   "ai/ml": {
     "intern": [
       "Write a Python script that loads a CSV dataset, performs basic preprocessing, and trains a simple logistic regression model.",

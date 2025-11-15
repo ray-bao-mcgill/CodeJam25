@@ -1,12 +1,58 @@
 {
-  "software engineering": [
-    "What is the difference between a stack and a queue in terms of data structure principles?",
-    "Explain the significance of immutability in functional programming and its impact on state management."
-  ],
-  "consulting": [
-    "What is the primary purpose of a stakeholder analysis in consulting, and how does it influence project outcomes?",
-    "Explain the difference between qualitative and quantitative data in consulting, and provide an example of when each type would be most effectively used."
-  ],
+  "software engineering": {
+    "intern": [
+      "Explain what a variable is and how it is used in programming.",
+      "Describe the difference between a for loop and a while loop, including examples of when to use each.",
+      "What is a function? Explain parameters and return values in simple terms."
+    ],
+    "junior": [
+      "What is the difference between pass-by-value and pass-by-reference?",
+      "Explain what object-oriented programming means, and list two main benefits.",
+      "Describe how hash tables work and give an example use case."
+    ],
+    "midlevel": [
+      "What are design patterns? Give two examples and their use cases.",
+      "Explain the concept of recursion and provide an example where it's appropriate.",
+      "Describe how concurrency is handled in modern programming languages."
+    ],
+    "senior": [
+      "What are the SOLID principles in software engineering? Summarize each principle.",
+      "Explain how dependency injection works and why it is useful.",
+      "Describe advantages and challenges of microservices architectures."
+    ],
+    "lead": [
+      "Outline steps for conducting a code review process at the organization level.",
+      "What is the role of software architecture documentation in large projects?",
+      "Explain the trade-offs between different distributed system communication protocols (e.g., REST, gRPC, GraphQL)."
+    ]
+  },
+  "consulting": {
+    "intern": [
+      "What is a client deliverable and why is clarity important when defining it?",
+      "Explain the role of a project timeline in consulting work.",
+      "What is an NDA (Non-Disclosure Agreement) and why might a consulting intern encounter one?"
+    ],
+    "junior": [
+      "What is a root cause analysis and when should it be used in consulting projects?",
+      "Describe how you would select a sample for a client survey and why sample selection matters.",
+      "Explain how market segmentation could assist in forming recommendations for a client."
+    ],
+    "midlevel": [
+      "What is a SWOT analysis, and what value does it give in client engagements?",
+      "Describe the concept of KPIs (Key Performance Indicators) in consulting.",
+      "How do you differentiate between milestones and deliverables in project planning?"
+    ],
+    "senior": [
+      "Explain change management and why it is critical in major client programs.",
+      "Describe two frameworks for restructuring organizations and their comparative use cases.",
+      "What methods can be used for prioritizing recommendations when addressing multiple client pain points?"
+    ],
+    "lead": [
+      "How does a consulting lead ensure alignment between client executive vision and project execution?",
+      "Describe best practices for maintaining quality and risk standards across simultaneous consulting projects.",
+      "Explain how to structure and communicate a long-term transformation roadmap for a client organization."
+    ]
+  },
   "ai/ml": {
     "intern": [
       "What is the difference between supervised and unsupervised learning?",
