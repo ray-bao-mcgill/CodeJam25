@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 import json
 import asyncio
-from lobby_manager import lobby_manager
+from lobby.manager import lobby_manager
 
 router = APIRouter()
 
@@ -156,4 +156,3 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
         lobby_manager.remove_connection(lobby_id, websocket)
         # Broadcast updated state after disconnection
         await lobby_manager.broadcast_lobby_update(lobby_id)
-
