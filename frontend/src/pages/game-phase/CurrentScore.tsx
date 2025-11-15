@@ -210,10 +210,10 @@ const CurrentScore: React.FC = () => {
       setTimeout(() => {
         if (phase === 'behavioural_score') {
           sessionStorage.setItem('currentRound', 'quickfire')
-          navigate('/quickfire-round')
+          navigate('/round-start-counter/technical-theory')  // technical-theory IS quickfire
         } else if (phase === 'quickfire_score') {
           sessionStorage.setItem('currentRound', 'technical')
-          navigate('/round-start-counter/technical')
+          navigate('/round-start-counter/technical-practical')
         } else if (phase === 'technical_score') {
           sessionStorage.removeItem('currentRound')
           navigate('/win-lose')

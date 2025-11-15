@@ -28,7 +28,7 @@ const TechnicalPractical: React.FC = () => {
     }
   }, [gameState?.question])
 
-  // Navigate when phase is complete (both theory and practical answered by all players)
+  // Navigate when phase is complete (both players submitted practical answers)
   useEffect(() => {
     if (showResults && gameState?.showResults && gameState?.phaseComplete) {
       // Phase complete, navigate to score display

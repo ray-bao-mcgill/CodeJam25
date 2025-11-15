@@ -86,7 +86,7 @@ class PhaseState:
             "questions_required": 1,
             "all_players_must_submit": True,
             "sub_phases": None,
-            "parent_phase": "technical"  # Part of technical phase
+            "parent_phase": None  # Standalone phase (technical_theory is quickfire, handled separately)
         }
     }
     

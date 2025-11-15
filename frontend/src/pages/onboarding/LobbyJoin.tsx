@@ -30,6 +30,7 @@ const LobbyJoin: React.FC = () => {
     }
   }, [])
 
+
   const handleJoin = async () => {
     if (!name.trim()) {
       setError('Please enter your name')

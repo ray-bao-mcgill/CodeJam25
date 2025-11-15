@@ -3,21 +3,21 @@ import { Link } from "react-router-dom";
 
 const DevTools: React.FC = () => {
   const quickLinks = [
-    { to: "/lobby-creation", label: "🎮 Lobby Creation", description: "Create a new game lobby" },
-    { to: "/analytics", label: "📊 Match Results", description: "View match analytics and results" },
+    { to: "/lobby-creation", label: "Lobby Creation", description: "Create a new game lobby" },
+    { to: "/analytics", label: "Match Results", description: "View match analytics and results" },
   ];
 
   const questionSections = [
-    { to: "/tutorial", label: "📖 Tutorial", description: "Game tutorial slideshow" },
-    { to: "/round-start-counter/behavioural", label: "⏱️ Round Start (Behavioural)", description: "Countdown before behavioural round" },
-    { to: "/round-start-counter/technical", label: "⏱️ Round Start (Technical)", description: "Countdown before technical round" },
-    { to: "/behavioural-question", label: "💬 Behavioural Question", description: "Initial behavioural interview question" },
-    { to: "/behavioural-answer", label: "💬 Behavioural Answer", description: "Follow-up behavioural question" },
-    { to: "/quickfire-round", label: "⚡ Quick Fire Round", description: "10 rapid-fire multiple choice questions" },
-    { to: "/technical-theory", label: "📚 Technical Theory", description: "Technical theory question" },
-    { to: "/technical-practical", label: "💻 Technical Practical", description: "Practical coding question" },
-    { to: "/current-score", label: "📊 Current Score", description: "View current round scores" },
-    { to: "/win-lose", label: "🏆 Win/Lose", description: "Final game result screen" },
+    { to: "/tutorial", label: "Tutorial", description: "Game tutorial slideshow" },
+    { to: "/round-start-counter/behavioural", label: "Round Start (Behavioural)", description: "Countdown before behavioural round" },
+    { to: "/round-start-counter/technical-theory", label: "Round Start (Quickfire)", description: "Countdown before quickfire round" },
+    { to: "/round-start-counter/technical-practical", label: "Round Start (Practical)", description: "Countdown before practical round" },
+    { to: "/behavioural-question", label: "Behavioural Question", description: "Initial behavioural interview question" },
+    { to: "/behavioural-answer", label: "Behavioural Answer", description: "Follow-up behavioural question" },
+    { to: "/quickfire-round", label: "Quick Fire Round", description: "10 rapid-fire multiple choice questions" },
+    { to: "/technical-practical", label: "Technical Practical", description: "Practical coding question" },
+    { to: "/current-score", label: "Current Score", description: "View current round scores" },
+    { to: "/win-lose", label: "Win/Lose", description: "Final game result screen" },
   ];
 
   return (
@@ -25,7 +25,7 @@ const DevTools: React.FC = () => {
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            🛠️ Development Tools
+            Development Tools
           </h1>
           <p className="text-gray-600 mb-8">
             Quick access to development pages and admin tools
@@ -34,7 +34,7 @@ const DevTools: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="border-2 border-purple-200 rounded-lg p-6 hover:border-purple-400 transition-colors">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                ⚡ Quick Links
+                Quick Links
               </h2>
               <div className="space-y-3">
                 {quickLinks.map((link) => (
@@ -52,7 +52,7 @@ const DevTools: React.FC = () => {
 
             <div className="border-2 border-green-200 rounded-lg p-6 hover:border-green-400 transition-colors">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                ❓ Question Sections
+                Question Sections
               </h2>
               <div className="space-y-3">
                 {questionSections.map((section) => (
@@ -72,7 +72,7 @@ const DevTools: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="border-2 border-blue-200 rounded-lg p-6 hover:border-blue-400 transition-colors">
               <h2 className="text-xl font-semibold text-gray-800 mb-3">
-                🗄️ Database Admin
+                Database Admin
               </h2>
               <p className="text-sm text-gray-600 mb-4">
                 Manage database operations and view match data
@@ -87,7 +87,7 @@ const DevTools: React.FC = () => {
 
             <div className="border-2 border-gray-200 rounded-lg p-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                🔗 API Links
+                API Links
               </h2>
               <div className="space-y-2">
                 <a
