@@ -1,0 +1,11 @@
+{
+  "software engineering": [
+    "Write a function in Python that takes a list of integers and returns a new list containing only the prime numbers from the original list. Include test cases to demonstrate that your function works correctly.",
+    "Design a RESTful API using Node.js and Express that allows users to create, read, update, and delete (CRUD) tasks in a to-do list. Provide the necessary code and explain the steps to set up and test the API using Postman or a similar tool.",
+    "Implement a basic caching mechanism in an application of your choice using Redis. Describe how you would integrate it into your application, write the code to demonstrate the caching logic, and explain how you would handle cache invalidation."
+  ],
+  "consulting": [
+    "Design a simple RESTful API using a framework of your choice (e.g., Flask, Express, etc.) that manages a list of client projects. Include endpoints for creating, reading, updating, and deleting projects. Demonstrate how you would handle authentication and authorization for these endpoints.",
+    "Given a dataset of client feedback stored in a CSV file, write a Python script that analyzes the data to produce insights about client satisfaction. The script should identify the top three common issues mentioned, calculate the overall satisfaction score, and output the results in a readable format."
+  ]
+}

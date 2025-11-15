@@ -61,3 +61,8 @@ htmlcov/
 *.bak
 *.tmp
 .cache/
+
+# Local environment files (never commit secrets)
+.env
+.env.*
+backend/.env

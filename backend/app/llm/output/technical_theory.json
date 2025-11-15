@@ -1,0 +1,10 @@
+{
+  "software engineering": [
+    "What is the difference between a stack and a queue in terms of data structure principles?",
+    "Explain the significance of immutability in functional programming and its impact on state management."
+  ],
+  "consulting": [
+    "What is the primary purpose of a stakeholder analysis in consulting, and how does it influence project outcomes?",
+    "Explain the difference between qualitative and quantitative data in consulting, and provide an example of when each type would be most effectively used."
+  ]
+}
