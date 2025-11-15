@@ -12,8 +12,7 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
-# Install Node.js for serving frontend
-RUN apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
+# No need for Node.js - backend serves static files directly
 
 # Copy and install backend dependencies
 COPY backend/requirements.txt ./backend/
@@ -24,12 +23,6 @@ COPY backend/ ./backend/
 
 # Copy built frontend from builder stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
-COPY frontend/package.json ./frontend/
-COPY frontend/vite.config.js ./frontend/
-
-# Install dependencies (including devDependencies for vite preview)
-WORKDIR /app/frontend
-RUN npm install
 
 # Expose port (Railway will set PORT env var)
 EXPOSE 8000

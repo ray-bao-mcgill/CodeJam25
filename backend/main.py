@@ -19,24 +19,33 @@ app.add_middleware(
 )
 
 # Include API routes first (before static files)
+# Router includes: /, /api/*, /ws/*
 app.include_router(router)
 
 # Serve frontend static files
 frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+print(f"Checking for frontend dist at: {frontend_dist}")
+print(f"Frontend dist exists: {os.path.exists(frontend_dist)}")
+
 if os.path.exists(frontend_dist):
-    app.mount("/static", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="static")
+    assets_dir = os.path.join(frontend_dist, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/static", StaticFiles(directory=assets_dir), name="static")
+        print(f"Mounted static files from: {assets_dir}")
     
     # Serve index.html for all non-API routes (SPA routing)
-    # This must be registered LAST so API routes take precedence
+    # FastAPI matches routes in order - more specific routes (from router) match first
+    # This catch-all only matches if no other route matched
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        # Explicitly exclude API and WebSocket routes
-        if full_path.startswith("api/") or full_path.startswith("ws/") or full_path == "health":
-            return {"error": "Not found"}, 404
+        # This should only be reached if no other route matched
+        # FastAPI will have already tried /, /api/*, /ws/* from the router
         index_path = os.path.join(frontend_dist, "index.html")
         if os.path.exists(index_path):
             return FileResponse(index_path)
         return {"error": "Frontend not found"}, 404
+else:
+    print(f"WARNING: Frontend dist folder not found at {frontend_dist}")
 
 
 if __name__ == "__main__":

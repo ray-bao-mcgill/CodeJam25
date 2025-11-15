@@ -22,12 +22,6 @@ async def root():
     return {"message": "Hello World from FastAPI"}
 
 
-@router.get("/health")
-async def health():
-    """Health check endpoint for Railway"""
-    return {"status": "ok"}
-
-
 @router.post("/api/lobby/create")
 async def create_lobby():
     """Create a new lobby"""
