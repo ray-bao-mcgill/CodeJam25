@@ -23,6 +23,7 @@ const WinLose: React.FC = () => {
   }
 
   const handleViewAnalytics = () => {
+    // Navigate to analytics page
     navigate('/analytics')
   }
 
