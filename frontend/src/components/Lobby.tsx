@@ -1,17 +1,32 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
+
+interface Player {
+  id: string;
+  name: string;
+}
+
+interface LobbyData {
+  id: string;
+  status: string;
+  players: Player[];
+}
+
+interface WebSocketWithInterval extends WebSocket {
+  _pingInterval?: number;
+}
 
 export default function Lobby() {
-  const [lobbyId, setLobbyId] = useState("");
-  const [playerName, setPlayerName] = useState("");
-  const [joined, setJoined] = useState(false);
-  const [lobby, setLobby] = useState(null);
-  const [error, setError] = useState("");
-  const [gameStarted, setGameStarted] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const wsRef = useRef(null);
-  const lobbyIdRef = useRef(null);
-  const playerIdRef = useRef(null);
+  const [lobbyId, setLobbyId] = useState<string>("");
+  const [playerName, setPlayerName] = useState<string>("");
+  const [joined, setJoined] = useState<boolean>(false);
+  const [lobby, setLobby] = useState<LobbyData | null>(null);
+  const [error, setError] = useState<string>("");
+  const [gameStarted, setGameStarted] = useState<boolean>(false);
+  const [isCreating, setIsCreating] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+  const wsRef = useRef<WebSocketWithInterval | null>(null);
+  const lobbyIdRef = useRef<string | null>(null);
+  const playerIdRef = useRef<string | null>(null);
 
   const copyLobbyId = async () => {
     if (lobby?.id) {
@@ -21,7 +36,7 @@ export default function Lobby() {
     }
   };
 
-  const connectWebSocket = (id) => {
+  const connectWebSocket = (id: string) => {
     // Close existing connection
     if (wsRef.current) {
       wsRef.current.close();
@@ -31,7 +46,9 @@ export default function Lobby() {
     console.log(`Connecting WebSocket to lobby ${id}`);
     lobbyIdRef.current = id;
 
-    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/lobby/${id}`);
+    const ws: WebSocketWithInterval = new WebSocket(
+      `ws://127.0.0.1:8000/ws/lobby/${id}`
+    );
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -80,7 +97,7 @@ export default function Lobby() {
       if (event.code !== 1000 && lobbyIdRef.current && joined) {
         setTimeout(() => {
           console.log("Reconnecting...");
-          connectWebSocket(lobbyIdRef.current);
+          connectWebSocket(lobbyIdRef.current!);
         }, 2000);
       }
     };
