@@ -10,19 +10,8 @@ const LobbyJoin: React.FC = () => {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showKickedNotification, setShowKickedNotification] = useState(false)
-  const [isVisible, setIsVisible] = useState(false)
 
   const { joinLobby } = useLobby()
-
-  useEffect(() => {
-    // Reset visibility state and trigger fade in on mount
-    setIsVisible(false)
-    // Small delay to ensure initial state is rendered before animation
-    const timer = setTimeout(() => {
-      setIsVisible(true)
-    }, 10)
-    return () => clearTimeout(timer)
-  }, [])
 
   // Store lobby ID from URL parameter (but don't display it)
   // The lobby code state is only used for manual entry
@@ -63,10 +52,9 @@ const LobbyJoin: React.FC = () => {
       const result = await joinLobby(lobbyIdToUse, name.trim())
       
       if (result?.success) {
-        setIsVisible(false)
         setTimeout(() => {
           navigate('/lobby-waiting', { replace: true })
-        }, 1000) // Wait for shrink/fade animation to complete
+        }, 100)
       } else {
         setError(result?.error || 'Failed to join lobby')
         setIsLoading(false)
@@ -80,7 +68,7 @@ const LobbyJoin: React.FC = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-8 game-bg relative">
-      {/* Kicked Notification - NO BOUNCE */}
+      {/* Kicked Notification */}
       {showKickedNotification && (
         <div
           className="fixed top-4 right-4 z-50 game-sticky-note px-6 py-4 game-shadow-hard-lg"
@@ -109,36 +97,22 @@ const LobbyJoin: React.FC = () => {
         </div>
       )}
 
-      {/* Back Button - Fixed to top left of screen - shrinks with bounce */}
+      {/* Back Button - Fixed to top left of screen */}
       <button
-        onClick={() => {
-          setIsVisible(false)
-          setTimeout(() => {
-            navigate('/lobby-creation')
-          }, 1000)
-        }}
-        className="fixed top-4 left-4 z-50 game-sharp game-paper px-4 py-2 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover transition-all duration-1000"
+        onClick={() => navigate('/lobby-creation')}
+        className="fixed top-4 left-4 z-50 game-sharp game-paper px-4 py-2 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover"
         style={{
           border: '3px solid var(--game-text-primary)',
           color: 'var(--game-text-primary)',
-          transform: isVisible ? 'rotate(-1deg) scale(1)' : 'rotate(-1deg) scale(0.3)',
-          opacity: isVisible ? 1 : 0,
-          transition: 'transform 1s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 1s ease-out'
+          transform: 'rotate(-1deg)'
         }}
       >
         ← BACK
       </button>
 
       <div className="w-full max-w-3xl space-y-16 relative">
-        {/* Title - shrinks with bounce */}
-        <div 
-          className="text-center transition-all duration-1000"
-          style={{
-            transform: isVisible ? 'scale(1)' : 'scale(0.3)',
-            opacity: isVisible ? 1 : 0,
-            transition: 'transform 1s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 1s ease-out'
-          }}
-        >
+        {/* Title */}
+        <div className="text-center">
           <div className="game-paper px-12 py-8 game-shadow-hard-lg game-hand-drawn inline-block">
             <h1 className="game-title text-4xl">
               JOIN LOBBY
@@ -146,13 +120,7 @@ const LobbyJoin: React.FC = () => {
           </div>
         </div>
         
-        <div 
-          className="space-y-12"
-          style={{
-            opacity: isVisible ? 1 : 0,
-            transition: 'opacity 0.3s ease-out'
-          }}
-        >
+        <div className="space-y-12">
           {/* Name Input - Label maker style */}
           <div className="space-y-4 flex flex-col items-center">
             <div className="game-label-text text-lg">YOUR NAME</div>
@@ -249,25 +217,11 @@ const LobbyJoin: React.FC = () => {
           </div>
         </div>
 
-        {/* Decorative sticky notes - shrink with bounce */}
-        <div 
-          className="absolute top-24 left-4 game-sticky-note px-4 py-3 game-shadow-hard-sm opacity-85 transition-all duration-1000"
-          style={{
-            transform: isVisible ? 'scale(1)' : 'scale(0.3)',
-            opacity: isVisible ? 0.85 : 0,
-            transition: 'transform 1s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 1s ease-out'
-          }}
-        >
+        {/* Decorative sticky notes */}
+        <div className="absolute top-24 left-4 game-sticky-note px-4 py-3 game-shadow-hard-sm opacity-85">
           <div className="text-xs font-bold uppercase">Tip</div>
         </div>
-        <div 
-          className="absolute bottom-24 right-4 game-sticky-note-alt px-4 py-3 game-shadow-hard-sm opacity-85 transition-all duration-1000"
-          style={{
-            transform: isVisible ? 'scale(1)' : 'scale(0.3)',
-            opacity: isVisible ? 0.85 : 0,
-            transition: 'transform 1s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 1s ease-out'
-          }}
-        >
+        <div className="absolute bottom-24 right-4 game-sticky-note-alt px-4 py-3 game-shadow-hard-sm opacity-85">
           <div className="text-xs font-bold uppercase">Note</div>
         </div>
       </div>

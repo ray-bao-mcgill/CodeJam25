@@ -14,7 +14,6 @@ interface UseLobbyWebSocketOptions {
   onDisconnect?: (wasUserInitiated: boolean) => void;
   onKicked?: (kickedPlayerId: string) => void;
   currentPlayerId?: string | null;
-  onGameMessage?: (message: any) => void; // Callback for game-specific messages
 }
 
 export function useLobbyWebSocket({
@@ -25,10 +24,9 @@ export function useLobbyWebSocket({
   onDisconnect,
   onKicked,
   currentPlayerId,
-  onGameMessage,
 }: UseLobbyWebSocketOptions): RefObject<WebSocketWithInterval | null> {
   const wsRef = useRef<WebSocketWithInterval | null>(null);
-  const callbacksRef = useRef({ onLobbyUpdate, onGameStarted, onDisconnect, onKicked, onGameMessage });
+  const callbacksRef = useRef({ onLobbyUpdate, onGameStarted, onDisconnect, onKicked });
   const currentPlayerIdRef = useRef<string | null>(currentPlayerId || null);
   const connectedLobbyIdRef = useRef<string | null>(null);
   const isConnectingRef = useRef(false);
@@ -36,9 +34,9 @@ export function useLobbyWebSocket({
 
   // Update callbacks ref without triggering reconnection
   useEffect(() => {
-    callbacksRef.current = { onLobbyUpdate, onGameStarted, onDisconnect, onKicked, onGameMessage };
+    callbacksRef.current = { onLobbyUpdate, onGameStarted, onDisconnect, onKicked };
     currentPlayerIdRef.current = currentPlayerId || null;
-  }, [onLobbyUpdate, onGameStarted, onDisconnect, onKicked, onGameMessage, currentPlayerId]);
+  }, [onLobbyUpdate, onGameStarted, onDisconnect, onKicked, currentPlayerId]);
 
   useEffect(() => {
     // If disabled or no lobbyId, close connection
@@ -127,11 +125,6 @@ export function useLobbyWebSocket({
             callbacksRef.current.onKicked?.(kickedPlayerId);
           } else {
             console.log("Player ID does not match, ignoring kicked message");
-          }
-        } else {
-          // Pass other message types to game message handler (for game sync)
-          if (callbacksRef.current.onGameMessage) {
-            callbacksRef.current.onGameMessage(message);
           }
         }
       } catch (error) {
