@@ -34,6 +34,7 @@ class RoleQuestionsRequest(BaseModel):
 
 
 class RoleQuestionsResponse(BaseModel):
-	questions: list[str]
+	role: str
+	behavioural_questions: list[str]
 
 

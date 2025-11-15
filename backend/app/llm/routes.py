@@ -30,7 +30,7 @@ def create_llm_router(client: LLMClient) -> APIRouter:
 		lines = [line.strip() for line in resp.text.splitlines() if line.strip()]
 		if len(lines) > body.max_questions:
 			lines = lines[: body.max_questions]
-		return RoleQuestionsResponse(questions=lines)
+		return RoleQuestionsResponse(role=body.role, behavioural_questions=lines)
 
 	return router
 
