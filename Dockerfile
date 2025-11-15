@@ -31,8 +31,8 @@ COPY frontend/vite.config.js ./frontend/
 WORKDIR /app/frontend
 RUN npm install
 
-# Expose ports
-EXPOSE 8000 3000
+# Expose port (Railway will set PORT env var)
+EXPOSE 8000
 
 # Start script that runs both services
 WORKDIR /app

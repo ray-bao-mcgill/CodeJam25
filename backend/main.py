@@ -1,12 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import uvicorn
+import os
 from router import router
 
 app = FastAPI()
 
 # CORS for React frontend
-import os
 cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173,https://codejam25-production.up.railway.app").split(",")
 app.add_middleware(
     CORSMiddleware,
@@ -16,8 +18,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include all routes
+# Include API routes first (before static files)
 app.include_router(router)
+
+# Serve frontend static files
+frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+if os.path.exists(frontend_dist):
+    app.mount("/static", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="static")
+    
+    # Serve index.html for all non-API routes (SPA routing)
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        # Don't serve frontend for API routes
+        if full_path.startswith("api/") or full_path.startswith("ws/"):
+            return {"error": "Not found"}, 404
+        index_path = os.path.join(frontend_dist, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        return {"error": "Frontend not found"}, 404
 
 
 if __name__ == "__main__":

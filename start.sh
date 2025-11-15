@@ -1,15 +1,6 @@
 #!/bin/bash
 
-# Start backend in background
+# Backend serves both API and frontend static files
 cd /app/backend
-python main.py &
-BACKEND_PID=$!
-
-# Start frontend in background
-cd /app/frontend
-npm run start &
-FRONTEND_PID=$!
-
-# Wait for both processes
-wait $BACKEND_PID $FRONTEND_PID
+python main.py
 
