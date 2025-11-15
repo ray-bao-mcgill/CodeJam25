@@ -54,6 +54,38 @@ def get_nested_question_list(data, role, level):
         return []
     return []
 
+def _parse_technical_theory_questions(text, max_questions):
+    """Parse technical theory questions with answers from LLM output."""
+    questions = []
+    lines = text.split('\n')
+    current_q = None
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            if current_q and current_q.get("question"):
+                questions.append(current_q)
+                current_q = None
+                if len(questions) >= max_questions:
+                    break
+            continue
+        
+        if line.startswith("Q:"):
+            if current_q and current_q.get("question"):
+                questions.append(current_q)
+                if len(questions) >= max_questions:
+                    break
+            current_q = {"question": line[2:].strip(), "correct": "", "incorrect": []}
+        elif line.startswith("Correct:") and current_q:
+            current_q["correct"] = line[8:].strip()
+        elif line.startswith("Incorrect:") and current_q:
+            current_q["incorrect"].append(line[10:].strip())
+    
+    if current_q and current_q.get("question") and len(questions) < max_questions:
+        questions.append(current_q)
+    
+    return questions[:max_questions]
+
 async def run_generation():
     allowed_types = ["behavioural", "technical_theory", "technical_practical"]
     typeinp = input("Question type ([b]ehavioural, [t]echnical_theory, [p]ractical)? ").strip().lower()
@@ -112,18 +144,32 @@ async def run_generation():
     except Exception:
         max_questions = 5
     
-    system = render_prompt(f"role/{qtype_path}/question/system_prompt.jinja")
-    prompt = render_prompt(f"role/{qtype_path}/question/user_prompt.jinja", role=role, max_questions=max_questions)
+    # Handle different prompt paths
+    if qtype_path == "behavioural":
+        system_path = f"role/{qtype_path}/question/system_prompt.jinja"
+        prompt_path = f"role/{qtype_path}/question/user_prompt.jinja"
+    else:
+        system_path = f"role/{qtype_path}/system_prompt.jinja"
+        prompt_path = f"role/{qtype_path}/user_prompt.jinja"
+    
+    system = render_prompt(system_path)
+    prompt = render_prompt(prompt_path, role=role, max_questions=max_questions)
     client = OpenAIClient(api_key=os.getenv("OPENAI_API_KEY"))
     resp = await client.generate_text(LLMTextRequest(
         prompt=prompt,
         system=system,
         temperature=0.7,
-        max_tokens=800,
+        max_tokens=1200 if qtype == "technical_theory" else 800,
     ))
-    lines = [line.strip() for line in resp.text.splitlines() if line.strip()]
-    if len(lines) > max_questions:
-        lines = lines[:max_questions]
+    
+    # Parse questions differently for technical_theory vs others
+    if qtype == "technical_theory":
+        questions = _parse_technical_theory_questions(resp.text, max_questions)
+    else:
+        lines = [line.strip() for line in resp.text.splitlines() if line.strip()]
+        if len(lines) > max_questions:
+            lines = lines[:max_questions]
+        questions = lines
     
     # Ensure nested structure exists and add questions
     if role not in data or not isinstance(data[role], dict):
@@ -133,9 +179,12 @@ async def run_generation():
     
     # Add new questions to existing list (avoid duplicates)
     ex = data[role][level]
-    for q in lines:
-        if q not in ex:
+    existing_questions = {q.get("question", q) if isinstance(q, dict) else q for q in ex}
+    for q in questions:
+        q_text = q.get("question", q) if isinstance(q, dict) else q
+        if q_text not in existing_questions:
             ex.append(q)
+            existing_questions.add(q_text)
     data[role][level] = ex
     
     save_type_file(outfile, data)
