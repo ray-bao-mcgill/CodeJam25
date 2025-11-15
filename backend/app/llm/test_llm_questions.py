@@ -38,8 +38,9 @@ def load_type_file(path):
             existing = {}
     else:
         existing = {}
+    # Only convert invalid types to empty list, preserve dicts (for nested role/level structure)
     for k, v in list(existing.items()):
-        if not isinstance(v, list):
+        if not isinstance(v, (list, dict)):
             existing[k] = []
     return existing
 
@@ -119,21 +120,36 @@ async def run_generation():
 async def run_behavioural_scoring():
     print("\n[Behavioural LLM Judge: Score an answer]\n")
     behavioural_data = load_type_file(OUTPUT_FILES["behavioural"])
-    # List roles and prompt for role group
-    roles = list(behavioural_data.keys())
-    print("Available roles:", ", ".join(roles))
-    role_input = input("Enter the role group: ").strip()
-    role = role_input.lower()
-    # get levels, if present
-    role_levels = []
-    if isinstance(behavioural_data.get(role), dict):
-        role_levels = list(behavioural_data[role].keys())
-        print("Levels for", role, ":", ", ".join(role_levels))
-        level_input = input("Enter the level: ").strip()
-        level = level_input.lower()
+    role_lookup = {k.strip().lower(): k for k in behavioural_data}
+    print("Available roles:", ", ".join(behavioural_data.keys()))
+    while True:
+        role_input = input("Enter the role group (case/spacing insensitive): ").strip().lower()
+        if role_input in role_lookup:
+            role = role_lookup[role_input]
+            print(f"Matched role group: '{role}' (raw key from file)")
+            break
+        else:
+            print(f"Input '{role_input}' did not match any available role.")
+            print("Available roles:", ", ".join(behavioural_data.keys()))
+    level = None
+    question_list = None
+    if isinstance(behavioural_data[role], dict):
+        level_lookup = {k.strip().lower(): k for k in behavioural_data[role]}
+        print(f"Levels for {role}: {', '.join(level_lookup.values())}")
+        while True:
+            level_input = input("Enter the level (case/spacing insensitive): ").strip().lower()
+            if level_input in level_lookup:
+                level = level_lookup[level_input]
+                print(f"Matched level: '{level}' (raw key from file)")
+                question_list = get_nested_question_list(behavioural_data, role, level)
+                break
+            else:
+                print(f"Input '{level_input}' did not match any level for role '{role}'.")
+                print("Available levels:", ", ".join(level_lookup.values()))
+        print(f"DEBUG: Using questionlist at data['{role}']['{level}']")
     else:
-        level = None
-    question_list = get_nested_question_list(behavioural_data, role, level) if level else behavioural_data.get(role, [])
+        question_list = behavioural_data.get(role, [])
+        print(f"DEBUG: Using questionlist at data['{role}']")
     if not question_list:
         missing = f"role '{role}'"
         if level:
