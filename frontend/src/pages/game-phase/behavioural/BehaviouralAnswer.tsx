@@ -4,7 +4,7 @@ import { useGameFlow } from '@/hooks/useGameFlow'
 import { useGameSync } from '@/hooks/useGameSync'
 import { useLobby } from '@/hooks/useLobby'
 
-const ANSWER_SECONDS = 60; // Z seconds for answer phase
+const ANSWER_SECONDS = 60;
 
 const BehaviouralAnswer: React.FC = () => {
   const navigate = useNavigate();
@@ -14,30 +14,36 @@ const BehaviouralAnswer: React.FC = () => {
   const [remaining, setRemaining] = useState(ANSWER_SECONDS);
   const [answer, setAnswer] = useState("");
   const [currentQuestion, setCurrentQuestion] = useState("");
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // 0 = first question, 1 = follow-up
+  const [questionIndex, setQuestionIndex] = useState(0); // 0 = Q0, 1 = Q1
   const [isLoading, setIsLoading] = useState(true);
-  const [hasSubmittedQ0, setHasSubmittedQ0] = useState(false);
+  const [hasSubmittedCurrent, setHasSubmittedCurrent] = useState(false);
 
-  // Determine current question index based on gameState
+  // Determine question index: Q0 initially, Q1 after Q0 is complete
   useEffect(() => {
-    // If Q0 is complete (showResults=true, phaseComplete=false), we're on Q1
-    if (showResults && !gameState?.phaseComplete && hasSubmittedQ0) {
-      setCurrentQuestionIndex(1)
+    // Check if Q0 is complete by looking at gameState and sessionStorage
+    const q0Complete = showResults && !gameState?.phaseComplete && gameState?.submittedPlayers?.length >= (lobby?.players.length || 0)
+    const storedQ0Complete = sessionStorage.getItem('behavioural_q0_complete') === 'true'
+    
+    if (q0Complete || storedQ0Complete) {
+      console.log('[BEHAVIOURAL_A] Q0 complete detected, collecting Q1')
+      setQuestionIndex(1)
+      setHasSubmittedCurrent(false) // Reset for Q1
     } else {
-      setCurrentQuestionIndex(0)
+      console.log('[BEHAVIOURAL_A] Collecting Q0')
+      setQuestionIndex(0)
     }
-  }, [showResults, gameState?.phaseComplete, hasSubmittedQ0])
+  }, [showResults, gameState?.phaseComplete, gameState?.submittedPlayers, lobby?.players.length])
 
   useEffect(() => {
-    // Set question based on current index
-    if (currentQuestionIndex === 0) {
-      // First question - use the initial behavioural question
+    // Set question text based on index
+    if (questionIndex === 0) {
+      // First question (Q0)
       setTimeout(() => {
         setCurrentQuestion("Describe a time you overcame a challenge at work.");
         setIsLoading(false);
       }, 500);
     } else {
-      // Follow-up question - use from game state or placeholder
+      // Follow-up question (Q1)
       if (gameState?.question) {
         setCurrentQuestion(gameState.question)
         setIsLoading(false)
@@ -48,59 +54,53 @@ const BehaviouralAnswer: React.FC = () => {
         }, 500);
       }
     }
-  }, [gameState?.question, currentQuestionIndex]);
+  }, [questionIndex, gameState?.question]);
 
-  // Use server-synced timer ONLY - no local timer conflicts
+  // Use server-synced timer
   useEffect(() => {
     if (timeRemaining !== undefined) {
       setRemaining(timeRemaining);
     }
   }, [timeRemaining]);
 
-  // Navigate when Q0 is complete - go back to question display for follow-up
+  // Navigation logic
   useEffect(() => {
-    console.log('[BEHAVIOURAL_A] Navigation check:', {
-      showResults,
-      phaseComplete: gameState?.phaseComplete,
-      submittedPlayers: gameState?.submittedPlayers?.length,
-      totalPlayers: lobby?.players.length,
-      currentQuestionIndex,
-      hasSubmittedQ0
-    })
-    
-    // If Q0 is complete (all players submitted Q0), navigate to show follow-up question
-    if (showResults && !gameState?.phaseComplete && currentQuestionIndex === 0 && hasSubmittedQ0) {
-      console.log('[BEHAVIOURAL_A] Q0 complete, navigating to show follow-up question')
+    // If Q0 is complete (all players submitted), mark it and navigate to show Q1
+    if (showResults && !gameState?.phaseComplete && questionIndex === 0 && hasSubmittedCurrent) {
+      console.log('[BEHAVIOURAL_A] Q0 complete, marking and navigating to show Q1')
+      sessionStorage.setItem('behavioural_q0_complete', 'true')
       setTimeout(() => {
-        navigate('/behavioural-question') // Go back to question display for follow-up
+        navigate('/behavioural-question') // Show Q1
       }, 1000)
     }
     
-    // Navigate when phase is complete (both Q0 and Q1 are done)
+    // If phase is complete (both Q0 and Q1 done), navigate to results
     if (showResults && gameState?.phaseComplete) {
-      console.log('[BEHAVIOURAL_A] ✓ Phase complete, navigating to current-score')
+      console.log('[BEHAVIOURAL_A] Phase complete, navigating to results')
       sessionStorage.setItem('currentRound', 'behavioural')
+      sessionStorage.removeItem('behavioural_q0_complete') // Clean up
       setTimeout(() => {
         navigate('/current-score')
       }, 1000)
     }
-  }, [showResults, gameState?.phaseComplete, navigate, currentQuestionIndex, hasSubmittedQ0, lobby?.players.length])
+  }, [showResults, gameState?.phaseComplete, questionIndex, hasSubmittedCurrent, navigate])
 
   const handleSubmit = async () => {
-    if (!answer.trim()) return
+    if (!answer.trim() || hasSubmittedCurrent) return
     
-    if (currentQuestionIndex === 0) {
-      // Submit first answer (Q0)
-      console.log('[BEHAVIOURAL_A] Submitting first answer (Q0)')
+    if (questionIndex === 0) {
+      // Submit Q0 answer
+      console.log('[BEHAVIOURAL_A] Submitting Q0 answer')
       await submitAnswer(answer)
       syncSubmitAnswer(answer, gameState?.questionId || 'behavioural_q0', 'behavioural', 0)
-      setHasSubmittedQ0(true)
+      setHasSubmittedCurrent(true)
       setAnswer("") // Clear answer
     } else {
-      // Submit follow-up answer (Q1)
-      console.log('[BEHAVIOURAL_A] Submitting follow-up answer (Q1)')
+      // Submit Q1 answer
+      console.log('[BEHAVIOURAL_A] Submitting Q1 answer')
       await submitFollowUpAnswer(answer)
       syncSubmitAnswer(answer, gameState?.questionId || 'behavioural_q1', 'behavioural', 1)
+      setHasSubmittedCurrent(true)
     }
   };
 
@@ -110,17 +110,16 @@ const BehaviouralAnswer: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg">
         <div className="game-paper px-8 py-4 game-shadow-hard-lg">
-          <div className="text-lg font-bold">Loading follow-up question...</div>
+          <div className="text-lg font-bold">Loading question...</div>
         </div>
       </div>
     );
   }
 
   return (
-    // Use a fixed viewport height so the outer container actually scrolls
     <div className="game-bg h-[100dvh] w-full p-8 overflow-y-auto overflow-x-hidden">
       <div className="w-full max-w-4xl lg:max-w-5xl mx-auto space-y-8 relative pb-24">
-        {/* Header and Timer (no overlap) */}
+        {/* Header and Timer */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] items-start gap-4">
           <div className="space-y-2 text-center md:text-left">
             <div className="inline-flex items-center gap-2">
@@ -155,7 +154,7 @@ const BehaviouralAnswer: React.FC = () => {
           </div>
         </div>
 
-        {/* Top: Smaller Question (top half emphasis) */}
+        {/* Question Display */}
         <div
           className="game-paper px-6 sm:px-8 py-5 game-shadow-hard"
           style={{ border: "4px solid var(--game-text-primary)" }}
@@ -208,7 +207,7 @@ const BehaviouralAnswer: React.FC = () => {
               letterSpacing: "0.01em",
               resize: "vertical",
             }}
-            disabled={isWaitingForOthers}
+            disabled={isWaitingForOthers || hasSubmittedCurrent}
           />
         </section>
 
@@ -224,7 +223,7 @@ const BehaviouralAnswer: React.FC = () => {
           </div>
         )}
 
-        {/* Actions */}
+        {/* Submit Button */}
         <div className="flex items-center justify-center gap-6 flex-wrap pt-2">
           <button
             className="game-sharp game-block-blue px-10 py-4 text-base font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover"
@@ -232,17 +231,17 @@ const BehaviouralAnswer: React.FC = () => {
               border: "6px solid var(--game-text-primary)",
               color: "var(--game-text-white)",
               minWidth: "220px",
-              opacity: (!answer.trim() || isWaitingForOthers) ? 0.5 : 1,
-              cursor: (!answer.trim() || isWaitingForOthers) ? 'not-allowed' : 'pointer',
+              opacity: (!answer.trim() || isWaitingForOthers || hasSubmittedCurrent) ? 0.5 : 1,
+              cursor: (!answer.trim() || isWaitingForOthers || hasSubmittedCurrent) ? 'not-allowed' : 'pointer',
             }}
             onClick={handleSubmit}
-            disabled={!answer.trim() || isWaitingForOthers}
+            disabled={!answer.trim() || isWaitingForOthers || hasSubmittedCurrent}
           >
-            {isWaitingForOthers ? 'WAITING FOR OTHERS...' : 'Submit Answer'}
+            {hasSubmittedCurrent ? 'SUBMITTED' : isWaitingForOthers ? 'WAITING FOR OTHERS...' : 'Submit Answer'}
           </button>
         </div>
 
-        {/* Decorative sticky notes (bottom, non-overlapping) */}
+        {/* Decorative sticky notes */}
         <div className="flex justify-end">
           <div
             className="game-sticky-note-alt px-4 py-2 game-shadow-hard-sm"
@@ -257,5 +256,3 @@ const BehaviouralAnswer: React.FC = () => {
 };
 
 export default BehaviouralAnswer;
-
-

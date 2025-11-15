@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useGameFlow } from '@/hooks/useGameFlow'
 import { useGameSync } from '@/hooks/useGameSync'
 import { useLobby } from '@/hooks/useLobby'
 import { useLobbyWebSocket } from '@/hooks/useLobbyWebSocket'
@@ -9,12 +8,12 @@ const QUESTION_DISPLAY_SECONDS = 30;
 
 const BehaviouralQuestion: React.FC = () => {
   const navigate = useNavigate();
-  const { submitAnswer } = useGameFlow()
   const { lobby, lobbyId, playerId } = useLobby()
-  const { gameState, timeRemaining, submitAnswer: syncSubmitAnswer, isWaitingForOthers, showResults } = useGameSync()
+  const { gameState, showResults } = useGameSync()
   const [remaining, setRemaining] = useState(QUESTION_DISPLAY_SECONDS);
   const [question, setQuestion] = useState<string>("Loading question...");
   const [isLoading, setIsLoading] = useState(true);
+  const [questionIndex, setQuestionIndex] = useState(0); // 0 = Q0, 1 = Q1
 
   // Set up WebSocket for skip synchronization
   const wsRef = useLobbyWebSocket({
@@ -27,19 +26,48 @@ const BehaviouralQuestion: React.FC = () => {
     currentPlayerId: playerId || null,
     onGameMessage: (message: any) => {
       if (message.type === 'behavioural_question_skipped') {
-        // Server says skip was triggered - navigate together
         navigate('/behavioural-answer')
+      }
+      // When Q0 is complete, server will broadcast show_results with phaseComplete=false
+      // Mark Q0 as complete in sessionStorage
+      if (message.type === 'show_results' && message.phase === 'behavioural' && !message.phaseComplete) {
+        console.log('[BEHAVIOURAL_Q] Received Q0 complete signal, marking in sessionStorage')
+        sessionStorage.setItem('behavioural_q0_complete', 'true')
+        setQuestionIndex(1)
       }
     },
   });
 
-  // Determine if this is Q0 or Q1 display
-  const isFollowUp = gameState?.questionIndex === 1 || (gameState?.showResults === true && gameState?.phaseComplete === false && gameState?.submittedPlayers?.length >= (lobby?.players.length || 0))
+  // Determine question index: Q0 initially, Q1 after Q0 is complete
+  useEffect(() => {
+    // Check if we've already completed Q0 by looking at gameState submissions
+    // If showResults is true but phaseComplete is false, Q0 is done, show Q1
+    const submittedCount = gameState?.submittedPlayers?.length || 0
+    const totalPlayers = lobby?.players.length || 0
+    const q0Complete = showResults && !gameState?.phaseComplete && submittedCount >= totalPlayers
+    
+    // Also check sessionStorage as backup
+    const storedQ0Complete = sessionStorage.getItem('behavioural_q0_complete') === 'true'
+    
+    if (q0Complete || storedQ0Complete) {
+      console.log('[BEHAVIOURAL_Q] Q0 complete detected, showing Q1')
+      setQuestionIndex(1)
+    } else {
+      console.log('[BEHAVIOURAL_Q] Showing Q0')
+      setQuestionIndex(0)
+    }
+  }, [showResults, gameState?.phaseComplete, gameState?.submittedPlayers, lobby?.players.length])
 
   useEffect(() => {
-    // Use question from game state if available, otherwise use placeholder
-    if (isFollowUp) {
-      // Follow-up question
+    // Set question text based on index
+    if (questionIndex === 0) {
+      // First question
+      setTimeout(() => {
+        setQuestion("Describe a time you overcame a challenge at work.");
+        setIsLoading(false);
+      }, 500);
+    } else {
+      // Follow-up question (Q1)
       if (gameState?.question) {
         setQuestion(gameState.question)
         setIsLoading(false)
@@ -49,39 +77,17 @@ const BehaviouralQuestion: React.FC = () => {
           setIsLoading(false);
         }, 500);
       }
-    } else {
-      // First question
-      setTimeout(() => {
-        setQuestion("Describe a time you overcame a challenge at work.");
-        setIsLoading(false);
-      }, 500);
     }
-  }, [gameState?.question, isFollowUp]);
-
-  // Use server-synced timer ONLY - no local timer conflicts
-  useEffect(() => {
-    if (timeRemaining !== undefined) {
-      setRemaining(timeRemaining);
-    }
-  }, [timeRemaining]);
-
-  // Navigate to answer page after timer expires or skip is clicked
-  // This is just a display page - no answer collection happens here
-  useEffect(() => {
-    // Auto-navigate after timer expires (or skip)
-    if (remaining <= 0) {
-      console.log('[BEHAVIOURAL_Q] Timer expired, navigating to behavioural-answer')
-      navigate('/behavioural-answer')
-    }
-  }, [remaining, navigate])
+  }, [questionIndex, gameState?.question]);
 
   // Countdown timer
   useEffect(() => {
-    if (remaining > 0) {
+    if (remaining > 0 && !isLoading) {
       const timer = setInterval(() => {
         setRemaining((prev) => {
           if (prev <= 1) {
             clearInterval(timer)
+            navigate('/behavioural-answer')
             return 0
           }
           return prev - 1
@@ -89,7 +95,14 @@ const BehaviouralQuestion: React.FC = () => {
       }, 1000)
       return () => clearInterval(timer)
     }
-  }, [remaining])
+  }, [remaining, isLoading, navigate])
+
+  // Navigate to answer page when timer expires
+  useEffect(() => {
+    if (remaining <= 0 && !isLoading) {
+      navigate('/behavioural-answer')
+    }
+  }, [remaining, isLoading, navigate])
 
   if (isLoading) {
     return (
@@ -159,7 +172,6 @@ const BehaviouralQuestion: React.FC = () => {
               color: "var(--game-text-white)",
             }}
             onClick={() => {
-              // Send skip request to server - server will broadcast to all clients
               const wsConnection = wsRef.current
               if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
                 wsConnection.send(JSON.stringify({
@@ -193,5 +205,3 @@ const BehaviouralQuestion: React.FC = () => {
 };
 
 export default BehaviouralQuestion;
-
-
