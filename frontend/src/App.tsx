@@ -13,8 +13,8 @@ import BehaviouralQuestion from "./pages/game-phase/behavioural/BehaviouralQuest
 import BehaviouralAnswer from "./pages/game-phase/behavioural/BehaviouralAnswer";
 import QuickFireRound from "./pages/game-phase/quickfire/QuickFireRound";
 import CurrentScore from "./pages/game-phase/CurrentScore";
-import TechnicalTheory from "./pages/game-phase/TechnicalTheory";
-import TechnicalPractical from "./pages/game-phase/TechnicalPractical";
+import TechnicalTheory from "./pages/game-phase/technical/TechnicalTheory";
+import TechnicalPractical from "./pages/game-phase/technical/TechnicalPractical";
 import RapidFireQuiz from "./pages/game-phase/RapidFireQuiz";
 import Winner from "./pages/game-phase/Winner";
 import WinLose from "./pages/WinLose";
@@ -39,10 +39,7 @@ const App: React.FC = () => {
           path="/round-start-counter/:type"
           element={<RoundStartCounter />}
         />
-        <Route
-          path="/behavioural-question"
-          element={<BehaviouralQuestion />}
-        />
+        <Route path="/behavioural-question" element={<BehaviouralQuestion />} />
         <Route path="/behavioural-answer" element={<BehaviouralAnswer />} />
         <Route path="/quickfire-round" element={<QuickFireRound />} />
         <Route path="/current-score" element={<CurrentScore />} />
@@ -60,4 +57,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-
