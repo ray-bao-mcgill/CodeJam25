@@ -1,6 +1,7 @@
 #!/bin/bash
+set -e
 
 # Backend serves both API and frontend static files
 cd /app/backend
-python main.py
+exec python main.py
 

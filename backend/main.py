@@ -27,10 +27,11 @@ if os.path.exists(frontend_dist):
     app.mount("/static", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="static")
     
     # Serve index.html for all non-API routes (SPA routing)
+    # This must be registered LAST so API routes take precedence
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        # Don't serve frontend for API routes
-        if full_path.startswith("api/") or full_path.startswith("ws/"):
+        # Explicitly exclude API and WebSocket routes
+        if full_path.startswith("api/") or full_path.startswith("ws/") or full_path == "health":
             return {"error": "Not found"}, 404
         index_path = os.path.join(frontend_dist, "index.html")
         if os.path.exists(index_path):
