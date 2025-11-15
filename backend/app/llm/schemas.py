@@ -28,3 +28,12 @@ class GenerateResponseBody(BaseModel):
 	usage: Optional[TokenUsage] = None
 
 
+class RoleQuestionsRequest(BaseModel):
+	role: str
+	max_questions: int = 10
+
+
+class RoleQuestionsResponse(BaseModel):
+	questions: list[str]
+
+
