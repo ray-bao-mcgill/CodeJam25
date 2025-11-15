@@ -11,6 +11,9 @@ interface UseLobbyWebSocketOptions {
   enabled: boolean;
   onLobbyUpdate: (lobby: LobbyData) => void;
   onGameStarted?: () => void;
+  onDisconnect?: (wasUserInitiated: boolean) => void;
+  onKicked?: (kickedPlayerId: string) => void;
+  currentPlayerId?: string | null;
 }
 
 export function useLobbyWebSocket({
@@ -18,21 +21,28 @@ export function useLobbyWebSocket({
   enabled,
   onLobbyUpdate,
   onGameStarted,
+  onDisconnect,
+  onKicked,
+  currentPlayerId,
 }: UseLobbyWebSocketOptions): RefObject<WebSocketWithInterval | null> {
   const wsRef = useRef<WebSocketWithInterval | null>(null);
-  const callbacksRef = useRef({ onLobbyUpdate, onGameStarted });
+  const callbacksRef = useRef({ onLobbyUpdate, onGameStarted, onDisconnect, onKicked });
+  const currentPlayerIdRef = useRef<string | null>(currentPlayerId || null);
   const connectedLobbyIdRef = useRef<string | null>(null);
   const isConnectingRef = useRef(false);
+  const isUserInitiatedCloseRef = useRef(false);
 
   // Update callbacks ref without triggering reconnection
   useEffect(() => {
-    callbacksRef.current = { onLobbyUpdate, onGameStarted };
-  }, [onLobbyUpdate, onGameStarted]);
+    callbacksRef.current = { onLobbyUpdate, onGameStarted, onDisconnect, onKicked };
+    currentPlayerIdRef.current = currentPlayerId || null;
+  }, [onLobbyUpdate, onGameStarted, onDisconnect, onKicked, currentPlayerId]);
 
   useEffect(() => {
     // If disabled or no lobbyId, close connection
     if (!enabled || !lobbyId) {
       if (wsRef.current && connectedLobbyIdRef.current) {
+        isUserInitiatedCloseRef.current = true;
         wsRef.current.close(1000);
         wsRef.current = null;
         connectedLobbyIdRef.current = null;
@@ -58,6 +68,7 @@ export function useLobbyWebSocket({
     // Close existing connection if connecting to a different lobby
     if (wsRef.current && connectedLobbyIdRef.current && connectedLobbyIdRef.current !== lobbyId) {
       const oldWs = wsRef.current;
+      isUserInitiatedCloseRef.current = true;
       oldWs.close(1000);
       wsRef.current = null;
       connectedLobbyIdRef.current = null;
@@ -81,6 +92,7 @@ export function useLobbyWebSocket({
     ws.onopen = () => {
       console.log("✓ WebSocket connected");
       isConnectingRef.current = false;
+      isUserInitiatedCloseRef.current = false;
       // Send ping every 20 seconds
       const pingInterval: number = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -104,6 +116,16 @@ export function useLobbyWebSocket({
           if (message.lobby.status === "starting" || message.lobby.status === "in_progress") {
             callbacksRef.current.onGameStarted?.();
           }
+        } else if (message.type === "kicked") {
+          // Handle kicked message - only trigger if this player was kicked
+          const kickedPlayerId = message.player_id;
+          console.log("Received kicked message:", { kickedPlayerId, currentPlayerId: currentPlayerIdRef.current });
+          if (kickedPlayerId && kickedPlayerId === currentPlayerIdRef.current) {
+            console.log("Player ID matches, triggering onKicked callback");
+            callbacksRef.current.onKicked?.(kickedPlayerId);
+          } else {
+            console.log("Player ID does not match, ignoring kicked message");
+          }
         }
       } catch (error) {
         console.error("Error parsing WebSocket message:", error);
@@ -121,6 +143,16 @@ export function useLobbyWebSocket({
         clearInterval(ws._pingInterval);
       }
       isConnectingRef.current = false;
+      
+      // Code 4000 is used for "kicked by owner" - don't treat as unexpected disconnect
+      const wasUserInitiated = isUserInitiatedCloseRef.current || event.code === 1000 || event.code === 4000;
+      isUserInitiatedCloseRef.current = false;
+      
+      // Only notify if this was an unexpected disconnection (not user-initiated and not kicked)
+      if (!wasUserInitiated && enabled && lobbyId && callbacksRef.current.onDisconnect) {
+        callbacksRef.current.onDisconnect(false);
+      }
+      
       // Only clear if this was the current connection
       if (wsRef.current === ws) {
         wsRef.current = null;
@@ -139,6 +171,7 @@ export function useLobbyWebSocket({
           clearInterval(ws._pingInterval);
         }
         if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          isUserInitiatedCloseRef.current = true;
           ws.close(1000); // Normal closure
         }
         // Only clear refs if this was the active connection

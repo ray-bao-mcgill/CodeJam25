@@ -22,6 +22,11 @@ class TransferOwnershipRequest(BaseModel):
     current_owner_id: str
 
 
+class KickPlayerRequest(BaseModel):
+    player_id: str
+    owner_id: str
+
+
 class StartGameRequest(BaseModel):
     player_id: str
     match_type: str = None  # "job_posting" or "generalized"
@@ -53,26 +58,34 @@ async def create_lobby():
 
 @router.post("/api/lobby/join")
 async def join_lobby(request: JoinLobbyRequest):
-    """Join a lobby via HTTP"""
+    """Join a lobby via HTTP. Case-insensitive lobby ID matching."""
     lobby_id = request.lobby_id.strip()
     player_name = request.player_name.strip()
     print(f"Join request: lobby_id='{lobby_id}', player_name='{player_name}'")
     print(f"Current lobbies before join: {list(lobby_manager.lobbies.keys())}")
     print(f"Lobby manager has {len(lobby_manager.lobbies)} lobbies")
     
-    # Check if lobby exists first
-    lobby = lobby_manager.get_lobby(lobby_id)
-    if not lobby:
+    # Find the actual lobby ID (case-correct) for case-insensitive lookup
+    actual_lobby_id = None
+    lobby_id_lower = lobby_id.lower()
+    for key in lobby_manager.lobbies.keys():
+        if key.lower() == lobby_id_lower:
+            actual_lobby_id = key
+            break
+    
+    if not actual_lobby_id:
         print(f"ERROR: Lobby '{lobby_id}' does not exist!")
         print(f"Available lobby IDs: {list(lobby_manager.lobbies.keys())}")
         print(f"Requested ID (stripped): '{lobby_id}'")
         # Try to find similar IDs
-        similar = [lid for lid in lobby_manager.lobbies.keys() if lobby_id in lid or lid in lobby_id]
+        similar = [lid for lid in lobby_manager.lobbies.keys() if lobby_id.lower() in lid.lower() or lid.lower() in lobby_id.lower()]
         if similar:
             print(f"Similar lobby IDs found: {similar}")
         return {"success": False, "message": f"Lobby not found. Available lobbies: {list(lobby_manager.lobbies.keys())}"}
     
-    print(f"Found lobby {lobby_id}, current players: {len(lobby.players)}")
+    # Use the actual lobby ID (correct case) for all operations
+    lobby_id = actual_lobby_id
+    print(f"Found lobby {lobby_id} (matched from '{request.lobby_id.strip()}'), current players: {len(lobby_manager.lobbies[lobby_id].players)}")
     success, message, player_id = lobby_manager.join_lobby(lobby_id, player_name)
     
     if success:
@@ -122,6 +135,47 @@ async def transfer_ownership(lobby_id: str, request: TransferOwnershipRequest):
     return {"success": False, "message": message}
 
 
+@router.post("/api/lobby/{lobby_id}/kick")
+async def kick_player(lobby_id: str, request: KickPlayerRequest):
+    """Kick a player from the lobby (owner only)"""
+    lobby = lobby_manager.get_lobby(lobby_id)
+    if not lobby:
+        return {"success": False, "message": "Lobby not found"}
+    
+    # Verify requester is the owner
+    if lobby.owner_id != request.owner_id:
+        return {"success": False, "message": "Only the lobby owner can kick players"}
+    
+    # Don't allow kicking the owner
+    if request.player_id == lobby.owner_id:
+        return {"success": False, "message": "Cannot kick the lobby owner"}
+    
+    # Remove the player
+    success = lobby.remove_player(player_id=request.player_id)
+    if success:
+        # Send kicked message to the kicked player's WebSocket BEFORE removing player from lobby
+        # This ensures the message is sent while the connection is still active
+        kicked_player_id = request.player_id
+        connections = lobby.connections.copy()
+        print(f"Sending kicked message to {len(connections)} connections for player {kicked_player_id}")
+        for ws in connections:
+            try:
+                # Send kicked message to all connections - frontend will check if it's for them
+                await ws.send_json({
+                    "type": "kicked",
+                    "player_id": kicked_player_id
+                })
+                print(f"✓ Sent kicked message to WebSocket")
+            except Exception as e:
+                print(f"✗ Error sending kicked message: {e}")
+        
+        # Now remove the player from lobby and clean up
+        lobby_manager.leave_lobby(lobby_id, player_id=request.player_id)
+        await lobby_manager.broadcast_lobby_update(lobby_id)
+        return {"success": True, "message": "Player kicked successfully"}
+    return {"success": False, "message": "Player not found"}
+
+
 @router.post("/api/lobby/{lobby_id}/leave")
 async def leave_lobby(lobby_id: str, request: LeaveLobbyRequest):
     """Leave a lobby"""
@@ -151,9 +205,25 @@ async def get_lobby(lobby_id: str):
 
 @router.websocket("/ws/lobby/{lobby_id}")
 async def websocket_lobby(websocket: WebSocket, lobby_id: str):
-    """WebSocket endpoint for real-time lobby updates"""
+    """WebSocket endpoint for real-time lobby updates. Case-insensitive lobby ID matching."""
     await websocket.accept()
-    print(f"WebSocket accepted for lobby {lobby_id}")
+    
+    # Find the actual lobby ID (case-correct) for case-insensitive lookup
+    lobby_id_stripped = lobby_id.strip()
+    actual_lobby_id = None
+    lobby_id_lower = lobby_id_stripped.lower()
+    for key in lobby_manager.lobbies.keys():
+        if key.lower() == lobby_id_lower:
+            actual_lobby_id = key
+            break
+    
+    if not actual_lobby_id:
+        print(f"WebSocket: Lobby '{lobby_id_stripped}' not found. Available: {list(lobby_manager.lobbies.keys())}")
+        await websocket.close(code=1008, reason="Lobby not found")
+        return
+    
+    lobby_id = actual_lobby_id
+    print(f"WebSocket accepted for lobby {lobby_id} (matched from '{lobby_id_stripped}')")
     
     # Add connection to manager
     lobby_manager.add_connection(lobby_id, websocket)

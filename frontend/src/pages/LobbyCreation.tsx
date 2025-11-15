@@ -91,6 +91,7 @@ const LobbyCreation: React.FC = () => {
         onStartGame={handleStartGame}
         onLeaveLobby={handleLeaveLobby}
         playerId={playerId}
+        playerName={playerName}
         onLobbyUpdate={handleLobbyUpdate}
       />
     );

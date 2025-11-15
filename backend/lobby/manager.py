@@ -20,15 +20,25 @@ class LobbyManager:
         return lobby.id
     
     def get_lobby(self, lobby_id: str) -> Lobby:
-        """Get a lobby by ID. Returns None if not found."""
+        """Get a lobby by ID. Returns None if not found. Case-insensitive lookup."""
         lobby_id = lobby_id.strip()
+        # Try exact match first
         lobby = self.lobbies.get(lobby_id, None)
-        if not lobby:
-            print(f"Lobby '{lobby_id}' not found. Available: {list(self.lobbies.keys())}")
-        return lobby
+        if lobby:
+            return lobby
+        
+        # Try case-insensitive lookup
+        lobby_id_lower = lobby_id.lower()
+        for key, value in self.lobbies.items():
+            if key.lower() == lobby_id_lower:
+                print(f"Found lobby '{key}' via case-insensitive match for '{lobby_id}'")
+                return value
+        
+        print(f"Lobby '{lobby_id}' not found. Available: {list(self.lobbies.keys())}")
+        return None
     
     def join_lobby(self, lobby_id: str, player_name: str) -> tuple[bool, str, str]:
-        """Join a lobby. Returns (success, message, player_id)"""
+        """Join a lobby. Returns (success, message, player_id). Case-insensitive lobby lookup."""
         lobby_id = lobby_id.strip()
         print(f"Attempting to join lobby: '{lobby_id}'")
         print(f"Available lobbies: {list(self.lobbies.keys())}")
@@ -36,6 +46,14 @@ class LobbyManager:
         lobby = self.get_lobby(lobby_id)
         if not lobby:
             return False, f"Lobby not found. Available lobbies: {list(self.lobbies.keys())}", ""
+        
+        # Use the actual lobby ID from the dictionary key (case-correct)
+        actual_lobby_id = None
+        lobby_id_lower = lobby_id.lower()
+        for key in self.lobbies.keys():
+            if key.lower() == lobby_id_lower:
+                actual_lobby_id = key
+                break
         
         return lobby.add_player(player_name.strip())
     

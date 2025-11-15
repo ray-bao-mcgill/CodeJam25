@@ -1,14 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { LobbyData, Player } from "../hooks/useLobby";
 import { API_URL } from "../config";
-import { Button } from "@/components/ui/button";
 
 interface LobbyWaitingRoomProps {
   lobby: LobbyData;
   onStartGame: () => void;
   onLeaveLobby: () => void;
   playerId?: string | null;
+  playerName?: string | null;
   onLobbyUpdate?: (lobby: LobbyData) => void;
+  showDisconnectNotification?: boolean;
+  onDismissDisconnect?: () => void;
 }
 
 export default function LobbyWaitingRoom({
@@ -16,11 +18,16 @@ export default function LobbyWaitingRoom({
   onStartGame,
   onLeaveLobby,
   playerId,
+  playerName,
   onLobbyUpdate,
+  showDisconnectNotification = false,
+  onDismissDisconnect,
 }: LobbyWaitingRoomProps) {
   const [copied, setCopied] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [transferring, setTransferring] = useState<string | null>(null);
+  const [kicking, setKicking] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
 
   const copyLobbyId = async () => {
     if (lobby?.id) {
@@ -36,9 +43,17 @@ export default function LobbyWaitingRoom({
       return;
     }
 
+    // Validate lobby exists
+    if (!lobby || !lobby.id) {
+      setError("Lobby not found. Please refresh the page.");
+      setTimeout(() => setError(""), 5000);
+      return;
+    }
+
     // Validate lobby still exists and user is still owner
     if (lobby.owner_id !== playerId) {
       setError("You are no longer the owner");
+      setTimeout(() => setError(""), 3000);
       return;
     }
 
@@ -68,6 +83,11 @@ export default function LobbyWaitingRoom({
           }),
         }
       );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
 
       if (!data.success) {
@@ -76,211 +96,337 @@ export default function LobbyWaitingRoom({
         if (onLobbyUpdate) {
           onLobbyUpdate(originalLobby);
         }
+        // Auto-clear error after 5 seconds
+        setTimeout(() => setError(""), 5000);
+      } else {
+        // Success - ensure error is cleared
+        setError("");
+        // WebSocket will update the lobby state, so we don't need to do anything else
       }
     } catch (err) {
-      setError("Failed to transfer ownership");
+      const errorMessage = err instanceof Error ? err.message : "Failed to transfer ownership";
+      setError(errorMessage.includes("404") || errorMessage.includes("not found") 
+        ? "Lobby not found. Please refresh the page." 
+        : "Failed to transfer ownership");
       console.error("Error:", err);
       // Revert optimistic update on error
       if (onLobbyUpdate) {
         onLobbyUpdate(originalLobby);
       }
+      // Auto-clear error after 5 seconds
+      setTimeout(() => setError(""), 5000);
     } finally {
       setTransferring(null);
     }
   };
 
+  const kickPlayer = async (targetPlayerId: string) => {
+    // Prevent multiple simultaneous kicks
+    if (kicking || !lobby?.id || !playerId) {
+      return;
+    }
+
+    // Validate lobby exists
+    if (!lobby || !lobby.id) {
+      setError("Lobby not found. Please refresh the page.");
+      setTimeout(() => setError(""), 5000);
+      return;
+    }
+
+    // Validate lobby still exists and user is still owner
+    if (lobby.owner_id !== playerId) {
+      setError("You are no longer the owner");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
+    // Don't allow kicking yourself
+    if (targetPlayerId === playerId) {
+      setError("Cannot kick yourself");
+      setTimeout(() => setError(""), 3000);
+      return;
+    }
+
+    setKicking(targetPlayerId);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/lobby/${lobby.id}/kick`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            player_id: targetPlayerId,
+            owner_id: playerId,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        setError(data.message || "Failed to kick player");
+        setTimeout(() => setError(""), 5000);
+      } else {
+        setError("");
+        // WebSocket will update the lobby state
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to kick player";
+      setError(errorMessage.includes("404") || errorMessage.includes("not found") 
+        ? "Lobby not found. Please refresh the page." 
+        : "Failed to kick player");
+      console.error("Error:", err);
+      setTimeout(() => setError(""), 5000);
+    } finally {
+      setKicking(null);
+    }
+  };
+
   const isOwner = lobby.owner_id === playerId;
 
+  // Auto-dismiss disconnect notification after 5 seconds
+  useEffect(() => {
+    if (showDisconnectNotification && onDismissDisconnect) {
+      const timer = setTimeout(() => {
+        onDismissDisconnect();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showDisconnectNotification, onDismissDisconnect]);
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg">
-      <div className="w-full max-w-4xl space-y-12">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 game-bg">
+      <div className="w-full max-w-5xl space-y-6 sm:space-y-8 relative">
         {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 
-            className="text-6xl font-black tracking-widest game-text-glow-cyan"
-            style={{ 
-              fontFamily: 'Impact, Arial Black, sans-serif',
-              color: 'var(--game-cyan)',
-              textTransform: 'uppercase'
-            }}
-          >
-            LOBBY WAITING ROOM
-          </h1>
-          <p 
-            className="text-xl font-bold"
-            style={{ color: 'var(--game-text-secondary)' }}
-          >
-            Status: <span className="uppercase">{lobby.status}</span>
-          </p>
+        <div className="text-center space-y-3">
+          <div className="game-paper px-8 py-4 sm:px-12 sm:py-6 game-shadow-hard-lg game-hand-drawn inline-block">
+            <h1 className="game-title text-3xl sm:text-4xl">
+              LOBBY WAITING ROOM
+            </h1>
+          </div>
+          <div className="game-label-text text-sm sm:text-base">
+            STATUS: <span className="uppercase">{lobby.status}</span>
+          </div>
         </div>
 
         {/* Lobby ID Section */}
-        <div className="flex items-center justify-center gap-4 p-6 rounded-2xl"
+        <div className="game-paper px-3 py-2 sm:px-4 sm:py-2.5 game-shadow-hard flex items-center justify-center gap-2 sm:gap-3 flex-wrap mx-auto"
           style={{
-            background: 'rgba(15, 10, 31, 0.8)',
-            border: '3px solid var(--game-cyan)',
+            border: '4px solid var(--game-text-primary)',
+            maxWidth: '900px',
+            width: '100%'
           }}
         >
-          <span 
-            className="text-lg font-bold"
-            style={{ color: 'var(--game-text-primary)' }}
-          >
-            Lobby ID:
-          </span>
-          <span 
-            className="text-xl font-mono font-bold px-4 py-2 rounded-xl"
+          <div className="game-label-text text-xs sm:text-sm">LOBBY ID</div>
+          <div 
+            className="game-sharp px-2.5 py-1 sm:px-3 sm:py-1.5 text-base sm:text-lg font-black uppercase tracking-widest game-shadow-hard-sm"
             style={{
-              background: 'rgba(0, 184, 212, 0.2)',
-              color: 'var(--game-cyan)',
-              border: '2px solid var(--game-cyan)',
-              fontFamily: 'monospace',
+              background: 'var(--game-yellow)',
+              color: 'var(--game-text-primary)',
+              border: '3px solid var(--game-text-primary)',
+              fontFamily: 'Courier New, monospace',
+              letterSpacing: '0.15em'
             }}
           >
             {lobby.id}
-          </span>
-          <Button
+          </div>
+          <button
             onClick={copyLobbyId}
-            className="px-4 py-2 text-lg rounded-xl transform hover:scale-110 transition-all duration-200"
+            className={`game-sharp px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover ${
+              copied ? 'game-block-green' : 'game-paper'
+            }`}
             style={{
-              background: copied 
-                ? 'rgba(0, 255, 136, 0.2)' 
-                : 'rgba(15, 10, 31, 0.8)',
-              border: `2px solid ${copied ? 'var(--game-green)' : 'var(--game-cyan)'}`,
-              color: copied ? 'var(--game-green)' : 'var(--game-cyan)',
-              minWidth: '60px',
+              border: '3px solid var(--game-text-primary)',
+              color: copied ? 'var(--game-text-white)' : 'var(--game-text-primary)',
             }}
             title="Copy lobby ID"
           >
-            {copied ? "✓ Copied" : "📋 Copy"}
-          </Button>
+            {copied ? "✓ COPIED" : "📋 COPY"}
+          </button>
         </div>
 
         {error && (
-          <div className="text-red-400 text-lg font-bold text-center animate-in slide-in-from-top duration-300">
-            {error}
+          <div className="game-sticky-note px-4 py-2 sm:px-6 sm:py-3 game-shadow-hard-sm">
+            <div className="text-sm sm:text-base font-black uppercase text-red-600">
+              ⚠️ {error}
+            </div>
           </div>
         )}
 
         {/* Players List */}
-        <div className="space-y-6">
-          <h2 
-            className="text-3xl font-black text-center"
-            style={{ 
-              color: 'var(--game-text-primary)',
-              fontFamily: 'Impact, Arial Black, sans-serif',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em'
-            }}
-          >
-            Players ({lobby.players.length}/8)
-          </h2>
+        <div className="space-y-3 sm:space-y-4 mx-auto" style={{ maxWidth: '900px', width: '100%' }}>
+          <div className="game-label-text text-base sm:text-lg text-center">
+            PLAYERS ({lobby.players.length}/8)
+          </div>
           
-          {lobby.players.length === 0 ? (
-            <p 
-              className="text-center text-xl"
-              style={{ color: 'var(--game-text-dim)' }}
-            >
-              No players yet
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {lobby.players.map((player: Player) => (
+          <div className="grid grid-cols-4 gap-2 sm:gap-3">
+            {lobby.players.map((player: Player, idx: number) => {
+              const isPlayerOwner = lobby.owner_id === player.id;
+              // Check if this is the current player by ID or by name (fallback)
+              const isCurrentPlayer = playerId 
+                ? player.id === playerId 
+                : playerName 
+                  ? player.name.toLowerCase().trim() === playerName.toLowerCase().trim()
+                  : false;
+              return (
                 <div
                   key={player.id}
-                  className="flex items-center justify-between p-4 rounded-2xl transform hover:scale-105 transition-all duration-200"
+                  className={`game-sharp flex items-center justify-between p-2 sm:p-2.5 game-shadow-hard-sm transition-all duration-100 ${
+                    isPlayerOwner ? 'game-block-yellow' : 'game-paper'
+                  }`}
                   style={{
-                    background: lobby.owner_id === player.id
-                      ? 'rgba(0, 184, 212, 0.2)'
-                      : 'rgba(15, 10, 31, 0.8)',
-                    border: `3px solid ${lobby.owner_id === player.id ? 'var(--game-cyan)' : '#555'}`,
-                    boxShadow: lobby.owner_id === player.id
-                      ? '0 0 20px var(--game-cyan-glow)'
-                      : 'none',
+                    border: '3px solid var(--game-text-primary)',
+                    color: 'var(--game-text-primary)',
+                    transform: `rotate(${idx % 2 === 0 ? '-0.5deg' : '0.5deg'})`,
+                    height: '48px',
+                    width: '100%'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = `rotate(${idx % 2 === 0 ? '-0.5deg' : '0.5deg'}) translate(1px, 1px)`
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = `rotate(${idx % 2 === 0 ? '-0.5deg' : '0.5deg'})`
                   }}
                 >
-                  <div className="flex items-center gap-3">
-                    <span 
-                      className="text-xl font-bold"
-                      style={{ 
-                        color: 'var(--game-text-primary)',
-                        fontFamily: 'Impact, Arial Black, sans-serif',
-                        textTransform: 'uppercase'
-                      }}
-                    >
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider truncate">
                       {player.name}
                     </span>
-                    {lobby.owner_id === player.id && (
-                      <span 
-                        className="text-2xl"
-                        title="Lobby Owner"
-                      >
+                    {isCurrentPlayer && (
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider flex-shrink-0" title="You">
+                        (me)
+                      </span>
+                    )}
+                    {isPlayerOwner && (
+                      <span className="text-sm sm:text-base flex-shrink-0" title="Lobby Owner">
                         👑
                       </span>
                     )}
                   </div>
                   
                   {isOwner &&
-                    lobby.owner_id !== player.id &&
+                    !isPlayerOwner &&
                     lobby.status === "waiting" && (
-                      <Button
-                        onClick={() => transferOwnership(player.id)}
-                        disabled={transferring === player.id || !!transferring}
-                        className="px-3 py-1 text-sm rounded-lg transition-all duration-200 disabled:opacity-30"
-                        style={{
-                          background: 'rgba(15, 10, 31, 0.8)',
-                          border: '2px solid var(--game-cyan)',
-                          color: 'var(--game-cyan)',
-                          opacity: transferring === player.id ? 1 : 0.3,
-                          fontFamily: 'Impact, Arial Black, sans-serif',
-                          textTransform: 'uppercase',
-                          fontSize: '10px',
-                          cursor: transferring === player.id ? 'wait' : 'pointer',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!transferring) {
-                            e.currentTarget.style.opacity = "1";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (transferring !== player.id) {
-                            e.currentTarget.style.opacity = "0.3";
-                          }
-                        }}
-                        title={transferring === player.id ? "Transferring..." : "Transfer ownership"}
-                      >
-                        {transferring === player.id ? "⏳" : "👑 Transfer"}
-                      </Button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => transferOwnership(player.id)}
+                          disabled={transferring === player.id || !!transferring || !!kicking}
+                          className="game-sharp px-2 py-1 text-xs font-black game-shadow-hard-sm game-button-hover disabled:opacity-30 flex-shrink-0"
+                          style={{
+                            background: 'var(--game-bg-alt)',
+                            border: '2px solid var(--game-text-primary)',
+                            color: 'var(--game-text-primary)',
+                            opacity: transferring === player.id ? 1 : 0.4,
+                            cursor: transferring === player.id ? 'wait' : 'pointer',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!transferring && !kicking) {
+                              e.currentTarget.style.opacity = "1";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (transferring !== player.id) {
+                              e.currentTarget.style.opacity = "0.4";
+                            }
+                          }}
+                          title={transferring === player.id ? "Transferring..." : "Transfer ownership"}
+                        >
+                          {transferring === player.id ? "⏳" : "👑"}
+                        </button>
+                        <button
+                          onClick={() => kickPlayer(player.id)}
+                          disabled={kicking === player.id || !!kicking || !!transferring}
+                          className="game-sharp px-2 py-1 text-xs font-black game-shadow-hard-sm game-button-hover disabled:opacity-30 flex-shrink-0"
+                          style={{
+                            background: 'var(--game-bg-alt)',
+                            border: '2px solid var(--game-text-primary)',
+                            color: 'var(--game-text-primary)',
+                            opacity: kicking === player.id ? 1 : 0.4,
+                            cursor: kicking === player.id ? 'wait' : 'pointer',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!kicking && !transferring) {
+                              e.currentTarget.style.opacity = "1";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (kicking !== player.id) {
+                              e.currentTarget.style.opacity = "0.4";
+                            }
+                          }}
+                          title={kicking === player.id ? "Kicking..." : "Kick player"}
+                        >
+                          {kicking === player.id ? "⏳" : "❌"}
+                        </button>
+                      </div>
                     )}
                 </div>
-              ))}
-            </div>
-          )}
+              );
+            })}
+            {Array.from({ length: Math.max(0, 8 - lobby.players.length) }).map((_, idx) => {
+              const totalIdx = lobby.players.length + idx;
+              return (
+                <div
+                  key={`empty-${idx}`}
+                  onClick={() => {
+                    setShowInviteModal(true);
+                    copyLobbyId();
+                  }}
+                  className="game-sharp flex items-center justify-center p-2 sm:p-2.5 game-shadow-hard-sm transition-all duration-100 game-paper cursor-pointer"
+                  style={{
+                    border: '3px solid var(--game-text-primary)',
+                    color: 'var(--game-text-primary)',
+                    transform: `rotate(${totalIdx % 2 === 0 ? '-0.5deg' : '0.5deg'})`,
+                    height: '48px',
+                    width: '100%',
+                    opacity: 0.4,
+                    background: 'var(--game-bg-alt)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = "1";
+                    e.currentTarget.style.background = 'var(--game-blue)';
+                    e.currentTarget.style.color = 'var(--game-text-white)';
+                    e.currentTarget.style.transform = `rotate(${totalIdx % 2 === 0 ? '-0.5deg' : '0.5deg'}) translate(1px, 1px) scale(1.02)`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = "0.4";
+                    e.currentTarget.style.background = 'var(--game-bg-alt)';
+                    e.currentTarget.style.color = 'var(--game-text-primary)';
+                    e.currentTarget.style.transform = `rotate(${totalIdx % 2 === 0 ? '-0.5deg' : '0.5deg'})`;
+                  }}
+                >
+                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider">
+                    + INVITE
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col items-center gap-6 pt-6">
+        <div className="flex flex-col items-center gap-4 sm:gap-6 pt-4 sm:pt-6">
           {lobby.players.length >= 2 && lobby.status === "waiting" && (
-            <Button
+            <button
               onClick={onStartGame}
               disabled={!isOwner}
-              className="px-20 py-8 text-2xl font-bold rounded-2xl transform hover:scale-110 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`game-sharp px-8 py-4 sm:px-12 sm:py-5 text-base sm:text-lg font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover ${
+                isOwner ? 'game-block-green' : 'game-paper'
+              }`}
               style={{
-                background: isOwner
-                  ? `linear-gradient(135deg, #00cc66, var(--game-green))`
-                  : 'rgba(50, 50, 50, 0.5)',
-                border: isOwner
-                  ? `3px solid var(--game-green)`
-                  : '3px solid #555',
-                color: 'var(--game-text-primary)',
-                fontFamily: 'Impact, Arial Black, sans-serif',
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                boxShadow: isOwner
-                  ? `0 0 20px rgba(0, 255, 136, 0.5)`
-                  : 'none',
+                border: '6px solid var(--game-text-primary)',
+                color: isOwner ? 'var(--game-text-white)' : 'var(--game-text-dim)',
+                letterSpacing: '0.15em',
                 cursor: isOwner ? 'pointer' : 'not-allowed',
                 width: '100%',
                 maxWidth: '400px',
+                opacity: isOwner ? 1 : 0.5
               }}
               title={
                 !isOwner
@@ -289,26 +435,155 @@ export default function LobbyWaitingRoom({
               }
             >
               {isOwner ? "START GAME 👑" : "START GAME (OWNER ONLY)"}
-            </Button>
+            </button>
           )}
           
-          <Button
+          <button
             onClick={onLeaveLobby}
-            className="px-16 py-6 text-xl font-bold rounded-2xl transform hover:scale-105 transition-all duration-300"
+            className="game-sharp game-paper px-8 py-3 sm:px-10 sm:py-4 text-sm sm:text-base font-black uppercase tracking-widest game-shadow-hard game-button-hover"
             style={{
-              background: 'rgba(15, 10, 31, 0.8)',
-              border: '3px solid var(--game-red)',
+              border: '4px solid var(--game-text-primary)',
               color: 'var(--game-text-primary)',
-              fontFamily: 'Impact, Arial Black, sans-serif',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              boxShadow: '0 0 10px var(--game-red-glow)',
+              letterSpacing: '0.1em'
             }}
           >
             LEAVE LOBBY
-          </Button>
+          </button>
+        </div>
+
+        {/* Decorative sticky notes */}
+        <div className="absolute top-16 right-2 sm:top-20 sm:right-4 game-sticky-note-alt px-2 py-1.5 sm:px-3 sm:py-2 game-shadow-hard-sm opacity-50">
+          <div className="text-xs font-bold uppercase">Ready?</div>
         </div>
       </div>
+
+      {/* Disconnect Notification */}
+      {showDisconnectNotification && (
+        <div
+          className="fixed top-4 right-4 z-50 game-sticky-note px-4 py-3 game-shadow-hard-sm"
+          style={{
+            animation: 'fadeIn 0.3s ease-out',
+            maxWidth: '300px'
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⚠️</span>
+            <div className="text-sm font-black uppercase text-red-600">
+              DISCONNECTED
+            </div>
+            <button
+              onClick={() => {
+                if (onDismissDisconnect) {
+                  onDismissDisconnect();
+                }
+              }}
+              className="ml-auto text-xs font-black"
+              style={{ color: 'var(--game-text-primary)' }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Modal Overlay */}
+      {showInviteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{
+            background: 'rgba(0, 0, 0, 0.75)',
+            animation: 'fadeIn 0.3s ease-out'
+          }}
+          onClick={() => setShowInviteModal(false)}
+        >
+          <div
+            className="game-paper game-shadow-hard-lg relative"
+            style={{
+              border: '6px solid var(--game-text-primary)',
+              background: 'var(--game-bg-alt)',
+              padding: '2rem',
+              maxWidth: '500px',
+              width: '100%',
+              animation: 'scaleIn 0.3s ease-out',
+              transform: 'rotate(-1deg)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowInviteModal(false)}
+              className="absolute top-2 right-2 game-sharp w-8 h-8 flex items-center justify-center game-shadow-hard-sm game-button-hover"
+              style={{
+                border: '3px solid var(--game-text-primary)',
+                background: 'var(--game-red)',
+                color: 'var(--game-text-white)',
+                cursor: 'pointer'
+              }}
+            >
+              ✕
+            </button>
+            
+            <div className="text-center space-y-4">
+              <div className="game-label-text text-xl sm:text-2xl">
+                INVITE PLAYERS
+              </div>
+              
+              <div className="game-label-text text-sm sm:text-base">
+                SHARE THIS LOBBY ID:
+              </div>
+              
+              <div 
+                className="game-sharp px-6 py-4 text-2xl sm:text-3xl font-black uppercase tracking-widest game-shadow-hard-sm mx-auto inline-block cursor-pointer"
+                style={{
+                  background: 'var(--game-yellow)',
+                  color: 'var(--game-text-primary)',
+                  border: '4px solid var(--game-text-primary)',
+                  fontFamily: 'Courier New, monospace',
+                  letterSpacing: '0.2em',
+                  transform: 'rotate(0.5deg)',
+                  transition: 'all 0.2s ease'
+                }}
+                onClick={copyLobbyId}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'rotate(0.5deg) scale(1.05)';
+                  e.currentTarget.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'rotate(0.5deg) scale(1)';
+                  e.currentTarget.style.boxShadow = '';
+                }}
+              >
+                {lobby.id}
+              </div>
+              
+              <div className="flex items-center justify-center gap-3 mt-4">
+                <button
+                  onClick={copyLobbyId}
+                  className={`game-sharp px-6 py-3 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover ${
+                    copied ? 'game-block-green' : 'game-paper'
+                  }`}
+                  style={{
+                    border: '4px solid var(--game-text-primary)',
+                    color: copied ? 'var(--game-text-white)' : 'var(--game-text-primary)',
+                  }}
+                >
+                  {copied ? "✓ COPIED!" : "📋 COPY ID"}
+                </button>
+                
+                <button
+                  onClick={() => setShowInviteModal(false)}
+                  className="game-sharp game-paper px-6 py-3 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover"
+                  style={{
+                    border: '4px solid var(--game-text-primary)',
+                    color: 'var(--game-text-primary)',
+                  }}
+                >
+                  CLOSE
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
