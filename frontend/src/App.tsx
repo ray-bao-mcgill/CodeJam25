@@ -48,7 +48,7 @@ const App: React.FC = () => {
         <Routes>
           <Route
             path="/"
-            element={<Navigate to="/round-start-counter" replace />}
+            element={<Navigate to="/landing" replace />}
           />
           <Route path="/landing" element={<Landing />} />
           <Route path="/lobby-creation" element={<LobbyCreation />} />
