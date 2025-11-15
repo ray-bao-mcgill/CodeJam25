@@ -238,7 +238,7 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
             })
             print(f"Sent initial lobby state to WebSocket")
         
-        # Keep connection alive and handle game messages
+        # Keep connection alive
         while True:
             try:
                 data = await websocket.receive_text()
@@ -246,32 +246,6 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                 
                 if message.get("type") == "ping":
                     await websocket.send_json({"type": "pong"})
-                elif message.get("type") == "submit_answer":
-                    # Player submitted an answer - broadcast to all players in lobby
-                    player_id = message.get("player_id")
-                    print(f"Player {player_id} submitted answer in lobby {lobby_id}")
-                    
-                    # Broadcast player_submitted message to all connections in lobby
-                    await lobby_manager.broadcast_game_message(
-                        lobby_id,
-                        {
-                            "type": "player_submitted",
-                            "player_id": player_id,
-                            "questionId": message.get("questionId")
-                        }
-                    )
-                elif message.get("type") == "timer_expired":
-                    # Timer expired for a player - check if all timers expired
-                    player_id = message.get("player_id")
-                    print(f"Timer expired for player {player_id} in lobby {lobby_id}")
-                    # Server can decide to show results if timer expired
-                    await lobby_manager.broadcast_game_message(
-                        lobby_id,
-                        {
-                            "type": "show_results",
-                            "reason": "timer_expired"
-                        }
-                    )
                     
             except WebSocketDisconnect:
                 print(f"WebSocket disconnected normally")

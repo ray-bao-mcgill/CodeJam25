@@ -8,13 +8,11 @@ import JobInputSelection from "./pages/onboarding/JobInputSelection";
 import LobbySetup from "./pages/onboarding/LobbySetup";
 import LobbyWaitingRoomPage from "./pages/LobbyWaitingRoomPage";
 import RoundStartCounter from "./pages/game-phase/RoundStartCounter";
-import Tutorial from "./pages/game-phase/Tutorial";
-import BehaviouralQuestion from "./pages/game-phase/behavioural/BehaviouralQuestion";
-import BehaviouralAnswer from "./pages/game-phase/behavioural/BehaviouralAnswer";
+import BehaviouralQuestion from "./pages/game-phase/BehaviouralQuestion";
+import BehaviouralAnswer from "./pages/game-phase/BehaviouralAnswer";
 import CurrentScore from "./pages/game-phase/CurrentScore";
-import QuickFireRound from "./pages/game-phase/quickfire/QuickFireRound";
-import TechnicalTheory from "./pages/game-phase/technical/TechnicalTheory";
-import TechnicalPractical from "./pages/game-phase/technical/TechnicalPractical";
+import TechnicalTheory from "./pages/game-phase/TechnicalTheory";
+import TechnicalPractical from "./pages/game-phase/TechnicalPractical";
 import WinLose from "./pages/WinLose";
 import Analytics from "./pages/Analytics";
 import DevTools from "./pages/DevTools";
@@ -36,14 +34,12 @@ const App: React.FC = () => {
           path="/round-start-counter/:type"
           element={<RoundStartCounter />}
         />
-        <Route path="/tutorial" element={<Tutorial />} />
         <Route
           path="/behavioural-question"
           element={<BehaviouralQuestion />}
         />
         <Route path="/behavioural-answer" element={<BehaviouralAnswer />} />
         <Route path="/current-score" element={<CurrentScore />} />
-        <Route path="/quickfire-round" element={<QuickFireRound />} />
         <Route path="/technical-theory" element={<TechnicalTheory />} />
         <Route path="/technical-practical" element={<TechnicalPractical />} />
         <Route path="/win-lose" element={<WinLose />} />
