@@ -16,7 +16,7 @@ const Landing: React.FC = () => {
             textTransform: 'uppercase'
           }}
         >
-          CHOOSE MODE
+          HireOrFire
         </h1>
         
         <Button 

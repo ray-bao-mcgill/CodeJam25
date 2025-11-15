@@ -1,8 +1,8 @@
 import React from "react";
 import { Link, Route, Routes, Navigate } from "react-router-dom";
 
-import Landing from "./pages/Landing";
-import LobbyCreation from "./pages/LobbyCreation";
+import Landing from "./pages/onboarding/Landing";
+import LobbyCreation from "./pages/onboarding/LobbyCreation";
 import WaitingRoom from "./pages/WaitingRoom";
 import RoundStartCounter from "./pages/game-phase/RoundStartCounter";
 import BehaviouralQuestion from "./pages/game-phase/BehaviouralQuestion";
