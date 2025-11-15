@@ -12,7 +12,12 @@ const Landing: React.FC = () => {
         <div className="relative inline-block game-skew-left">
           <div className="game-sticky-note px-12 py-8 game-shadow-hard-lg">
             <h1 className="game-title text-8xl" style={{ fontSize: '6rem', lineHeight: '1.1' }}>
-              HIRE OR <span className="game-flame">
+              <span className="game-success">
+                <span className="success-letter success-letter-1">H</span>
+                <span className="success-letter success-letter-2">I</span>
+                <span className="success-letter success-letter-3">R</span>
+                <span className="success-letter success-letter-4">E</span>
+              </span> OR <span className="game-flame">
                 <span className="flame-letter flame-letter-1">F</span>
                 <span className="flame-letter flame-letter-2">I</span>
                 <span className="flame-letter flame-letter-3">R</span>

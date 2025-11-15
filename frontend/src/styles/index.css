@@ -353,6 +353,104 @@
     }
   }
 
+  /* Green success checkmark effect - simple check animation */
+  @keyframes checkmark-draw {
+    0% {
+      opacity: 0;
+      transform: scale(0.3) rotate(-10deg);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.1) rotate(5deg);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+  }
+
+  @keyframes letter-check {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+
+  .game-success {
+    display: inline-block;
+    position: relative;
+    z-index: 1;
+  }
+
+  .game-success::after {
+    content: '✓';
+    position: absolute;
+    top: -0.2em;
+    right: -0.3em;
+    font-size: 0.5em;
+    color: #2e7d32; /* Medium-dark green for visibility */
+    font-weight: 900;
+    animation: checkmark-draw 1.5s ease-out forwards;
+    pointer-events: none;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Success letters - green gradient from dark to bright */
+  .success-letter {
+    display: inline-block;
+    position: relative;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    margin: 0 1px;
+    /* Gradient: dark green base to bright green/white success glow */
+    background: linear-gradient(
+      to top,
+      #2e7d32 0%,
+      #388e3c 15%,
+      #4caf50 30%,
+      #66bb6a 45%,
+      #81c784 60%,
+      #a5d6a7 75%,
+      #c8e6c9 88%,
+      #e8f5e9 95%,
+      #ffffff 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: #4caf50; /* Fallback */
+  }
+
+  /* Simple check motion - different from flame flicker */
+  .success-letter-1 {
+    animation: letter-check 2s ease-in-out infinite;
+    animation-delay: 0s;
+  }
+
+  .success-letter-2 {
+    animation: letter-check 2s ease-in-out infinite;
+    animation-delay: 0.3s;
+  }
+
+  .success-letter-3 {
+    animation: letter-check 2s ease-in-out infinite;
+    animation-delay: 0.6s;
+  }
+
+  .success-letter-4 {
+    animation: letter-check 2s ease-in-out infinite;
+    animation-delay: 0.9s;
+  }
+
+  /* Fallback for browsers that don't support background-clip */
+  @supports not (-webkit-background-clip: text) {
+    .success-letter {
+      color: #4caf50;
+    }
+  }
+
   /* Jackbox-style Button Hover */
   .game-button-hover {
     transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
