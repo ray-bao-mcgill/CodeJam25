@@ -1,0 +1,10 @@
+Given the following behavioral interview question and user's answer, evaluate the answer using the STAR framework:
+Question: {{ question }}
+Answer: {{ answer }}
+
+For each STAR section (Situation, Task, Action, Result), award an integer score between 0 and 125 (total across all four up to 500). Sum these scores as the overall score.
+
+Output your result in JSON with these fields:
+- score
+- star_points (dict for each STAR section)
+- reasoning (concise explanation for the scores)

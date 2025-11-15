@@ -2,13 +2,13 @@
   "software engineering": [
     "Describe a time when you encountered a significant technical challenge in a project. How did you approach the problem, and what was the outcome?",
     "Can you give an example of a situation where you had to collaborate with a team member who had a different technical perspective? How did you handle the differences, and what did you learn from the experience?",
-    "Can you give an example of a situation where you had to collaborate with cross-functional teams? How did you ensure effective communication and alignment on project goals?"
+    "Can you give an example of a situation where you had to collaborate with cross-functional teams? How did you ensure effective communication and alignment on project goals?",
+    "Describe a time when you faced a significant technical challenge in a project. How did you approach the problem, and what was the outcome?"
   ],
   "consulting": [
     "Describe a time when you had to manage a difficult client relationship. What strategies did you use to improve the situation?",
     "Can you share an experience where your analysis led to a significant change in a project or strategy? What was the outcome?"
   ],
-
   "ai/ml intern": [
     "Tell me about a time you had to learn a new technical concept quickly. How did you approach it and what was the result?",
     "Describe a situation where you worked with messy or incomplete data. How did you handle it?",
@@ -34,7 +34,6 @@
     "Describe a difficult prioritization decision involving multiple ML projects.",
     "Give an example of how you resolved a major disagreement about model architecture or approach."
   ],
-
   "backend intern": [
     "Tell me about a time you worked on part of a backend system and had to understand existing code. What did you do?",
     "Describe a situation where you were assigned a task you didn't fully understand at first. How did you proceed?",
@@ -60,7 +59,6 @@
     "Describe a situation where you had to balance system reliability with rapid delivery.",
     "Give an example of resolving high-level architectural disagreements between senior engineers."
   ],
-
   "frontend intern": [
     "Tell me about a time you worked on improving a UI component. What feedback did you receive?",
     "Describe a situation where you had to fix a visual or interaction bug. How did you approach it?",
@@ -86,7 +84,6 @@
     "Describe a situation where you advocated for frontend concerns at the organizational level.",
     "Give an example of leading a multi-team initiative involving UI/UX alignment."
   ],
-
   "devops intern": [
     "Tell me about a time you automated a small task or script. What impact did it have?",
     "Describe a situation where you troubleshot an environment or configuration issue.",
@@ -112,7 +109,6 @@
     "Describe a situation where you balanced cross-team priorities around infra investment.",
     "Give an example of resolving a major reliability or tooling conflict between teams."
   ],
-
   "full stack intern": [
     "Tell me about a time you worked on both frontend and backend parts of a small feature.",
     "Describe a situation where you had to quickly switch contexts between tasks.",
@@ -138,7 +134,6 @@
     "Describe a situation where you aligned frontend, backend, and product stakeholders.",
     "Give an example of resolving high-impact technical tradeoffs across the stack."
   ],
-
   "mobile intern": [
     "Tell me about a time you worked on a mobile UI component and had to adapt it to multiple screen sizes.",
     "Describe a situation where you debugged an app crash or unexpected behavior.",
@@ -164,7 +159,6 @@
     "Describe a situation where you aligned product vision with mobile constraints.",
     "Give an example of navigating disagreements between platform teams."
   ],
-
   "cybersecurity intern": [
     "Tell me about a time you identified a potential security issue, even a small one. What did you do?",
     "Describe a situation where you had to follow strict procedures or guidelines.",
