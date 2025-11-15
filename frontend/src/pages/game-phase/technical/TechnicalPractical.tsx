@@ -301,13 +301,13 @@ const TechnicalPractical: React.FC = () => {
       </div>
 
       {/* TABS */}
-      <nav className={`${styles.tabs} flex justify-center gap-4 mb-4`} role="tablist" style={{ flexShrink: 0 }}>
+      <nav className={`${styles.tabs} flex justify-start gap-2 mb-4`} role="tablist" style={{ flexShrink: 0, paddingLeft: '1rem' }}>
         {TAB_OPTIONS.map(tab => (
           <button
             key={tab}
             type="button"
             className={
-              `${styles.tab} px-7 py-3 rounded-t-lg font-bold text-lg uppercase tracking-wide shadow-md transition-all duration-150 ` +
+              `${styles.tab} px-4 py-2 rounded-t-lg font-bold text-sm uppercase tracking-wide shadow-md transition-all duration-150 ` +
               (activeTab === tab ? styles.active : styles.inactive)
             }
             data-active={activeTab === tab}

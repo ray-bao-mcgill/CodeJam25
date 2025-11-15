@@ -1,17 +1,17 @@
 .tabs {
   background: none;
-  border-bottom: 4px solid var(--game-text-primary, #111);
+  border-bottom: 3px solid var(--game-text-primary, #111);
   margin-bottom: 1rem;
 }
 .tab {
   background: #f6f6f6;
-  margin-bottom: -4px;
+  margin-bottom: -3px;
   cursor: pointer;
   border: none;
   outline: none;
   position: relative;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-  letter-spacing: 0.04em;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+  letter-spacing: 0.03em;
   color: var(--game-text-primary, #111);
   transition: background 0.12s, color 0.15s;
 }
@@ -22,8 +22,8 @@
 }
 .active {
   background: var(--game-yellow, #ffe838);
-  border-bottom: 4px solid var(--game-yellow, #ffe838);
-  box-shadow: 0 4px 16px rgba(255,232,56,0.10);
+  border-bottom: 3px solid var(--game-yellow, #ffe838);
+  box-shadow: 0 3px 12px rgba(255,232,56,0.10);
   z-index: 1;
   color: #222;
 }
@@ -31,7 +31,7 @@
   background: #f6f6f6;
   color: #111;
   opacity: 0.8;
-  border-bottom: 4px solid transparent;
+  border-bottom: 3px solid transparent;
 }
 .tabpanel {
   width: 100%;
