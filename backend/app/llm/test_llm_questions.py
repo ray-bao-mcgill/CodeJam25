@@ -49,7 +49,8 @@ def save_behavioural(d):
         json.dump(d, f, indent=2, ensure_ascii=False)
 
 async def main():
-    role = input("Enter the role: ").strip()
+    role_input = input("Enter the role: ").strip()
+    role = role_input.lower()
     num = input("How many questions? (Default 5): ").strip()
     try:
         max_questions = int(num)
@@ -58,7 +59,7 @@ async def main():
 
     # Render system and user prompts
     system = render_prompt("role/system_prompt.jinja")
-    prompt = render_prompt("role/user_prompt.jinja", role=role, max_questions=max_questions)
+    prompt = render_prompt("role/user_prompt.jinja", role=role_input, max_questions=max_questions)
     client = OpenAIClient(api_key=os.getenv("OPENAI_API_KEY"))
     resp = await client.generate_text(LLMTextRequest(
         prompt=prompt,
@@ -72,15 +73,14 @@ async def main():
     # Deduplicate before save
     behavioural = load_behavioural()
     ex = behavioural.get(role, [])
-    # Only add questions not already present
     for q in lines:
         if q not in ex:
             ex.append(q)
     behavioural[role] = ex
     save_behavioural(behavioural)
-    print(f"\nLLM Output for role '{role}':")
-    print(json.dumps({"role": role, "behavioural_questions": ex}, indent=2, ensure_ascii=False))
-    print(f"Saved/updated role entry in {OUTPUT_FILE}\n")
+    print(f"\nLLM Output for role '{role_input}':")
+    print(json.dumps({"role": role_input, "behavioural_questions": ex}, indent=2, ensure_ascii=False))
+    print(f"Saved/updated role entry (stored as '{role}') in {OUTPUT_FILE}\n")
 
 if __name__ == "__main__":
     asyncio.run(main())
