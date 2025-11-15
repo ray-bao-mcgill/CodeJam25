@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useLobby } from '@/hooks/useLobby'
 
 const LobbyJoin: React.FC = () => {
   const navigate = useNavigate()
+  const { lobbyId: urlLobbyId } = useParams<{ lobbyId?: string }>()
   const [name, setName] = useState('')
   const [lobbyCode, setLobbyCode] = useState('')
   const [error, setError] = useState('')
@@ -11,6 +12,9 @@ const LobbyJoin: React.FC = () => {
   const [showKickedNotification, setShowKickedNotification] = useState(false)
 
   const { joinLobby } = useLobby()
+
+  // Store lobby ID from URL parameter (but don't display it)
+  // The lobby code state is only used for manual entry
 
   // Check if user was kicked when component mounts
   useEffect(() => {
@@ -36,13 +40,16 @@ const LobbyJoin: React.FC = () => {
     setError('')
     
     try {
-      if (!lobbyCode.trim()) {
+      // Use URL lobby ID if available, otherwise use entered code
+      const lobbyIdToUse = urlLobbyId || lobbyCode.trim()
+      
+      if (!lobbyIdToUse) {
         setError('Please enter a lobby code or use CREATE LOBBY instead')
         setIsLoading(false)
         return
       }
       
-      const result = await joinLobby(lobbyCode.trim(), name.trim())
+      const result = await joinLobby(lobbyIdToUse, name.trim())
       
       if (result?.success) {
         setTimeout(() => {
@@ -134,50 +141,52 @@ const LobbyJoin: React.FC = () => {
             />
           </div>
 
-          {/* Lobby Code Input */}
-          <div className="space-y-4">
-            <div className="game-label-text text-lg text-center">LOBBY CODE</div>
-            <div className="flex items-center justify-center gap-6 flex-wrap">
-              <button
-                onClick={() => setLobbyCode('')}
-                className={`game-sharp px-6 py-3 text-base font-black uppercase tracking-widest game-shadow-hard-sm game-button-hover ${
-                  !lobbyCode.trim() ? 'game-block-blue' : 'game-paper'
-                }`}
-                style={{
-                  border: '4px solid var(--game-text-primary)',
-                  color: !lobbyCode.trim() ? 'var(--game-text-white)' : 'var(--game-text-primary)',
-                  transform: 'rotate(-1deg)'
-                }}
-              >
-                RANDOM
-              </button>
-              
-              <div className="game-label-text text-xl">OR</div>
-              
-              <input
-                type="text"
-                placeholder="ENTER CODE"
-                value={lobbyCode}
-                onChange={(e) => {
-                  setLobbyCode(e.target.value.toUpperCase())
-                  setError('')
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleJoin()}
-                className={`game-sharp text-center text-lg py-4 px-6 font-black uppercase tracking-widest game-shadow-hard game-button-hover ${
-                  lobbyCode.trim() ? 'game-block-red' : 'game-paper'
-                }`}
-                style={{
-                  border: '6px solid var(--game-text-primary)',
-                  color: lobbyCode.trim() ? 'var(--game-text-white)' : 'var(--game-text-primary)',
-                  letterSpacing: '0.2em',
-                  fontFamily: 'Courier New, monospace',
-                  minWidth: '200px',
-                  maxWidth: '280px',
-                  flex: '0 1 auto'
-                }}
-              />
+          {/* Lobby Code Input - Only show if not coming from invite link */}
+          {!urlLobbyId && (
+            <div className="space-y-4">
+              <div className="game-label-text text-lg text-center">LOBBY CODE</div>
+              <div className="flex items-center justify-center gap-6 flex-wrap">
+                <button
+                  onClick={() => setLobbyCode('')}
+                  className={`game-sharp px-6 py-3 text-base font-black uppercase tracking-widest game-shadow-hard-sm game-button-hover ${
+                    !lobbyCode.trim() ? 'game-block-blue' : 'game-paper'
+                  }`}
+                  style={{
+                    border: '4px solid var(--game-text-primary)',
+                    color: !lobbyCode.trim() ? 'var(--game-text-white)' : 'var(--game-text-primary)',
+                    transform: 'rotate(-1deg)'
+                  }}
+                >
+                  RANDOM
+                </button>
+                
+                <div className="game-label-text text-xl">OR</div>
+                
+                <input
+                  type="text"
+                  placeholder="ENTER CODE"
+                  value={lobbyCode}
+                  onChange={(e) => {
+                    setLobbyCode(e.target.value.toUpperCase())
+                    setError('')
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleJoin()}
+                  className={`game-sharp text-center text-lg py-4 px-6 font-black uppercase tracking-widest game-shadow-hard game-button-hover ${
+                    lobbyCode.trim() ? 'game-block-red' : 'game-paper'
+                  }`}
+                  style={{
+                    border: '6px solid var(--game-text-primary)',
+                    color: lobbyCode.trim() ? 'var(--game-text-white)' : 'var(--game-text-primary)',
+                    letterSpacing: '0.2em',
+                    fontFamily: 'Courier New, monospace',
+                    minWidth: '200px',
+                    maxWidth: '280px',
+                    flex: '0 1 auto'
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {error && (
             <div className="game-sticky-note px-6 py-4 game-shadow-hard-sm">
@@ -191,16 +200,16 @@ const LobbyJoin: React.FC = () => {
           <div className="flex justify-center pt-4">
             <button
               onClick={handleJoin}
-              disabled={!name.trim() || !lobbyCode.trim() || isLoading}
+              disabled={!name.trim() || (!urlLobbyId && !lobbyCode.trim()) || isLoading}
               className={`game-sharp px-12 py-6 text-xl font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover ${
-                (name.trim() && lobbyCode.trim() && !isLoading) ? 'game-block-green' : 'game-paper'
+                (name.trim() && (urlLobbyId || lobbyCode.trim()) && !isLoading) ? 'game-block-green' : 'game-paper'
               }`}
               style={{
                 border: '8px solid var(--game-text-primary)',
-                color: (name.trim() && lobbyCode.trim() && !isLoading) ? 'var(--game-text-white)' : 'var(--game-text-dim)',
+                color: (name.trim() && (urlLobbyId || lobbyCode.trim()) && !isLoading) ? 'var(--game-text-white)' : 'var(--game-text-dim)',
                 letterSpacing: '0.15em',
-                cursor: (name.trim() && lobbyCode.trim() && !isLoading) ? 'pointer' : 'not-allowed',
-                opacity: (!name.trim() || !lobbyCode.trim() || isLoading) ? 0.5 : 1
+                cursor: (name.trim() && (urlLobbyId || lobbyCode.trim()) && !isLoading) ? 'pointer' : 'not-allowed',
+                opacity: (!name.trim() || (!urlLobbyId && !lobbyCode.trim()) || isLoading) ? 0.5 : 1
               }}
             >
               {isLoading ? 'JOINING...' : 'JOIN'}

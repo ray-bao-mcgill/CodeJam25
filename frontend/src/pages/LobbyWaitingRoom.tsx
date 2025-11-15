@@ -24,16 +24,28 @@ export default function LobbyWaitingRoom({
   onDismissDisconnect,
 }: LobbyWaitingRoomProps) {
   const [copied, setCopied] = useState<boolean>(false);
+  const [copiedFromModal, setCopiedFromModal] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [transferring, setTransferring] = useState<string | null>(null);
   const [kicking, setKicking] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
 
-  const copyLobbyId = async () => {
-    if (lobby?.id) {
-      await navigator.clipboard.writeText(lobby.id);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  const getInviteUrl = (): string => {
+    if (!lobby?.id) return '';
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/lobby-join/${lobby.id}`;
+  };
+
+  const copyInviteUrl = async (fromModal: boolean = false) => {
+    const inviteUrl = getInviteUrl();
+    if (inviteUrl) {
+      await navigator.clipboard.writeText(inviteUrl);
+      if (fromModal) {
+        setCopiedFromModal(true);
+      } else {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
     }
   };
 
@@ -225,30 +237,23 @@ export default function LobbyWaitingRoom({
         >
           <div className="game-label-text text-xs sm:text-sm">LOBBY ID</div>
           <div 
-            className="game-sharp px-2.5 py-1 sm:px-3 sm:py-1.5 text-base sm:text-lg font-black uppercase tracking-widest game-shadow-hard-sm"
+            className="game-sharp px-2.5 py-1 sm:px-3 sm:py-1.5 text-base sm:text-lg font-black uppercase tracking-widest game-shadow-hard-sm flex items-center gap-2 cursor-pointer game-button-hover"
+            onClick={() => copyInviteUrl(false)}
             style={{
               background: 'var(--game-yellow)',
               color: 'var(--game-text-primary)',
               border: '3px solid var(--game-text-primary)',
               fontFamily: 'Courier New, monospace',
-              letterSpacing: '0.15em'
+              letterSpacing: '0.15em',
+              transition: 'all 0.2s ease'
             }}
+            title="Click to copy invite link"
           >
-            {lobby.id}
+            <span>{lobby.id}</span>
+            <span className="text-xs sm:text-sm flex-shrink-0" style={{ opacity: copied ? 1 : 0.7 }}>
+              {copied ? '✓' : '🔗'}
+            </span>
           </div>
-          <button
-            onClick={copyLobbyId}
-            className={`game-sharp px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover ${
-              copied ? 'game-block-green' : 'game-paper'
-            }`}
-            style={{
-              border: '3px solid var(--game-text-primary)',
-              color: copied ? 'var(--game-text-white)' : 'var(--game-text-primary)',
-            }}
-            title="Copy lobby ID"
-          >
-            {copied ? "✓ COPIED" : "📋 COPY"}
-          </button>
         </div>
 
         {error && (
@@ -376,7 +381,6 @@ export default function LobbyWaitingRoom({
                   key={`empty-${idx}`}
                   onClick={() => {
                     setShowInviteModal(true);
-                    copyLobbyId();
                   }}
                   className="game-sharp flex items-center justify-center p-2 sm:p-2.5 game-shadow-hard-sm transition-all duration-100 game-paper cursor-pointer"
                   style={{
@@ -528,23 +532,24 @@ export default function LobbyWaitingRoom({
               </div>
               
               <div className="game-label-text text-sm sm:text-base">
-                SHARE THIS LOBBY ID:
+                SHARE THIS INVITE LINK:
               </div>
               
               <div 
-                className="game-sharp px-6 py-4 text-2xl sm:text-3xl font-black uppercase tracking-widest game-shadow-hard-sm mx-auto inline-block cursor-pointer"
+                className="game-sharp px-4 py-3 text-sm sm:text-base font-black tracking-wider game-shadow-hard-sm mx-auto inline-block cursor-pointer break-all"
                 style={{
                   background: 'var(--game-yellow)',
                   color: 'var(--game-text-primary)',
                   border: '4px solid var(--game-text-primary)',
                   fontFamily: 'Courier New, monospace',
-                  letterSpacing: '0.2em',
                   transform: 'rotate(0.5deg)',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  maxWidth: '100%',
+                  wordBreak: 'break-all'
                 }}
-                onClick={copyLobbyId}
+                onClick={() => copyInviteUrl(true)}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'rotate(0.5deg) scale(1.05)';
+                  e.currentTarget.style.transform = 'rotate(0.5deg) scale(1.02)';
                   e.currentTarget.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.3)';
                 }}
                 onMouseLeave={(e) => {
@@ -552,33 +557,36 @@ export default function LobbyWaitingRoom({
                   e.currentTarget.style.boxShadow = '';
                 }}
               >
-                {lobby.id}
+                {getInviteUrl()}
               </div>
               
               <div className="flex items-center justify-center gap-3 mt-4">
                 <button
-                  onClick={copyLobbyId}
+                  onClick={() => copyInviteUrl(true)}
                   className={`game-sharp px-6 py-3 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover ${
-                    copied ? 'game-block-green' : 'game-paper'
+                    copiedFromModal ? 'game-block-green' : 'game-paper'
                   }`}
                   style={{
                     border: '4px solid var(--game-text-primary)',
-                    color: copied ? 'var(--game-text-white)' : 'var(--game-text-primary)',
+                    color: copiedFromModal ? 'var(--game-text-white)' : 'var(--game-text-primary)',
                   }}
                 >
-                  {copied ? "✓ COPIED!" : "📋 COPY ID"}
+                  {copiedFromModal ? "✓ COPIED!" : "📋 COPY LINK"}
                 </button>
                 
-                <button
-                  onClick={() => setShowInviteModal(false)}
-                  className="game-sharp game-paper px-6 py-3 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover"
-                  style={{
-                    border: '4px solid var(--game-text-primary)',
-                    color: 'var(--game-text-primary)',
-                  }}
-                >
-                  CLOSE
-                </button>
+            <button
+              onClick={() => {
+                setShowInviteModal(false);
+                setCopiedFromModal(false);
+              }}
+              className="game-sharp game-paper px-6 py-3 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover"
+              style={{
+                border: '4px solid var(--game-text-primary)',
+                color: 'var(--game-text-primary)',
+              }}
+            >
+              CLOSE
+            </button>
               </div>
             </div>
           </div>
