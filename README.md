@@ -97,9 +97,11 @@ npm run dev
 ```
 CodeJam25/
 ├── backend/
-│   ├── main.py              # FastAPI application
-│   ├── lobby_manager.py      # Lobby state management
-│   └── requirements.txt      # Python dependencies
+│   ├── main.py              # FastAPI app entry point
+│   ├── router.py            # API routes and endpoints
+│   ├── lobby.py             # Lobby class (represents a single lobby)
+│   ├── lobby_manager.py     # LobbyManager (manages multiple lobbies)
+│   └── requirements.txt     # Python dependencies
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx          # Main app component
@@ -116,4 +118,4 @@ CodeJam25/
 - Backend uses `reload=False` to prevent losing in-memory lobby state
 - WebSocket connections are managed per lobby
 - Lobby state is stored in-memory (not persisted)
-- Max 2 players per lobby
+- Max 8 players per lobby, minimum 2 players required to start

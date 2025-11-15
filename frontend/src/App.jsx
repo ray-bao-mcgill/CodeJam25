@@ -36,7 +36,7 @@ export default function App() {
 
       <Container size="lg" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
         <Stack align="center" gap="xl">
-          <Title order={1} ta="center" className="main-title">Interview Prep</Title>
+          <Title order={1} ta="center" className="main-title">Hire or Fire</Title>
           <Button onClick={() => setShowLobby(true)} size="lg">Join Lobby</Button>
         </Stack>
       </Container>

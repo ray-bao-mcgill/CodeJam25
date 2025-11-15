@@ -101,8 +101,10 @@ export default function Lobby() {
         method: 'POST',
       })
       const createData = await createResponse.json()
+      console.log('Create lobby response:', createData)
 
       if (createData.lobby_id) {
+        console.log('Attempting to join lobby:', createData.lobby_id)
         const joinResponse = await fetch('http://127.0.0.1:8000/api/lobby/join', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -226,6 +228,10 @@ export default function Lobby() {
             <Text size="sm" c="dimmed" ta="center">
               Preparing interview questions...
             </Text>
+            
+            <Text size="xs" c="dimmed" ta="center" mt="md">
+              {playerName}
+            </Text>
           </Stack>
         </Paper>
       </Container>
@@ -249,7 +255,7 @@ export default function Lobby() {
             </Group>
             
             <div>
-              <Text fw={500} mb="sm">Players ({lobby.players.length}/2):</Text>
+              <Text fw={500} mb="sm">Players ({lobby.players.length}/8):</Text>
               {lobby.players.length === 0 ? (
                 <Text c="dimmed">No players yet</Text>
               ) : (
@@ -262,25 +268,47 @@ export default function Lobby() {
             </div>
 
             <Stack gap="sm">
-              {lobby.players.length === 2 && lobby.status === 'waiting' && (
+              {lobby.players.length >= 2 && lobby.status === 'waiting' && (
                 <Button onClick={startGame} fullWidth size="lg" color="green">
                   Start Game
                 </Button>
               )}
-              <Button onClick={() => {
-                setJoined(false)
-                setLobby(null)
-                setLobbyId('')
-                setPlayerName('')
-                setGameStarted(false)
-                if (wsRef.current) {
-                  wsRef.current.close()
-                  wsRef.current = null
+              <Button onClick={async () => {
+                try {
+                  // Call backend to leave lobby
+                  if (lobbyIdRef.current && playerIdRef.current) {
+                    await fetch(`http://127.0.0.1:8000/api/lobby/${lobbyIdRef.current}/leave`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        player_id: playerIdRef.current,
+                      }),
+                    })
+                  }
+                } catch (err) {
+                  console.error('Error leaving lobby:', err)
+                } finally {
+                  // Close WebSocket and clear state
+                  if (wsRef.current) {
+                    wsRef.current.close()
+                    wsRef.current = null
+                  }
+                  setJoined(false)
+                  setLobby(null)
+                  setLobbyId('')
+                  setPlayerName('')
+                  setGameStarted(false)
+                  lobbyIdRef.current = null
+                  playerIdRef.current = null
                 }
               }} variant="outline">
                 Leave Lobby
               </Button>
             </Stack>
+            
+            <Text size="xs" c="dimmed" ta="center" mt="md">
+              {playerName}
+            </Text>
           </Stack>
         </Paper>
       </Container>
