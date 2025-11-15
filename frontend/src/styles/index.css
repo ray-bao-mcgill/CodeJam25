@@ -52,6 +52,9 @@
     --game-text-dim: #757575;
     --game-text-white: #ffffff;
 
+    /* Shine animation timing */
+    --shine-time: 4s;
+
     /* Shadcn defaults */
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
@@ -384,50 +387,40 @@
     }
   }
 
-  @keyframes letter-check {
-    0%, 100% {
-      transform: translateY(0);
+  /* Blade shine / horizon swipe animation - clean horizontal swipe */
+  @keyframes shine-swipe {
+    0% {
+      background-position: center, -200% center;
     }
-    50% {
-      transform: translateY(-6px);
+    100% {
+      background-position: center, 200% center;
     }
   }
 
+  /* HIRE — same as FIRE but green */
   .game-success {
     display: inline-block;
     position: relative;
     z-index: 1;
+    vertical-align: baseline;
   }
 
-  .game-success::after {
-    content: '✓';
-    position: absolute;
-    top: -0.2em;
-    right: -0.3em;
-    font-size: 0.5em;
-    color: #2e7d32; /* Medium-dark green for visibility */
-    font-weight: 900;
-    animation: checkmark-draw 1.5s ease-out forwards;
-    pointer-events: none;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
-  }
-
-  /* Success letters - green gradient from dark to bright */
+  /* Success letters - green gradient matching FIRE's flame style */
   .success-letter {
     display: inline-block;
     position: relative;
     font-weight: 900;
     letter-spacing: 0.02em;
     margin: 0 1px;
-    /* Gradient: dark green base to bright green/white success glow */
+    /* Gradient: deep green base to bright green/white tips */
     background: linear-gradient(
       to top,
       #2e7d32 0%,
-      #388e3c 15%,
-      #4caf50 30%,
-      #66bb6a 45%,
-      #81c784 60%,
-      #a5d6a7 75%,
+      #388e3c 20%,
+      #4caf50 35%,
+      #66bb6a 50%,
+      #81c784 65%,
+      #a5d6a7 78%,
       #c8e6c9 88%,
       #e8f5e9 95%,
       #ffffff 100%
@@ -438,25 +431,25 @@
     color: #4caf50; /* Fallback */
   }
 
-  /* Simple check motion - different from flame flicker */
+  /* Different flicker intervals for each letter - same as FIRE */
   .success-letter-1 {
-    animation: letter-check 2s ease-in-out infinite;
+    animation: flame-flicker 0.35s ease-in-out infinite;
     animation-delay: 0s;
   }
 
   .success-letter-2 {
-    animation: letter-check 2s ease-in-out infinite;
-    animation-delay: 0.3s;
+    animation: flame-flicker 0.42s ease-in-out infinite;
+    animation-delay: 0.12s;
   }
 
   .success-letter-3 {
-    animation: letter-check 2s ease-in-out infinite;
-    animation-delay: 0.6s;
+    animation: flame-flicker 0.38s ease-in-out infinite;
+    animation-delay: 0.24s;
   }
 
   .success-letter-4 {
-    animation: letter-check 2s ease-in-out infinite;
-    animation-delay: 0.9s;
+    animation: flame-flicker 0.4s ease-in-out infinite;
+    animation-delay: 0.18s;
   }
 
   /* Fallback for browsers that don't support background-clip */
