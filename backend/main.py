@@ -43,8 +43,9 @@ if os.path.exists(frontend_dist):
     
     assets_dir = os.path.join(frontend_dist, "assets")
     if os.path.exists(assets_dir):
-        app.mount("/static", StaticFiles(directory=assets_dir), name="static")
-        print(f"[STARTUP] ✓ Mounted static files from: {assets_dir}", flush=True)
+        # Vite builds assets with /assets/ paths, so mount at /assets
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        print(f"[STARTUP] ✓ Mounted static files from: {assets_dir} at /assets", flush=True)
     else:
         print(f"[STARTUP] WARNING: Assets directory not found at: {assets_dir}", flush=True)
     
@@ -57,11 +58,11 @@ if os.path.exists(frontend_dist):
         return {"error": "Frontend not found"}, 404
     
     # Serve index.html for all other non-API routes (SPA routing)
-    # This catch-all matches any path that doesn't match API/WebSocket routes
+    # This catch-all matches any path that doesn't match API/WebSocket/Assets routes
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        # Explicitly exclude API and WebSocket routes
-        if full_path.startswith("api/") or full_path.startswith("ws/"):
+        # Explicitly exclude API, WebSocket, and Assets routes
+        if full_path.startswith("api/") or full_path.startswith("ws/") or full_path.startswith("assets/"):
             return {"error": "Not found"}, 404
         index_path = os.path.join(frontend_dist, "index.html")
         if os.path.exists(index_path):
@@ -83,6 +84,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     # Use 127.0.0.1 for localhost when PORT is default, 0.0.0.0 for Railway/production
     host = "127.0.0.1" if port == 8000 and "PORT" not in os.environ else "0.0.0.0"
-    print(f"Starting FastAPI server on {host}:{port}")
-    print("NOTE: Using reload=False to prevent losing in-memory lobbies")
-    uvicorn.run("main:app", host=host, port=port, reload=False)
+    print(f"Starting FastAPI server on {host}:{port}", flush=True)
+    print("NOTE: Using reload=False to prevent losing in-memory lobbies", flush=True)
+    # Pass app directly instead of string to avoid double import
+    uvicorn.run(app, host=host, port=port, reload=False)
