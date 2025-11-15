@@ -39,12 +39,39 @@ export default function LobbyWaitingRoom({
   const copyInviteUrl = async (fromModal: boolean = false) => {
     const inviteUrl = getInviteUrl();
     if (inviteUrl) {
-      await navigator.clipboard.writeText(inviteUrl);
-      if (fromModal) {
-        setCopiedFromModal(true);
-      } else {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+      try {
+        // Check if clipboard API is available
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(inviteUrl);
+        } else {
+          // Fallback for browsers without clipboard API
+          const textArea = document.createElement('textarea');
+          textArea.value = inviteUrl;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-999999px';
+          textArea.style.top = '-999999px';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          try {
+            document.execCommand('copy');
+          } catch (err) {
+            console.error('Failed to copy using fallback method:', err);
+            setError('Failed to copy invite link. Please copy manually: ' + inviteUrl);
+            return;
+          }
+          document.body.removeChild(textArea);
+        }
+        
+        if (fromModal) {
+          setCopiedFromModal(true);
+        } else {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      } catch (err) {
+        console.error('Failed to copy invite URL:', err);
+        setError('Failed to copy invite link. Please copy manually: ' + inviteUrl);
       }
     }
   };

@@ -1,30 +1,105 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGameFlow } from '@/hooks/useGameFlow'
+import { useGameSync } from '@/hooks/useGameSync'
+import { useLobby } from '@/hooks/useLobby'
+import { useLobbyWebSocket } from '@/hooks/useLobbyWebSocket'
 
-const QUESTION_DISPLAY_SECONDS = 30; // Y seconds
+const QUESTION_DISPLAY_SECONDS = 30;
 
 const BehaviouralQuestion: React.FC = () => {
   const navigate = useNavigate();
+  const { submitAnswer } = useGameFlow()
+  const { lobby, lobbyId, playerId } = useLobby()
+  const { gameState, timeRemaining, submitAnswer: syncSubmitAnswer, isWaitingForOthers, showResults } = useGameSync()
   const [remaining, setRemaining] = useState(QUESTION_DISPLAY_SECONDS);
   const [question, setQuestion] = useState<string>("Loading question...");
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Set up WebSocket for skip synchronization
+  const wsRef = useLobbyWebSocket({
+    lobbyId: lobbyId || null,
+    enabled: !!lobbyId,
+    onLobbyUpdate: () => {},
+    onGameStarted: () => {},
+    onDisconnect: () => {},
+    onKicked: () => {},
+    currentPlayerId: playerId || null,
+    onGameMessage: (message: any) => {
+      if (message.type === 'behavioural_question_skipped') {
+        // Server says skip was triggered - navigate together
+        navigate('/behavioural-answer')
+      }
+    },
+  });
+
+  // Determine if this is Q0 or Q1 display
+  const isFollowUp = gameState?.questionIndex === 1 || (gameState?.showResults === true && gameState?.phaseComplete === false && gameState?.submittedPlayers?.length >= (lobby?.players.length || 0))
 
   useEffect(() => {
-    // TODO: Replace with backend fetch when API is ready
-    setQuestion("Describe a time you overcame a challenge at work.");
-  }, []);
-
-  useEffect(() => {
-    if (remaining <= 0) {
-      navigate("/behavioural-answer");
-      return;
+    // Use question from game state if available, otherwise use placeholder
+    if (isFollowUp) {
+      // Follow-up question
+      if (gameState?.question) {
+        setQuestion(gameState.question)
+        setIsLoading(false)
+      } else {
+        setTimeout(() => {
+          setQuestion("Now, describe how you handled the follow-up situation.");
+          setIsLoading(false);
+        }, 500);
+      }
+    } else {
+      // First question
+      setTimeout(() => {
+        setQuestion("Describe a time you overcame a challenge at work.");
+        setIsLoading(false);
+      }, 500);
     }
-    const id = setTimeout(() => setRemaining((r) => r - 1), 1000);
-    return () => clearTimeout(id);
-  }, [remaining, navigate]);
+  }, [gameState?.question, isFollowUp]);
 
-  const handleSkip = () => {
-    navigate("/behavioural-answer");
-  };
+  // Use server-synced timer ONLY - no local timer conflicts
+  useEffect(() => {
+    if (timeRemaining !== undefined) {
+      setRemaining(timeRemaining);
+    }
+  }, [timeRemaining]);
+
+  // Navigate to answer page after timer expires or skip is clicked
+  // This is just a display page - no answer collection happens here
+  useEffect(() => {
+    // Auto-navigate after timer expires (or skip)
+    if (remaining <= 0) {
+      console.log('[BEHAVIOURAL_Q] Timer expired, navigating to behavioural-answer')
+      navigate('/behavioural-answer')
+    }
+  }, [remaining, navigate])
+
+  // Countdown timer
+  useEffect(() => {
+    if (remaining > 0) {
+      const timer = setInterval(() => {
+        setRemaining((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [remaining])
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg">
+        <div className="game-paper px-8 py-4 game-shadow-hard-lg">
+          <div className="text-lg font-bold">Loading question...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-8 game-bg">
@@ -58,10 +133,10 @@ const BehaviouralQuestion: React.FC = () => {
           </h2>
         </div>
 
-        {/* Timer + Actions */}
+        {/* Timer + Skip Button */}
         <div className="flex items-center justify-center gap-6 flex-wrap">
           <div className="text-center">
-            <div className="game-label-text text-xs">TIME LEFT</div>
+            <div className="game-label-text text-xs mb-2">TIME LEFT</div>
             <div
               aria-live="polite"
               className="game-sharp game-block-yellow px-6 py-3 game-shadow-hard-sm"
@@ -83,7 +158,17 @@ const BehaviouralQuestion: React.FC = () => {
               border: "6px solid var(--game-text-primary)",
               color: "var(--game-text-white)",
             }}
-            onClick={handleSkip}
+            onClick={() => {
+              // Send skip request to server - server will broadcast to all clients
+              const wsConnection = wsRef.current
+              if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
+                wsConnection.send(JSON.stringify({
+                  type: 'behavioural_question_skip',
+                  player_id: playerId,
+                  phase: 'behavioural'
+                }))
+              }
+            }}
           >
             Skip
           </button>
@@ -108,3 +193,5 @@ const BehaviouralQuestion: React.FC = () => {
 };
 
 export default BehaviouralQuestion;
+
+
