@@ -47,6 +47,28 @@ def save_type_file(path, d):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(d, f, indent=2, ensure_ascii=False)
 
+def get_nested_question_list(data, role, level):
+    """
+    Returns the question list for nested roles (like software engineering, consulting) or [] if not found.
+    role: str, level: str
+    """
+    if isinstance(data.get(role), dict):
+        level_dict = data[role]
+        if level in level_dict and isinstance(level_dict[level], list):
+            return level_dict[level]
+        return []
+    elif role in data:
+        # Flat roles (e.g. ai/ml, backend, etc. with no levels)
+        val = data[role]
+        if isinstance(val, list):
+            return val
+    return []
+
+def set_nested_questions(data, role, level, questions):
+    if role not in data or not isinstance(data[role], dict):
+        data[role] = {}
+    data[role][level] = questions
+
 async def run_generation():
     allowed_types = ["behavioural", "technical_theory", "technical_practical"]
     typeinp = input("Question type ([b]ehavioural, [t]echnical_theory, [p]ractical)? ").strip().lower()
@@ -96,14 +118,30 @@ async def run_generation():
 
 async def run_behavioural_scoring():
     print("\n[Behavioural LLM Judge: Score an answer]\n")
-    role_input = input("Enter the role: ").strip()
-    role = role_input.lower()
     behavioural_data = load_type_file(OUTPUT_FILES["behavioural"])
-    if role not in behavioural_data or not behavioural_data[role]:
-        print(f"No questions found for role '{role}'. Please generate or add some first.")
+    # List roles and prompt for role group
+    roles = list(behavioural_data.keys())
+    print("Available roles:", ", ".join(roles))
+    role_input = input("Enter the role group: ").strip()
+    role = role_input.lower()
+    # get levels, if present
+    role_levels = []
+    if isinstance(behavioural_data.get(role), dict):
+        role_levels = list(behavioural_data[role].keys())
+        print("Levels for", role, ":", ", ".join(role_levels))
+        level_input = input("Enter the level: ").strip()
+        level = level_input.lower()
+    else:
+        level = None
+    question_list = get_nested_question_list(behavioural_data, role, level) if level else behavioural_data.get(role, [])
+    if not question_list:
+        missing = f"role '{role}'"
+        if level:
+            missing += f" / level '{level}'"
+        print(f"No questions found for {missing}. Please generate or add some first.")
         return
-    question = random.choice(behavioural_data[role])
-    print(f"Random question for role '{role}':\n>> {question}\n")
+    question = random.choice(question_list)
+    print(f"Random question for {role}{' / ' + level if level else ''}:\n>> {question}\n")
     answer = input("Enter the user's answer: ").strip()
     client = OpenAIClient(api_key=os.getenv("OPENAI_API_KEY"))
     judge = BehaviouralJudge(client)
