@@ -1,13 +1,17 @@
 from pydantic import BaseModel
-from typing import Dict
+from typing import Dict, Optional
 
 class RoleQuestionsRequest(BaseModel):
     role: str
+    level: Optional[str] = None
     max_questions: int = 10
+    question_type: str = "behavioural"
 
 class RoleQuestionsResponse(BaseModel):
     role: str
-    behavioural_questions: list[str]
+    level: Optional[str] = None
+    question_type: str
+    questions: list[str]
 
 class BehaviouralJudgeResult(BaseModel):
     """
