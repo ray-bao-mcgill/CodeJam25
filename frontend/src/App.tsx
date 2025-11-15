@@ -15,6 +15,8 @@ import QuickFireRound from "./pages/game-phase/quickfire/QuickFireRound";
 import CurrentScore from "./pages/game-phase/CurrentScore";
 import TechnicalTheory from "./pages/game-phase/technical/TechnicalTheory";
 import TechnicalPractical from "./pages/game-phase/technical/TechnicalPractical";
+import TechnicalTheory from "./pages/game-phase/technical/TechnicalTheory";
+import TechnicalPractical from "./pages/game-phase/technical/TechnicalPractical";
 import WinLose from "./pages/WinLose";
 import Analytics from "./pages/Analytics";
 import DevTools from "./pages/DevTools";

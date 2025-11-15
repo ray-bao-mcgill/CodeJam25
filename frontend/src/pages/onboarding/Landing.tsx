@@ -10,9 +10,14 @@ const Landing: React.FC = () => {
       <div className="text-center space-y-16 relative">
         {/* Hand-drawn title with sticky note effect */}
         <div className="relative inline-block game-skew-left">
-          <div className="game-sticky-note px-12 py-8 game-shadow-hard-lg">
+          <div className="game-sticky-note px-20 py-16 game-shadow-hard-lg">
             <h1 className="game-title text-8xl" style={{ fontSize: '6rem', lineHeight: '1.1' }}>
-              HIRE OR <span className="game-flame">
+              <span className="game-success">
+                <span className="success-letter success-letter-1" data-letter="H">H</span>
+                <span className="success-letter success-letter-2" data-letter="I">I</span>
+                <span className="success-letter success-letter-3" data-letter="R">R</span>
+                <span className="success-letter success-letter-4" data-letter="E">E</span>
+              </span> <span style={{ fontSize: '0.6em' }}>OR</span> <span className="game-flame">
                 <span className="flame-letter flame-letter-1">F</span>
                 <span className="flame-letter flame-letter-2">I</span>
                 <span className="flame-letter flame-letter-3">R</span>
@@ -52,9 +57,6 @@ const Landing: React.FC = () => {
         </div>
 
         {/* Decorative elements */}
-        <div className="absolute top-20 left-10 text-6xl opacity-70 game-skew-right">
-          📋
-        </div>
         <div className="absolute bottom-20 right-10 text-6xl opacity-70 game-skew-left">
           💼
         </div>
