@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styles from './TechnicalPractical.module.css';
+import { useGameSync } from '@/hooks/useGameSync';
 
 const TAB_IDE = 'IDE' as const;
 const TAB_TEXT = 'TEXT' as const;
@@ -86,6 +87,7 @@ const initialFile: CodeFile = {
 };
 
 const TechnicalPractical: React.FC = () => {
+  const { gameState } = useGameSync();
   const [activeTab, setActiveTab] = useState<TabType>(TAB_IDE);
   const [files, setFiles] = useState<CodeFile[]>([initialFile]);
   const [currentFileIdx, setCurrentFileIdx] = useState(0);
@@ -102,6 +104,15 @@ const TechnicalPractical: React.FC = () => {
   const [showClearModal, setShowClearModal] = useState(false);
   const [outputLog, setOutputLog] = useState<string[]>([]);
   const [copySuccess, setCopySuccess] = useState(false);
+  
+  // Split panel state
+  const [leftPanelWidth, setLeftPanelWidth] = useState(30); // Percentage, default 30% (right gets 70%)
+  const [isResizing, setIsResizing] = useState(false);
+  const splitContainerRef = useRef<HTMLDivElement | null>(null);
+  const resizerRef = useRef<HTMLDivElement | null>(null);
+  
+  // Get question text
+  const question = gameState?.question || 'Outline a production ML architecture including data ingestion, training, inference, and monitoring, with example configs.';
 
   // Effect to focus input when modal shown
   useEffect(() => {
@@ -288,6 +299,59 @@ const TechnicalPractical: React.FC = () => {
     }
   }, [activeTab]);
 
+  // Handle resizer drag
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!splitContainerRef.current) return;
+      const containerRect = splitContainerRef.current.getBoundingClientRect();
+      const resizerWidth = 8; // Resizer width in pixels
+      const totalWidth = containerRect.width;
+      // Calculate left panel width as percentage, accounting for resizer
+      const leftPanelPixels = e.clientX - containerRect.left;
+      const newLeftWidth = (leftPanelPixels / totalWidth) * 100;
+      // Constrain between 20% and 40% for left panel
+      const constrainedWidth = Math.max(20, Math.min(40, newLeftWidth));
+      setLeftPanelWidth(constrainedWidth);
+      
+      // Update Monaco editor layout during resize
+      if (monacoEditorRef.current && activeTab === TAB_IDE) {
+        requestAnimationFrame(() => {
+          monacoEditorRef.current?.layout();
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      // Final layout update after resize completes
+      if (monacoEditorRef.current && activeTab === TAB_IDE) {
+        setTimeout(() => {
+          monacoEditorRef.current?.layout();
+        }, 50);
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, activeTab]);
+
+  // Update Monaco editor layout when panel width changes
+  useEffect(() => {
+    if (monacoEditorRef.current && activeTab === TAB_IDE && !isResizing) {
+      const timeoutId = setTimeout(() => {
+        monacoEditorRef.current?.layout();
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [leftPanelWidth, activeTab, isResizing]);
+
   return (
     <div className="game-bg w-full" style={{ minHeight: '100vh', padding: '1rem 0.5rem 4rem', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
@@ -321,27 +385,102 @@ const TechnicalPractical: React.FC = () => {
         ))}
       </nav>
 
-      <div className={styles.tabpanel} style={{display:'flex', flexDirection:'row', width:'100%', flex: '1 1 auto', minHeight: 0}}>
-        {/* -- Minimal file sidebar, only in IDE tab -- */}
-        {activeTab === TAB_IDE && (
-          <aside style={{minWidth:120, maxWidth:220, flexShrink:0, background:'#f5f5f5', borderRight:'2px solid #ddd', padding:'1rem 0.5rem', display:'flex', flexDirection:'column', alignItems:'stretch', gap:2}}>
-            <div style={{marginBottom:5, fontWeight:700, fontSize:'1.08em'}}>Files</div>
-            <ul style={{listStyle:'none',padding:0, margin:0, flex:1}}>
-              {files.map((f, idx) => (
-                <li key={f.name}>
-                  <button style={{
-                      display:'flex', alignItems:'center', width:'100%', fontWeight:idx===currentFileIdx?700:400, background:idx===currentFileIdx?'#ffe838':'transparent',
-                      color:'#222', border:'none', borderRadius:5, marginBottom:2, cursor:'pointer', padding:'0.23em 0.4em'}}
-                    onClick={()=>setCurrentFileIdx(idx)}
-                  >{f.name}
-                    {files.length > 1 ? (
-                      <span onClick={e => { e.stopPropagation(); handleRemoveFile(idx);}} style={{marginLeft:'auto',color:'#aa2020',paddingLeft:6, fontWeight:900,cursor:'pointer'}}>×</span>) : null}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <button onClick={handleAddFile} style={{marginTop:10, width:'100%', background:'#e3e3e9',border:'1px solid #bbb', borderRadius:5, cursor:'pointer', padding:'0.3em 0'}}>+ File</button>
-            {showFileModal && (
+      {/* Split Panel Layout - Only for IDE tab */}
+      {activeTab === TAB_IDE ? (
+        <div 
+          ref={splitContainerRef}
+          className={styles.splitContainer}
+          style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', width: '100%' }}
+        >
+          {/* Left Panel - Question */}
+          <div 
+            className={styles.questionPanel}
+            style={{ 
+              flex: `0 0 ${leftPanelWidth}%`,
+              minWidth: '250px',
+              maxWidth: '500px',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+          >
+            <div className={styles.questionContent}>
+              <div className="game-paper px-6 py-5 game-shadow-hard-lg" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div className="game-label-text text-sm mb-3" style={{ flexShrink: 0 }}>QUESTION</div>
+                <div 
+                  className="text-base font-bold text-gray-800 whitespace-pre-wrap"
+                  style={{ 
+                    flex: '1 1 auto',
+                    overflowY: 'auto',
+                    paddingRight: '0.5rem',
+                    lineHeight: '1.6'
+                  }}
+                >
+                  {question}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Resizer */}
+          <div
+            ref={resizerRef}
+            className={styles.resizer}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsResizing(true);
+            }}
+            style={{
+              flex: '0 0 8px',
+              cursor: 'col-resize',
+              backgroundColor: '#ddd',
+              position: 'relative',
+              zIndex: 10
+            }}
+          >
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '4px',
+              height: '40px',
+              backgroundColor: '#999',
+              borderRadius: '2px'
+            }} />
+          </div>
+
+          {/* Right Panel - Editor */}
+          <div 
+            className={styles.editorPanel}
+            style={{ 
+              flex: '1 1 auto',
+              minWidth: '400px',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+          >
+            <div className={styles.tabpanel} style={{display:'flex', flexDirection:'row', width:'100%', height: '100%', flex: '1 1 auto', minHeight: 0}}>
+              {/* -- Minimal file sidebar, only in IDE tab -- */}
+              <aside style={{minWidth:120, maxWidth:220, flexShrink:0, background:'#f5f5f5', borderRight:'2px solid #ddd', padding:'1rem 0.5rem', display:'flex', flexDirection:'column', alignItems:'stretch', gap:2}}>
+                <div style={{marginBottom:5, fontWeight:700, fontSize:'1.08em'}}>Files</div>
+                <ul style={{listStyle:'none',padding:0, margin:0, flex:1}}>
+                  {files.map((f, idx) => (
+                    <li key={f.name}>
+                      <button style={{
+                          display:'flex', alignItems:'center', width:'100%', fontWeight:idx===currentFileIdx?700:400, background:idx===currentFileIdx?'#ffe838':'transparent',
+                          color:'#222', border:'none', borderRadius:5, marginBottom:2, cursor:'pointer', padding:'0.23em 0.4em'}}
+                        onClick={()=>setCurrentFileIdx(idx)}
+                      >{f.name}
+                        {files.length > 1 ? (
+                          <span onClick={e => { e.stopPropagation(); handleRemoveFile(idx);}} style={{marginLeft:'auto',color:'#aa2020',paddingLeft:6, fontWeight:900,cursor:'pointer'}}>×</span>) : null}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <button onClick={handleAddFile} style={{marginTop:10, width:'100%', background:'#e3e3e9',border:'1px solid #bbb', borderRadius:5, cursor:'pointer', padding:'0.3em 0'}}>+ File</button>
+                {showFileModal && (
               <div style={{position:'fixed',left:0,top:0,width:'100vw',height:'100vh',background:'rgba(32,32,32,0.22)',zIndex:40,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={handleFileModalCancel}>
                 <form onSubmit={handleFileModalSubmit} style={{background:'#fff', minWidth:270, borderRadius:10, boxShadow:'0 8px 32px #0003', padding:'2rem 1.6rem', zIndex:50, display:'flex',flexDirection:'column', gap:14}} onClick={e => e.stopPropagation()}>
                   <label htmlFor="newfileinput" style={{fontWeight:700, fontSize:'1.11em', marginBottom:4}}>New File Name</label>
@@ -372,13 +511,11 @@ const TechnicalPractical: React.FC = () => {
                   </div>
                 </div>
               </div>
-            )}
-          </aside>
-        )}
-        {activeTab === TAB_IDE && (
-          <div className="px-4 py-2" style={{flex:1, minWidth:0, width:'auto', display:'flex', flexDirection:'column', minHeight:0}}>
-            {/* LANG DROPDOWN RESTORED */}
-            <div className="mb-2 flex items-center gap-2" style={{ flexShrink: 0 }}>
+                )}
+              </aside>
+            <div className="px-4 py-2" style={{flex:1, minWidth:0, width:'auto', display:'flex', flexDirection:'column', minHeight:0}}>
+              {/* LANG DROPDOWN RESTORED */}
+              <div className="mb-2 flex items-center gap-2" style={{ flexShrink: 0 }}>
               <label className="font-bold text-gray-700">Code Editor:</label>
               <select
                 className="game-sharp px-3 py-1 border-2 border-gray-600 bg-white rounded text-base font-bold"
@@ -458,8 +595,12 @@ string | null = null;
               </div>
             </div>
           </div>
-        )}
-        {activeTab === TAB_TEXT && (
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className={styles.tabpanel} style={{display:'flex', flexDirection:'row', width:'100%', flex: '1 1 auto', minHeight: 0}}>
+          {activeTab === TAB_TEXT && (
           <div className="px-4 py-2 w-full">
             <label className="block font-bold mb-2 text-gray-700">Text Answer:</label>
             <textarea
@@ -486,7 +627,8 @@ string | null = null;
             </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       <div className="flex justify-center mt-4" style={{ flexShrink: 0 }}>
         <button

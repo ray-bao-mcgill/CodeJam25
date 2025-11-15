@@ -40,7 +40,80 @@
   box-shadow: 0 2px 16px rgba(0,0,0,0.05), 0 1.5px 0px #fffbe6 inset;
   padding-bottom: 2.5rem;
   min-height: 0;
+  min-width: 0; /* Prevent flex overflow */
   overflow-x: hidden;
+}
+.splitContainer {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+.questionPanel {
+  background: #fdfaee;
+  border-radius: 8px 0 0 8px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.05), 0 1.5px 0px #fffbe6 inset;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.questionContent {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+}
+.resizer {
+  background: #ddd;
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  transition: background-color 0.2s;
+}
+.resizer:hover {
+  background: #bbb;
+}
+.resizer:active {
+  background: #999;
+}
+.editorPanel {
+  background: #fdfaee;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.05), 0 1.5px 0px #fffbe6 inset;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Allow flex item to shrink below content size */
+}
+@media (max-width: 1024px) {
+  .splitContainer {
+    flex-direction: column;
+  }
+  .questionPanel {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 8px 8px 0 0;
+    max-height: 40vh;
+  }
+  .editorPanel {
+    width: 100% !important;
+    border-radius: 0 0 8px 8px;
+  }
+  .resizer {
+    width: 100%;
+    height: 8px;
+    cursor: row-resize;
+  }
+  .resizer > div {
+    width: 40px;
+    height: 4px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
 }
 .editorWrapper {
   width: 100%;
@@ -50,6 +123,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 .editorContainer {
   width: 100%;
@@ -60,6 +134,7 @@
   background: #1e1e20;
   overflow: hidden;
   flex: 1 1 auto;
+  min-width: 0; /* Prevent overflow */
 }
 @media (max-width: 768px) {
   .editorContainer {
