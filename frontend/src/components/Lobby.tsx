@@ -54,13 +54,13 @@ export default function Lobby() {
     ws.onopen = () => {
       console.log("✓ WebSocket connected");
       // Send ping every 20 seconds
-      const pingInterval = setInterval(() => {
+      const pingInterval: number = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: "ping" }));
         } else {
           clearInterval(pingInterval);
         }
-      }, 20000);
+      }, 20000) as unknown as number;
       ws._pingInterval = pingInterval;
     };
 
