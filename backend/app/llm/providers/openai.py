@@ -1,7 +1,7 @@
 import httpx
-from ..client import LLMClient, LLMTextRequest, LLMTextResponse, LLMUsage
+from ..client import LLMTextRequest, LLMTextResponse, LLMUsage
 
-class OpenAIClient(LLMClient):
+class OpenAIClient:
     def __init__(self, api_key):
         self._api_key = api_key
         self._base_url = "https://api.openai.com/v1"
