@@ -12,6 +12,27 @@ export default {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+  		keyframes: {
+  			stampIn: {
+  				'0%': { opacity: '0', transform: 'scale(2) rotate(15deg)' },
+  				'50%': { opacity: '1', transform: 'scale(0.9) rotate(-5deg)' },
+  				'100%': { opacity: '1', transform: 'scale(1) rotate(0deg)' }
+  			},
+  			stampInVS: {
+  				'0%': { opacity: '0', transform: 'translateX(-50%) scale(2) rotate(15deg)' },
+  				'50%': { opacity: '1', transform: 'translateX(-50%) scale(0.9) rotate(-5deg)' },
+  				'100%': { opacity: '1', transform: 'translateX(-50%) scale(1) rotate(0deg)' }
+  			},
+  			fadeInUp: {
+  				'0%': { opacity: '0', transform: 'translateY(20px)' },
+  				'100%': { opacity: '1', transform: 'translateY(0)' }
+  			}
+  		},
+  		animation: {
+  			'stamp-in': 'stampIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+  			'stamp-in-vs': 'stampInVS 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+  			'fade-in-up': 'fadeInUp 0.6s ease-out both'
+  		},
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
