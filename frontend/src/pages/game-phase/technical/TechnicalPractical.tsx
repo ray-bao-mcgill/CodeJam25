@@ -377,6 +377,21 @@ const TechnicalPractical: React.FC = () => {
         )}
         {activeTab === TAB_IDE && (
           <div className="px-4 py-2" style={{width:'100%', display:'flex', flexDirection:'column'}}>
+            {/* LANG DROPDOWN RESTORED */}
+            <div className="mb-2 flex items-center gap-2">
+              <label className="font-bold text-gray-700">Code Editor:</label>
+              <select
+                className="game-sharp px-3 py-1 border-2 border-gray-600 bg-white rounded text-base font-bold"
+                style={{ minWidth: 120 }}
+                value={files[currentFileIdx].language}
+                onChange={e => handleChangeLanguage(e.target.value)}
+                aria-label="Choose editor language"
+              >
+                {SUPPORTED_LANGS.map(lang => (
+                  <option value={lang.value} key={lang.value}>{lang.label}</option>
+                ))}
+              </select>
+            </div>
             <div style={{flexGrow:0}}>
               <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
                 <button
