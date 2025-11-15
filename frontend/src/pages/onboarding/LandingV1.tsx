@@ -21,6 +21,20 @@ const LandingV1: React.FC = () => {
     animation: `fadeIn 0.6s ease-out ${index * 0.1}s both`,
   });
 
+  // Light pulse styles for HIRE (indices 0-3) and FIRE (indices 5-8)
+  const lightPulseStyle = (index: number) => {
+    // HIRE letters: H=0, I=1, R=2, E=3
+    // FIRE letters: F=5, I=6, R=7, E=8
+    const delay = index * 0.08; // 0.08s between each letter for smooth wave
+    return {
+      display: "inline-block",
+      position: "relative" as const,
+      animation: `fadeIn 0.6s ease-out ${
+        index * 0.1
+      }s both, lightSweep 8s ease-in-out ${5 + delay}s infinite`,
+    };
+  };
+
   return (
     <>
       <style>{`
@@ -47,6 +61,29 @@ const LandingV1: React.FC = () => {
           to {
             opacity: 1;
             transform: translateY(0);
+          }
+        }
+        
+        @keyframes lightSweep {
+          0% {
+            filter: brightness(1);
+            text-shadow: none;
+          }
+          5% {
+            filter: brightness(1.4);
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.5), 0 0 25px rgba(255, 255, 255, 0.3);
+          }
+          10% {
+            filter: brightness(1.4);
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.5), 0 0 25px rgba(255, 255, 255, 0.3);
+          }
+          15% {
+            filter: brightness(1);
+            text-shadow: none;
+          }
+          100% {
+            filter: brightness(1);
+            text-shadow: none;
           }
         }
         
@@ -91,16 +128,16 @@ const LandingV1: React.FC = () => {
             >
               <h1 className="game-title text-7xl sm:text-8xl font-black leading-[1.05] tracking-tight">
                 <span style={{ display: "inline-block" }}>
-                  <span style={{ color: "#138a36", ...letterStaggerStyle(0) }}>
+                  <span style={{ color: "#138a36", ...lightPulseStyle(0) }}>
                     H
                   </span>
-                  <span style={{ color: "#138a36", ...letterStaggerStyle(1) }}>
+                  <span style={{ color: "#138a36", ...lightPulseStyle(1) }}>
                     I
                   </span>
-                  <span style={{ color: "#138a36", ...letterStaggerStyle(2) }}>
+                  <span style={{ color: "#138a36", ...lightPulseStyle(2) }}>
                     R
                   </span>
-                  <span style={{ color: "#138a36", ...letterStaggerStyle(3) }}>
+                  <span style={{ color: "#138a36", ...lightPulseStyle(3) }}>
                     E
                   </span>
                 </span>
@@ -115,16 +152,24 @@ const LandingV1: React.FC = () => {
                   OR
                 </span>
                 <span style={{ display: "inline-block" }}>
-                  <span style={{ color: "#ff6600", ...letterStaggerStyle(5) }}>
+                  <span
+                    style={{ color: "var(--game-red)", ...lightPulseStyle(5) }}
+                  >
                     F
                   </span>
-                  <span style={{ color: "#ff6600", ...letterStaggerStyle(6) }}>
+                  <span
+                    style={{ color: "var(--game-red)", ...lightPulseStyle(6) }}
+                  >
                     I
                   </span>
-                  <span style={{ color: "#ff6600", ...letterStaggerStyle(7) }}>
+                  <span
+                    style={{ color: "var(--game-red)", ...lightPulseStyle(7) }}
+                  >
                     R
                   </span>
-                  <span style={{ color: "#ff6600", ...letterStaggerStyle(8) }}>
+                  <span
+                    style={{ color: "var(--game-red)", ...lightPulseStyle(8) }}
+                  >
                     E
                   </span>
                 </span>
