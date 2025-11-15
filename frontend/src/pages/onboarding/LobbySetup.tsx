@@ -15,12 +15,23 @@ const LobbySetup: React.FC = () => {
   const [showCustomRoleInput, setShowCustomRoleInput] = useState(false)
   const [customRoleText, setCustomRoleText] = useState('')
   const [customRoles, setCustomRoles] = useState<string[]>([])
+  const [isVisible, setIsVisible] = useState(false)
 
   const {
     playerName: hookPlayerName,
     setPlayerName,
     createLobby,
   } = useLobby()
+
+  useEffect(() => {
+    // Reset visibility state and trigger fade in on mount
+    setIsVisible(false)
+    // Small delay to ensure initial state is rendered before animation
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+    }, 10)
+    return () => clearTimeout(timer)
+  }, [])
 
   // Sync local state with hook state only on mount, and only if local is empty
   useEffect(() => {
@@ -97,10 +108,11 @@ const LobbySetup: React.FC = () => {
       const result = await createLobby(playerName.trim())
       
       if (result?.success) {
+        setIsVisible(false)
         // Navigate to waiting room after creating lobby
         setTimeout(() => {
           navigate('/lobby-waiting', { replace: true })
-        }, 100)
+        }, 1000) // Wait for shrink/fade animation to complete
       } else {
         setError(result?.error || 'Failed to create lobby')
         setIsLoading(false)
@@ -114,22 +126,36 @@ const LobbySetup: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen p-6 game-bg relative overflow-hidden">
-      {/* Back Button - Fixed to top left of screen */}
+      {/* Back Button - Fixed to top left of screen - shrinks with bounce */}
       <button
-        onClick={() => navigate('/lobby-creation')}
-        className="fixed top-4 left-4 z-50 game-sharp game-paper px-4 py-2 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover"
+        onClick={() => {
+          setIsVisible(false)
+          setTimeout(() => {
+            navigate('/lobby-creation')
+          }, 1000)
+        }}
+        className="fixed top-4 left-4 z-50 game-sharp game-paper px-4 py-2 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover transition-all duration-1000"
         style={{
           border: '3px solid var(--game-text-primary)',
           color: 'var(--game-text-primary)',
-          transform: 'rotate(-1deg)'
+          transform: isVisible ? 'rotate(-1deg) scale(1)' : 'rotate(-1deg) scale(0.3)',
+          opacity: isVisible ? 1 : 0,
+          transition: 'transform 1s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 1s ease-out'
         }}
       >
         ← BACK
       </button>
 
       <div className="w-full max-w-6xl mx-auto relative" style={{ minHeight: 'calc(100vh - 3rem)', paddingBottom: '100px' }}>
-        {/* Title - Centered */}
-        <div className="relative z-10 flex justify-center mb-6">
+        {/* Title - Centered - shrinks with bounce */}
+        <div 
+          className="relative z-10 flex justify-center mb-6 transition-all duration-1000"
+          style={{
+            transform: isVisible ? 'scale(1)' : 'scale(0.3)',
+            opacity: isVisible ? 1 : 0,
+            transition: 'transform 1s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 1s ease-out'
+          }}
+        >
           <div className="game-paper px-12 py-8 game-shadow-hard-lg game-hand-drawn inline-block">
             <h1 className="game-title text-4xl">
               CREATE LOBBY
@@ -137,9 +163,14 @@ const LobbySetup: React.FC = () => {
           </div>
         </div>
         
-        {/* Name Input - Centered, stays in place */}
+        {/* Name Input - Centered, stays in place - BOUNCE FADE IN */}
         <div 
           className={`flex flex-col items-center mb-6 ${nameFieldExpanded ? 'expanded' : ''}`}
+          style={{
+            transform: isVisible ? 'scale(1)' : 'scale(0.8)',
+            opacity: isVisible ? 1 : 0,
+            transition: 'transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.6s ease-out'
+          }}
           onClick={() => {
             if (mode && !nameFieldExpanded) {
               setNameFieldExpanded(true)
@@ -175,8 +206,15 @@ const LobbySetup: React.FC = () => {
           />
         </div>
 
-        {/* Mode Selection */}
-        <div className="flex justify-center gap-6 flex-wrap lobby-setup-mode-buttons">
+        {/* Mode Selection - BOUNCE FADE IN */}
+        <div 
+          className="flex justify-center gap-6 flex-wrap lobby-setup-mode-buttons"
+          style={{
+            transform: isVisible ? 'scale(1)' : 'scale(0.8)',
+            opacity: isVisible ? 1 : 0,
+            transition: 'transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.6s ease-out'
+          }}
+        >
             <button
               onClick={() => {
                 setMode('role')
@@ -225,9 +263,16 @@ const LobbySetup: React.FC = () => {
             </button>
           </div>
 
-          {/* Role Mode: Show Role and Level Selection - Row by row */}
+          {/* Role Mode: Show Role and Level Selection - Row by row - NO BOUNCE (role buttons themselves handle their own animation) */}
           {mode === 'role' && (
-            <div className="mt-6 space-y-4">
+            <div 
+              className="mt-6 space-y-4"
+              style={{
+                transform: isVisible ? 'scale(1)' : 'scale(0.8)',
+                opacity: isVisible ? 1 : 0,
+                transition: 'transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.6s ease-out'
+              }}
+            >
               {/* Role Selection Row */}
               <div className="lobby-setup-row" style={{ animationDelay: '0.2s' }}>
                 <div className="game-label-text text-sm text-center mb-2" style={{ animation: 'fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards', opacity: 0 }}>SELECT ROLE</div>
@@ -369,37 +414,53 @@ const LobbySetup: React.FC = () => {
 
           {/* Description Mode: Show Job Posting Input */}
           {mode === 'description' && (
-            <div className="mt-6 lobby-setup-row">
-              <div 
-                className="game-label-text text-sm mb-2"
-                style={{ 
-                  animation: 'fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards',
-                  opacity: 0
-                }}
-              >
-                PASTE JOB POSTING LINK
+            <div 
+              className="mt-6"
+              style={{
+                transform: isVisible ? 'scale(1)' : 'scale(0.8)',
+                opacity: isVisible ? 1 : 0,
+                transition: 'transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.6s ease-out'
+              }}
+            >
+              <div className="lobby-setup-row">
+                <div 
+                  className="game-label-text text-sm mb-2"
+                  style={{ 
+                    animation: 'fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards',
+                    opacity: 0
+                  }}
+                >
+                  PASTE JOB POSTING LINK
+                </div>
+                <textarea
+                  placeholder="PASTE JOB POSTING LINK HERE (e.g., https://example.com/job-posting)..."
+                  value={jobDescriptionText}
+                  onChange={(e) => setJobDescriptionText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && e.ctrlKey && !isLoading && handleCreateLobby()}
+                  className="game-sharp game-paper w-full text-left text-sm py-3 px-4 font-bold game-shadow-hard"
+                  style={{
+                    border: '6px solid var(--game-text-primary)',
+                    color: 'var(--game-text-primary)',
+                    height: '100px',
+                    resize: 'none',
+                    animation: 'fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards',
+                    opacity: 0
+                  }}
+                  autoFocus
+                />
               </div>
-              <textarea
-                placeholder="PASTE JOB POSTING LINK HERE (e.g., https://example.com/job-posting)..."
-                value={jobDescriptionText}
-                onChange={(e) => setJobDescriptionText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && e.ctrlKey && !isLoading && handleCreateLobby()}
-                className="game-sharp game-paper w-full text-left text-sm py-3 px-4 font-bold game-shadow-hard"
-                style={{
-                  border: '6px solid var(--game-text-primary)',
-                  color: 'var(--game-text-primary)',
-                  height: '100px',
-                  resize: 'none',
-                  animation: 'fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards',
-                  opacity: 0
-                }}
-                autoFocus
-              />
             </div>
           )}
 
-          {/* Create Lobby Button - Fixed bottom */}
-          <div className="absolute bottom-6 left-0 right-0 flex justify-center">
+          {/* Create Lobby Button - Fixed bottom - BOUNCE FADE IN */}
+          <div 
+            className="absolute bottom-6 left-0 right-0 flex justify-center"
+            style={{
+              transform: isVisible ? 'scale(1)' : 'scale(0.8)',
+              opacity: isVisible ? 1 : 0,
+              transition: 'transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.6s ease-out'
+            }}
+          >
             <button
               onClick={handleCreateLobby}
               disabled={
@@ -407,7 +468,8 @@ const LobbySetup: React.FC = () => {
                 !playerName?.trim() ||
                 !mode ||
                 (mode === 'role' && (!selectedRole?.trim() || !selectedLevel?.trim())) ||
-                (mode === 'description' && !jobDescriptionText?.trim())
+                (mode === 'description' && !jobDescriptionText?.trim()) ||
+                !isVisible
               }
               className={`game-sharp px-10 py-4 text-lg font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover ${
                 (!isLoading && 
@@ -442,7 +504,13 @@ const LobbySetup: React.FC = () => {
           </div>
 
           {error && (
-            <div className="absolute top-24 left-1/2 transform -translate-x-1/2 game-sticky-note px-4 py-3 game-shadow-hard-sm z-20">
+            <div 
+              className="absolute top-24 left-1/2 transform -translate-x-1/2 game-sticky-note px-4 py-3 game-shadow-hard-sm z-20"
+              style={{
+                opacity: isVisible ? 1 : 0,
+                transition: 'opacity 0.3s ease-out'
+              }}
+            >
               <div className="text-sm font-black uppercase text-red-600">
                 ⚠️ {error}
               </div>

@@ -12,6 +12,18 @@ const LobbyWaitingRoomPage: React.FC = () => {
   const [gameStarted, setGameStarted] = useState(false)
   const [isChecking, setIsChecking] = useState(true)
   const [lobbyExists, setLobbyExists] = useState<boolean | null>(null)
+  const [isVisible, setIsVisible] = useState(false)
+  const isLeavingRef = useRef(false)
+
+  useEffect(() => {
+    // Reset visibility state and trigger fade in on mount
+    setIsVisible(false)
+    // Small delay to ensure initial state is rendered before animation
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+    }, 10)
+    return () => clearTimeout(timer)
+  }, [])
 
   const {
     lobbyId,
@@ -156,6 +168,10 @@ const LobbyWaitingRoomPage: React.FC = () => {
   const [showDisconnectNotification, setShowDisconnectNotification] = useState(false);
 
   const handleDisconnect = useCallback((wasUserInitiated: boolean) => {
+    // Don't handle disconnect if we're already leaving intentionally
+    if (isLeavingRef.current) {
+      return;
+    }
     if (!wasUserInitiated) {
       console.log('Unexpected disconnect, showing notification and redirecting')
       setShowDisconnectNotification(true);
@@ -205,13 +221,17 @@ const LobbyWaitingRoomPage: React.FC = () => {
   }
 
   const handleLeaveLobby = async () => {
+    isLeavingRef.current = true // Mark that we're intentionally leaving
+    setIsVisible(false)
     await leaveLobby()
     setGameStarted(false)
     if (wsRefRef.current?.current) {
       // Mark as user-initiated before closing
       wsRefRef.current.current.close(1000) // Normal closure code indicates user-initiated
     }
-    navigate('/lobby-creation', { replace: true })
+    setTimeout(() => {
+      navigate('/lobby-join', { replace: true })
+    }, 1000) // Wait for shrink/fade animation to complete
   }
 
   // Don't render anything if we're still checking
@@ -232,16 +252,24 @@ const LobbyWaitingRoomPage: React.FC = () => {
   // Lobby waiting room - render if we have lobby data (even if existence check failed due to network)
   if (joined && lobby && (lobbyExists === true || lobbyExists === null)) {
     return (
-      <LobbyWaitingRoom
-        lobby={lobby}
-        onStartGame={handleStartGame}
-        onLeaveLobby={handleLeaveLobby}
-        playerId={playerId}
-        playerName={playerName}
-        onLobbyUpdate={handleLobbyUpdate}
-        showDisconnectNotification={showDisconnectNotification}
-        onDismissDisconnect={() => setShowDisconnectNotification(false)}
-      />
+      <div
+        style={{
+          transform: isVisible ? 'scale(1)' : 'scale(0.3)',
+          opacity: isVisible ? 1 : 0,
+          transition: 'transform 1s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 1s ease-out'
+        }}
+      >
+        <LobbyWaitingRoom
+          lobby={lobby}
+          onStartGame={handleStartGame}
+          onLeaveLobby={handleLeaveLobby}
+          playerId={playerId}
+          playerName={playerName}
+          onLobbyUpdate={handleLobbyUpdate}
+          showDisconnectNotification={showDisconnectNotification}
+          onDismissDisconnect={() => setShowDisconnectNotification(false)}
+        />
+      </div>
     )
   }
 

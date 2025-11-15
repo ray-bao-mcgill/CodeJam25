@@ -29,6 +29,23 @@ export default function LobbyWaitingRoom({
   const [transferring, setTransferring] = useState<string | null>(null);
   const [kicking, setKicking] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
+  const [startButtonVisible, setStartButtonVisible] = useState<boolean>(false);
+  const [isStartingGame, setIsStartingGame] = useState<boolean>(false);
+
+  // Track when START GAME button should appear and animate it in
+  useEffect(() => {
+    const shouldShow = lobby.players.length >= 2 && lobby.status === "waiting";
+    if (shouldShow) {
+      // Reset and then animate in
+      setStartButtonVisible(false);
+      const timer = setTimeout(() => {
+        setStartButtonVisible(true);
+      }, 10);
+      return () => clearTimeout(timer);
+    } else {
+      setStartButtonVisible(false);
+    }
+  }, [lobby.players.length, lobby.status]);
 
   const getInviteUrl = (): string => {
     if (!lobby?.id) return '';
@@ -37,12 +54,17 @@ export default function LobbyWaitingRoom({
   };
 
   const copyInviteUrl = async (fromModal: boolean = false) => {
-    const inviteUrl = getInviteUrl();
-    if (inviteUrl) {
-      await navigator.clipboard.writeText(inviteUrl);
-      if (fromModal) {
+    if (fromModal) {
+      // Copy full URL from modal
+      const inviteUrl = getInviteUrl();
+      if (inviteUrl) {
+        await navigator.clipboard.writeText(inviteUrl);
         setCopiedFromModal(true);
-      } else {
+      }
+    } else {
+      // Copy just the lobby ID from the lobby ID section
+      if (lobby?.id) {
+        await navigator.clipboard.writeText(lobby.id);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }
@@ -216,7 +238,13 @@ export default function LobbyWaitingRoom({
     <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-6 game-bg">
       <div className="w-full max-w-5xl space-y-6 sm:space-y-8 relative">
         {/* Header */}
-        <div className="text-center space-y-3">
+        <div 
+          className="text-center space-y-3"
+          style={{
+            opacity: isStartingGame ? 0 : 1,
+            transition: 'opacity 0.5s ease-out'
+          }}
+        >
           <div className="game-paper px-8 py-4 sm:px-12 sm:py-6 game-shadow-hard-lg game-hand-drawn inline-block">
             <h1 className="game-title text-3xl sm:text-4xl">
               LOBBY WAITING ROOM
@@ -228,11 +256,14 @@ export default function LobbyWaitingRoom({
         </div>
 
         {/* Lobby ID Section */}
-        <div className="game-paper px-3 py-2 sm:px-4 sm:py-2.5 game-shadow-hard flex items-center justify-center gap-2 sm:gap-3 flex-wrap mx-auto"
+        <div 
+          className="game-paper px-3 py-2 sm:px-4 sm:py-2.5 game-shadow-hard flex items-center justify-center gap-2 sm:gap-3 flex-wrap mx-auto"
           style={{
             border: '4px solid var(--game-text-primary)',
             maxWidth: '900px',
-            width: '100%'
+            width: '100%',
+            opacity: isStartingGame ? 0 : 1,
+            transition: 'opacity 0.5s ease-out'
           }}
         >
           <div className="game-label-text text-xs sm:text-sm">LOBBY ID</div>
@@ -257,7 +288,13 @@ export default function LobbyWaitingRoom({
         </div>
 
         {error && (
-          <div className="game-sticky-note px-4 py-2 sm:px-6 sm:py-3 game-shadow-hard-sm">
+          <div 
+            className="game-sticky-note px-4 py-2 sm:px-6 sm:py-3 game-shadow-hard-sm"
+            style={{
+              opacity: isStartingGame ? 0 : 1,
+              transition: 'opacity 0.5s ease-out'
+            }}
+          >
             <div className="text-sm sm:text-base font-black uppercase text-red-600">
               ⚠️ {error}
             </div>
@@ -265,7 +302,15 @@ export default function LobbyWaitingRoom({
         )}
 
         {/* Players List */}
-        <div className="space-y-3 sm:space-y-4 mx-auto" style={{ maxWidth: '900px', width: '100%' }}>
+        <div 
+          className="space-y-3 sm:space-y-4 mx-auto" 
+          style={{ 
+            maxWidth: '900px', 
+            width: '100%',
+            opacity: isStartingGame ? 0 : 1,
+            transition: 'opacity 0.5s ease-out'
+          }}
+        >
           <div className="game-label-text text-base sm:text-lg text-center">
             PLAYERS ({lobby.players.length}/8)
           </div>
@@ -417,38 +462,55 @@ export default function LobbyWaitingRoom({
         {/* Action Buttons */}
         <div className="flex flex-col items-center gap-4 sm:gap-6 pt-4 sm:pt-6">
           {lobby.players.length >= 2 && lobby.status === "waiting" && (
-            <button
-              onClick={onStartGame}
-              disabled={!isOwner}
-              className={`game-sharp px-8 py-4 sm:px-12 sm:py-5 text-base sm:text-lg font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover ${
-                isOwner ? 'game-block-green' : 'game-paper'
-              }`}
+            <div
               style={{
-                border: '6px solid var(--game-text-primary)',
-                color: isOwner ? 'var(--game-text-white)' : 'var(--game-text-dim)',
-                letterSpacing: '0.15em',
-                cursor: isOwner ? 'pointer' : 'not-allowed',
+                transform: startButtonVisible ? 'scale(1)' : 'scale(0.8)',
+                opacity: startButtonVisible ? 1 : 0,
+                transition: 'transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.6s ease-out',
                 width: '100%',
-                maxWidth: '400px',
-                opacity: isOwner ? 1 : 0.5
+                maxWidth: '400px'
               }}
-              title={
-                !isOwner
-                  ? "Only the lobby owner can start the game"
-                  : "Start the game"
-              }
             >
-              {isOwner ? "START GAME 👑" : "START GAME (OWNER ONLY)"}
-            </button>
+              <button
+                onClick={() => {
+                  setIsStartingGame(true);
+                  setShowInviteModal(false); // Close invite modal if open
+                  onStartGame();
+                }}
+                disabled={!isOwner || isStartingGame}
+                className={`game-sharp px-8 py-4 sm:px-12 sm:py-5 text-base sm:text-lg font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover ${
+                  isOwner ? 'game-block-green' : 'game-paper'
+                }`}
+                style={{
+                  border: '6px solid var(--game-text-primary)',
+                  color: isOwner ? 'var(--game-text-white)' : 'var(--game-text-dim)',
+                  letterSpacing: '0.15em',
+                  cursor: (isOwner && !isStartingGame) ? 'pointer' : 'not-allowed',
+                  width: '100%',
+                  opacity: isOwner ? 1 : 0.5
+                }}
+                title={
+                  !isOwner
+                    ? "Only the lobby owner can start the game"
+                    : "Start the game"
+                }
+              >
+                {isOwner ? "START GAME 👑" : "START GAME (OWNER ONLY)"}
+              </button>
+            </div>
           )}
           
           <button
             onClick={onLeaveLobby}
+            disabled={isStartingGame}
             className="game-sharp game-paper px-8 py-3 sm:px-10 sm:py-4 text-sm sm:text-base font-black uppercase tracking-widest game-shadow-hard game-button-hover"
             style={{
               border: '4px solid var(--game-text-primary)',
               color: 'var(--game-text-primary)',
-              letterSpacing: '0.1em'
+              letterSpacing: '0.1em',
+              opacity: isStartingGame ? 0 : 1,
+              transition: 'opacity 0.5s ease-out',
+              cursor: isStartingGame ? 'not-allowed' : 'pointer'
             }}
           >
             LEAVE LOBBY
@@ -456,7 +518,13 @@ export default function LobbyWaitingRoom({
         </div>
 
         {/* Decorative sticky notes */}
-        <div className="absolute top-16 right-2 sm:top-20 sm:right-4 game-sticky-note-alt px-2 py-1.5 sm:px-3 sm:py-2 game-shadow-hard-sm opacity-50">
+        <div 
+          className="absolute top-16 right-2 sm:top-20 sm:right-4 game-sticky-note-alt px-2 py-1.5 sm:px-3 sm:py-2 game-shadow-hard-sm opacity-50"
+          style={{
+            opacity: isStartingGame ? 0 : 0.5,
+            transition: 'opacity 0.5s ease-out'
+          }}
+        >
           <div className="text-xs font-bold uppercase">Ready?</div>
         </div>
       </div>
@@ -491,12 +559,14 @@ export default function LobbyWaitingRoom({
       )}
 
       {/* Invite Modal Overlay */}
-      {showInviteModal && (
+      {showInviteModal && !isStartingGame && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{
             background: 'rgba(0, 0, 0, 0.75)',
-            animation: 'fadeIn 0.3s ease-out'
+            animation: 'fadeIn 0.3s ease-out',
+            opacity: isStartingGame ? 0 : 1,
+            transition: 'opacity 0.5s ease-out'
           }}
           onClick={() => setShowInviteModal(false)}
         >
