@@ -2,7 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 import json
 import asyncio
-from lobby_manager import lobby_manager
+from lobby.manager import lobby_manager
 
 router = APIRouter()
 
@@ -15,6 +15,15 @@ class JoinLobbyRequest(BaseModel):
 class LeaveLobbyRequest(BaseModel):
     player_id: str = None
     player_name: str = None
+
+
+class TransferOwnershipRequest(BaseModel):
+    new_owner_id: str
+    current_owner_id: str
+
+
+class StartGameRequest(BaseModel):
+    player_id: str
 
 
 # Root route removed - frontend is served at / by main.py
@@ -77,9 +86,23 @@ async def join_lobby(request: JoinLobbyRequest):
 
 
 @router.post("/api/lobby/{lobby_id}/start")
-async def start_game(lobby_id: str):
-    """Start the game"""
-    success, message = lobby_manager.start_game(lobby_id)
+async def start_game(lobby_id: str, request: StartGameRequest):
+    """Start the game - requires owner player_id"""
+    success, message = lobby_manager.start_game(lobby_id, request.player_id)
+    if success:
+        await lobby_manager.broadcast_lobby_update(lobby_id)
+        return {"success": True, "message": message}
+    return {"success": False, "message": message}
+
+
+@router.post("/api/lobby/{lobby_id}/transfer-ownership")
+async def transfer_ownership(lobby_id: str, request: TransferOwnershipRequest):
+    """Transfer ownership to another player"""
+    success, message = lobby_manager.transfer_ownership(
+        lobby_id, 
+        request.new_owner_id, 
+        request.current_owner_id
+    )
     if success:
         await lobby_manager.broadcast_lobby_update(lobby_id)
         return {"success": True, "message": message}
@@ -156,4 +179,3 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
         lobby_manager.remove_connection(lobby_id, websocket)
         # Broadcast updated state after disconnection
         await lobby_manager.broadcast_lobby_update(lobby_id)
-

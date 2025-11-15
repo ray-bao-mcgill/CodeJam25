@@ -15,22 +15,24 @@ import TechnicalTheory from "./pages/game-phase/TechnicalTheory";
 import TechnicalPractical from "./pages/game-phase/TechnicalPractical";
 import WinLose from "./pages/WinLose";
 import Analytics from "./pages/Analytics";
+import DevTools from "./pages/DevTools";
+import DatabaseAdmin from "./pages/DevTools/DatabaseAdmin";
 
 const App: React.FC = () => {
   return (
     <div className="min-h-screen">
       <Routes>
-        <Route
-          path="/"
-          element={<Navigate to="/landing" replace />}
-        />
+        <Route path="/" element={<Navigate to="/landing" replace />} />
         <Route path="/landing" element={<Landing />} />
         <Route path="/lobby-creation" element={<LobbyCreation />} />
         <Route path="/lobby-join" element={<LobbyJoin />} />
         <Route path="/job-input" element={<JobInputSelection />} />
         <Route path="/lobby-setup" element={<LobbySetup />} />
         <Route path="/waiting-room" element={<WaitingRoom />} />
-        <Route path="/round-start-counter" element={<RoundStartCounter />} />
+        <Route
+          path="/round-start-counter/:type"
+          element={<RoundStartCounter />}
+        />
         <Route
           path="/behavioural-question"
           element={<BehaviouralQuestion />}
@@ -41,9 +43,12 @@ const App: React.FC = () => {
         <Route path="/technical-practical" element={<TechnicalPractical />} />
         <Route path="/win-lose" element={<WinLose />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/dev" element={<DevTools />} />
+        <Route path="/admin" element={<DatabaseAdmin />} />
       </Routes>
     </div>
   );
 };
 
 export default App;
+
