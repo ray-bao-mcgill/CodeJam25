@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import styles from './TechnicalPractical.module.css';
 
 const TAB_IDE = 'IDE' as const;
@@ -7,11 +7,81 @@ const TAB_DRAW = 'DRAW' as const;
 type TabType = typeof TAB_IDE | typeof TAB_TEXT | typeof TAB_DRAW;
 const TAB_OPTIONS: TabType[] = [TAB_IDE, TAB_TEXT, TAB_DRAW];
 
+const CANVAS_WIDTH = 540;
+const CANVAS_HEIGHT = 320;
+
 const TechnicalPractical: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>(TAB_IDE);
   const [codeValue, setCodeValue] = useState('');
   const [textValue, setTextValue] = useState('');
-  const [drawData, setDrawData] = useState<string | null>(null); // stub for canvas
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawing = useRef(false);
+  const lastPoint = useRef<{x:number, y:number} | null>(null);
+
+  // attach event listeners for mouse draw
+  useEffect(() => {
+    if (activeTab !== TAB_DRAW) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#222';
+    let mouseDownListener: (e: MouseEvent) => void;
+    let mouseMoveListener: (e: MouseEvent) => void;
+    let mouseUpListener: (e: MouseEvent) => void;
+    let mouseLeaveListener: (e: MouseEvent) => void;
+
+    mouseDownListener = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      lastPoint.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+      drawing.current = true;
+    };
+    mouseMoveListener = (e) => {
+      if (!drawing.current) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      if (lastPoint.current && ctx) {
+        ctx.beginPath();
+        ctx.moveTo(lastPoint.current.x, lastPoint.current.y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        lastPoint.current = { x, y };
+      }
+    };
+    mouseUpListener = () => {
+      drawing.current = false;
+      lastPoint.current = null;
+    };
+    mouseLeaveListener = () => {
+      drawing.current = false;
+      lastPoint.current = null;
+    };
+    canvas.addEventListener('mousedown', mouseDownListener);
+    canvas.addEventListener('mousemove', mouseMoveListener);
+    window.addEventListener('mouseup', mouseUpListener);
+    canvas.addEventListener('mouseleave', mouseLeaveListener);
+    return () => {
+      canvas.removeEventListener('mousedown', mouseDownListener);
+      canvas.removeEventListener('mousemove', mouseMoveListener);
+      window.removeEventListener('mouseup', mouseUpListener);
+      canvas.removeEventListener('mouseleave', mouseLeaveListener);
+    };
+  }, [activeTab]);
+
+  // Clear canvas on tab switch
+  useEffect(() => {
+    if (activeTab !== TAB_DRAW && canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+  }, [activeTab]);
 
   return (
     <div className="game-bg min-h-screen w-full p-8">
@@ -82,13 +152,13 @@ const TechnicalPractical: React.FC = () => {
             <label className="block font-bold mb-2 text-gray-700">Whiteboard:</label>
             <div className={styles.drawcanvascontainer}>
               <canvas
+                ref={canvasRef}
                 className={styles.drawcanvas}
-                width={540}
-                height={320}
+                width={CANVAS_WIDTH}
+                height={CANVAS_HEIGHT}
                 style={{ border: '4px solid #222', background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}
-                // This canvas is placeholder — implement drawing logic later!
               />
-              <div className="mt-2 text-xs text-gray-500">🖊 Drawing coming soon...</div>
+              <div className="mt-2 text-xs text-gray-500">🖊 Draw with your mouse!</div>
             </div>
           </div>
         )}
