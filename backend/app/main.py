@@ -1,11 +1,13 @@
 from fastapi import FastAPI
 import os
+from dotenv import load_dotenv
 
 from .llm.routes import create_llm_router
 from .llm.providers.openai import OpenAIClient
 
 
 def create_app() -> FastAPI:
+	load_dotenv()  # load variables from a local .env if present
 	app = FastAPI(title="LLM Backend (Python)")
 
 	# Stub client; methods raise NotImplementedError until implemented

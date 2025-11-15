@@ -3,3 +3,8 @@ __pycache__/
 
 # Node
 node_modules/
+
+# Local environment files (never commit secrets)
+.env
+.env.*
+backend/.env
