@@ -2,23 +2,51 @@ import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useNavigate } from 'react-router-dom'
+import { useLobby } from '@/hooks/useLobby'
 
 const LobbyJoin: React.FC = () => {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [lobbyCode, setLobbyCode] = useState('')
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleNext = () => {
-    if (!name.trim()) return
+  const { joinLobby } = useLobby()
+
+  const handleJoin = async () => {
+    if (!name.trim()) {
+      setError('Please enter your name')
+      return
+    }
     
-    if (lobbyCode.trim()) {
-      // TODO: Call API to join existing lobby
-      console.log('Joining existing lobby:', { name, lobbyCode })
-      navigate('/waiting-room')
-    } else {
-      // TODO: Call API to join random lobby
-      console.log('Joining random lobby:', { name })
-      navigate('/waiting-room')
+    setIsLoading(true)
+    setError('')
+    
+    try {
+      // If no lobby code, we need to handle random lobby join
+      // For now, require a lobby code
+      if (!lobbyCode.trim()) {
+        setError('Please enter a lobby code or use CREATE LOBBY instead')
+        setIsLoading(false)
+        return
+      }
+      
+      // Pass values directly to joinLobby (will save to sessionStorage on success)
+      const result = await joinLobby(lobbyCode.trim(), name.trim())
+      
+      if (result?.success) {
+        // Navigate to lobby-waiting after successful join
+        setTimeout(() => {
+          navigate('/lobby-waiting', { replace: true })
+        }, 100)
+      } else {
+        setError(result?.error || 'Failed to join lobby')
+        setIsLoading(false)
+      }
+    } catch (err) {
+      setError('Failed to join lobby')
+      console.error('Error:', err)
+      setIsLoading(false)
     }
   }
 
@@ -82,8 +110,11 @@ const LobbyJoin: React.FC = () => {
                 type="text"
                 placeholder="ENTER LOBBY CODE"
                 value={lobbyCode}
-                onChange={(e) => setLobbyCode(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleNext()}
+                onChange={(e) => {
+                  setLobbyCode(e.target.value)
+                  setError('')
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleJoin()}
                 className="w-full text-center text-lg py-8 rounded-2xl font-bold"
                 style={{
                   background: 'rgba(15, 10, 31, 0.8)',
@@ -99,30 +130,36 @@ const LobbyJoin: React.FC = () => {
             </div>
           </div>
 
-          {/* Next Button */}
+          {error && (
+            <div className="text-red-400 text-lg font-bold text-center animate-in slide-in-from-top duration-300">
+              {error}
+            </div>
+          )}
+
+          {/* Join Button */}
           <div className="flex justify-center pt-6">
             <Button 
-              onClick={handleNext}
-              disabled={!name.trim()}
-              className="px-20 py-8 text-2xl font-bold rounded-2xl transform hover:scale-110 transition-all duration-300"
+              onClick={handleJoin}
+              disabled={!name.trim() || !lobbyCode.trim() || isLoading}
+              className="px-20 py-8 text-2xl font-bold rounded-2xl transform hover:scale-110 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                background: name.trim()
+                background: (name.trim() && lobbyCode.trim() && !isLoading)
                   ? `linear-gradient(135deg, #00cc66, var(--game-green))`
                   : 'rgba(50, 50, 50, 0.5)',
-                border: name.trim()
+                border: (name.trim() && lobbyCode.trim() && !isLoading)
                   ? `3px solid var(--game-green)`
                   : '3px solid #555',
                 color: 'var(--game-text-primary)',
                 fontFamily: 'Impact, Arial Black, sans-serif',
                 textTransform: 'uppercase',
                 letterSpacing: '0.1em',
-                boxShadow: name.trim()
+                boxShadow: (name.trim() && lobbyCode.trim() && !isLoading)
                   ? `0 0 20px rgba(0, 255, 136, 0.5)`
                   : 'none',
-                cursor: name.trim() ? 'pointer' : 'not-allowed'
+                cursor: (name.trim() && lobbyCode.trim() && !isLoading) ? 'pointer' : 'not-allowed'
               }}
             >
-              NEXT
+              {isLoading ? 'JOINING...' : 'JOIN'}
             </Button>
           </div>
         </div>

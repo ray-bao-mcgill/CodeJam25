@@ -50,7 +50,10 @@ const LobbyCreation: React.FC = () => {
   });
 
   const handleCreateLobby = async () => {
-    const result = await createLobby();
+    if (!playerName || !playerName.trim()) {
+      return;
+    }
+    const result = await createLobby(playerName.trim());
     if (result?.success && result.lobbyId) {
       // WebSocket will connect automatically via the hook
     }

@@ -6,6 +6,7 @@ import LobbyCreation from "./pages/onboarding/LobbyCreation";
 import LobbyJoin from "./pages/onboarding/LobbyJoin";
 import JobInputSelection from "./pages/onboarding/JobInputSelection";
 import LobbySetup from "./pages/onboarding/LobbySetup";
+import LobbyWaitingRoomPage from "./pages/LobbyWaitingRoomPage";
 import WaitingRoom from "./pages/WaitingRoom";
 import RoundStartCounter from "./pages/game-phase/RoundStartCounter";
 import BehaviouralQuestion from "./pages/game-phase/BehaviouralQuestion";
@@ -28,7 +29,7 @@ const App: React.FC = () => {
         <Route path="/lobby-join" element={<LobbyJoin />} />
         <Route path="/job-input" element={<JobInputSelection />} />
         <Route path="/lobby-setup" element={<LobbySetup />} />
-        <Route path="/waiting-room" element={<WaitingRoom />} />
+        <Route path="/lobby-waiting" element={<LobbyWaitingRoomPage />} />
         <Route
           path="/round-start-counter/:type"
           element={<RoundStartCounter />}

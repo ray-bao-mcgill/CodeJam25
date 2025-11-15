@@ -10,7 +10,7 @@ const LobbyCreation: React.FC = () => {
   }
 
   const handleCreateLobby = () => {
-    navigate('/job-input')
+    navigate('/lobby-setup')
   }
 
   return (
