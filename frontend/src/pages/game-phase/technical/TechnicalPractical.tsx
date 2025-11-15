@@ -15,7 +15,7 @@ const SUPPORTED_LANGS = [
   { value: 'java', label: 'Java', ext: ['java'] },
   { value: 'cpp', label: 'C++', ext: ['cpp', 'cc', 'cxx'] },
   { value: 'c', label: 'C', ext: ['c'] },
-  { value: 'shell', label: 'Bash (sh)', ext: ['sh', 'bash'] },
+  { value: 'shell', label: 'Bash', ext: ['sh', 'bash'] },
   { value: 'yaml', label: 'YAML', ext: ['yaml', 'yml'] },
   { value: 'sql', label: 'SQL', ext: ['sql'] },
   { value: 'dockerfile', label: 'Dockerfile', ext: ['dockerfile'] },
