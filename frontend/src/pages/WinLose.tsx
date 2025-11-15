@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLobby } from '@/hooks/useLobby'
 import { useLobbyWebSocket } from '@/hooks/useLobbyWebSocket'
+import hiredSound from '@/assets/sounds/hired.mp3'
+import firedSound from '@/assets/sounds/fired.mp3'
 
 const WinLose: React.FC = () => {
   const navigate = useNavigate()
@@ -9,6 +11,8 @@ const WinLose: React.FC = () => {
   const [showButtons, setShowButtons] = useState(false)
   const [result, setResult] = useState<'HIRE' | 'FIRE' | null>(null)
   const [timeRemaining, setTimeRemaining] = useState<number>(7)
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [totalScore, setTotalScore] = useState<number>(0)
 
   // Set up WebSocket for synchronization
   const wsRef = useLobbyWebSocket({
@@ -36,8 +40,12 @@ const WinLose: React.FC = () => {
   }, [navigate])
 
   useEffect(() => {
-    // Determine result (for now, default to HIRE - you can get this from props/state later)
-    setResult('HIRE') // TODO: Get actual result from game state
+    // Determine result based on score (threshold: 3000 points)
+    // TODO: Get actual score from game state
+    const score = totalScore || 3000 // Default to HIRE for now
+    const isHired = score >= 3000
+    setResult(isHired ? 'HIRE' : 'FIRE')
+    setShowConfetti(isHired)
     
     // Notify server that win/lose screen started
     const wsConnection = wsRef.current
@@ -48,13 +56,51 @@ const WinLose: React.FC = () => {
       }))
     }
     
-    // Start animation sequence: shrink logo, then show buttons
+    // Play different sound effect based on hired/fired with delay to match animation
+    const soundTimer = setTimeout(() => {
+      try {
+        // Use imported audio files - Vite will handle the path resolution
+        const soundFile = isHired ? hiredSound : firedSound
+        const stampSound = new Audio(soundFile)
+        stampSound.volume = 1.0
+        stampSound.preload = 'auto'
+        
+        // Handle successful load
+        stampSound.addEventListener('canplaythrough', () => {
+          const playPromise = stampSound.play()
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                console.log('✓ Sound played successfully')
+              })
+              .catch(err => {
+                console.log('Audio play blocked (browser autoplay restriction):', err.message)
+              })
+          }
+        }, { once: true })
+        
+        // Handle loading errors
+        stampSound.addEventListener('error', (e) => {
+          console.error('Audio file failed to load:', soundFile, e)
+        }, { once: true })
+        
+        // Start loading
+        stampSound.load()
+      } catch (error) {
+        console.error('Error creating audio:', error)
+      }
+    }, 300) // Matches the stamp animation delay
+    
+    // Start animation sequence: show stamp, then show buttons
     const timer = setTimeout(() => {
       setShowButtons(true)
-    }, 1500) // Wait for shrink animation to complete
+    }, 1500) // Wait for stamp animation to complete
     
-    return () => clearTimeout(timer)
-  }, [playerId, wsRef])
+    return () => {
+      clearTimeout(timer)
+      clearTimeout(soundTimer)
+    }
+  }, [playerId, wsRef, totalScore])
 
   // 7-second timer countdown
   useEffect(() => {
@@ -81,23 +127,83 @@ const WinLose: React.FC = () => {
     return () => clearInterval(interval)
   }, [timeRemaining, handleViewAnalytics])
 
+  const isHired = result === 'HIRE'
+  const resultText = result || 'HIRE'
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-8 game-bg">
-      <div className="text-center space-y-16">
-        {/* HIRE or FIRE Logo - Shrinks cartoonishly */}
-        <div 
-          className={`game-paper px-16 py-10 game-shadow-hard-lg game-hand-drawn inline-block transition-all duration-1000 ease-in-out ${
-            showButtons ? 'shrink-logo' : ''
-          }`}
-          style={{
-            transform: showButtons ? 'scale(0.3)' : 'scale(1)',
-            opacity: showButtons ? 0.3 : 1,
-            transition: 'transform 1s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 1s ease-out'
-          }}
-        >
-          <h1 className="game-title text-7xl sm:text-8xl">
-            {result || 'HIRE'}
-          </h1>
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg relative overflow-hidden">
+      {/* Confetti Effect - Only for Hired */}
+      {showConfetti && isHired && (
+        <div className="absolute inset-0 pointer-events-none">
+          {[...Array(50)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute animate-fall"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `-${Math.random() * 20}%`,
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${3 + Math.random() * 2}s`
+              }}
+            >
+              <div
+                className="w-4 h-4 game-sharp"
+                style={{
+                  background: ['var(--game-yellow)', 'var(--game-blue)', 'var(--game-red)', 'var(--game-green)', 'var(--game-orange)'][Math.floor(Math.random() * 5)],
+                  transform: `rotate(${Math.random() * 360}deg)`
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Winner Announcement */}
+      <div className="relative z-10 text-center space-y-12">
+        {/* Result Title - Stamp Style */}
+        <div className="relative animate-stamp-in" style={{ animationDelay: '0.3s' }}>
+          <div 
+            className="px-20 py-12 inline-block relative"
+            style={{
+              backgroundColor: isHired ? 'var(--game-green)' : 'var(--game-red)',
+              border: `8px solid ${isHired ? 'var(--game-green)' : 'var(--game-red)'}`,
+              transform: 'rotate(-5deg)',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
+            }}
+          >
+            <h1 
+              className="font-black text-white"
+              style={{ 
+                fontSize: '6rem',
+                lineHeight: '1',
+                fontFamily: 'Impact, sans-serif',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase'
+              }}
+            >
+              {resultText}
+            </h1>
+          </div>
+        </div>
+
+        {/* Total Score Display */}
+        <div className="space-y-4 animate-stamp-in" style={{ animationDelay: '0.8s' }}>
+          <div className="game-label-text text-2xl game-shadow-hard-sm inline-block">
+            FINAL SCORE
+          </div>
+          <div 
+            className="text-9xl font-black game-shadow-hard"
+            style={{ 
+              color: isHired ? 'var(--game-green)' : 'var(--game-red)',
+              fontFamily: 'Impact, sans-serif',
+              textTransform: 'uppercase'
+            }}
+          >
+            {totalScore || 3000}
+          </div>
+          <div className="game-label-text text-xl game-shadow-hard-sm inline-block">
+            {isHired ? 'WELCOME TO THE TEAM!' : 'BETTER LUCK NEXT TIME'}
+          </div>
         </div>
 
         {/* Timer indicator */}
@@ -107,38 +213,48 @@ const WinLose: React.FC = () => {
           </div>
         )}
 
-        {/* Buttons - Pop up cartoonishly */}
+        {/* View Analytics Button */}
         {showButtons && (
-          <div className="flex items-center justify-center gap-12 flex-wrap pop-up-buttons">
-            <button
-              className="game-sharp game-block-blue px-10 py-6 text-xl font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover button-pop"
-              style={{
-                border: '6px solid var(--game-text-primary)',
-                color: 'var(--game-text-white)',
-                transform: 'rotate(-1deg)',
-                animation: 'popIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.2s both'
-              }}
-              onClick={handlePlayAgain}
-            >
-              PLAY AGAIN
-            </button>
-            
-            <button
-              className="game-sharp game-block-red px-10 py-6 text-xl font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover button-pop"
-              style={{
-                border: '6px solid var(--game-text-primary)',
-                color: 'var(--game-text-white)',
-                transform: 'rotate(1deg)',
-                animation: 'popIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.4s both'
-              }}
-              onClick={handleViewAnalytics}
-            >
-              VIEW ANALYTICS
-            </button>
-          </div>
+          <button
+            onClick={handleViewAnalytics}
+            className="game-sharp game-block-blue px-16 py-6 text-2xl font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover animate-fade-in-up"
+            style={{
+              border: '6px solid var(--game-text-primary)',
+              color: 'var(--game-text-white)',
+              letterSpacing: '0.15em',
+              marginTop: '3rem',
+              animationDelay: '1.8s'
+            }}
+          >
+            VIEW ANALYTICS
+          </button>
         )}
-
       </div>
+
+      <style>{`
+        @keyframes fall {
+          to {
+            transform: translateY(100vh) rotate(360deg);
+            opacity: 0;
+          }
+        }
+        .animate-fall {
+          animation: fall linear infinite;
+        }
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.6s ease-out both;
+        }
+      `}</style>
     </div>
   )
 }

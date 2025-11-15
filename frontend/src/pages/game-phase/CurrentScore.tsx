@@ -210,10 +210,10 @@ const CurrentScore: React.FC = () => {
       setTimeout(() => {
         if (phase === 'behavioural_score') {
           sessionStorage.setItem('currentRound', 'quickfire')
-          navigate('/quickfire-round')
+          navigate('/round-start-counter/technical-theory')  // technical-theory IS quickfire
         } else if (phase === 'quickfire_score') {
           sessionStorage.setItem('currentRound', 'technical')
-          navigate('/round-start-counter/technical')
+          navigate('/round-start-counter/technical-practical')
         } else if (phase === 'technical_score') {
           sessionStorage.removeItem('currentRound')
           navigate('/win-lose')
@@ -297,6 +297,105 @@ const CurrentScore: React.FC = () => {
     }
   }
 
+  // VS-style results page (for 2 players)
+  if (sortedPlayers.length === 2 && !waitingForSync && !isLoading && Object.keys(scores).length > 0) {
+    const player1 = sortedPlayers[0]
+    const player2 = sortedPlayers[1]
+    const score1 = scores[player1.id] || 0
+    const score2 = scores[player2.id] || 0
+    
+    return (
+      <div className="flex items-center justify-center min-h-screen game-bg relative overflow-hidden">
+        {/* Continuous Vertical Line - perfectly centered */}
+        <div className="absolute top-0 bottom-0 left-1/2 w-2 bg-[var(--game-text-primary)] transform -translate-x-1/2 shadow-[2px_2px_0px_rgba(0,0,0,0.3)]" />
+        
+        {/* Title at top - absolute positioning */}
+        <div className="absolute top-8 left-1/2 transform -translate-x-1/2 z-10">
+          <div className="game-label-text text-3xl game-shadow-hard">
+            {getPhaseTitle()}
+          </div>
+        </div>
+
+        {/* Bottom loading indicator - absolute positioning */}
+        {(readyToContinuePlayers.length > 0 || timeRemaining > 0) && (
+          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
+            <div className="game-label-text text-xl game-shadow-hard-sm animate-pulse">
+              {readyToContinuePlayers.length > 0 
+                ? `WAITING FOR PLAYERS... (${readyToContinuePlayers.length} / ${lobby?.players.length || 0})`
+                : timeRemaining > 0
+                  ? `AUTO-ADVANCING IN ${timeRemaining}S...`
+                  : 'NEXT ROUND STARTING SOON...'}
+            </div>
+          </div>
+        )}
+
+        {/* Main VS Content - Perfectly Centered */}
+        <div className="relative z-10 flex items-center justify-between w-full max-w-[1600px] px-16">
+          {/* Player 1 Score - Left Side */}
+          <div className="flex flex-col items-center animate-stamp-in" style={{ animationDelay: '0.2s' }}>
+            <div className="game-label-text text-lg mb-3 game-shadow-hard-sm bg-[var(--game-blue)] px-4 py-1 text-white">
+              {player1.name.toUpperCase()}
+            </div>
+            <div className="px-10 py-7 game-sharp game-shadow-hard-lg border-6 border-[var(--game-blue)] bg-gradient-to-br from-blue-100 to-blue-200">
+              <div className="text-6xl font-black text-[var(--game-blue)] leading-none" style={{ fontFamily: 'Impact, sans-serif' }}>
+                {score1}
+              </div>
+            </div>
+          </div>
+
+          {/* VS in Circle - perfectly centered on the line */}
+          <div className="flex items-center justify-center absolute left-1/2 transform -translate-x-1/2 animate-stamp-in-vs" style={{ animationDelay: '0.6s' }}>
+            {/* VS Text in Circle */}
+            <div className="rounded-full flex items-center justify-center w-[180px] h-[180px] bg-gradient-to-br from-yellow-300 via-[var(--game-yellow)] to-orange-400 border-[10px] border-[var(--game-text-primary)] shadow-[10px_10px_0px_rgba(0,0,0,0.4)]">
+              <div className="text-[5rem] font-black text-[var(--game-text-primary)] leading-none drop-shadow-lg" style={{ fontFamily: 'Impact, sans-serif' }}>
+                VS
+              </div>
+            </div>
+          </div>
+
+          {/* Player 2 Score - Right Side */}
+          <div className="flex flex-col items-center animate-stamp-in" style={{ animationDelay: '0.4s' }}>
+            <div className="game-label-text text-lg mb-3 game-shadow-hard-sm bg-[var(--game-red)] px-4 py-1 text-white">
+              {player2.name.toUpperCase()}
+            </div>
+            <div className="px-10 py-7 game-sharp game-shadow-hard-lg border-6 border-[var(--game-red)] bg-gradient-to-br from-red-100 to-red-200">
+              <div className="text-6xl font-black text-[var(--game-red)] leading-none" style={{ fontFamily: 'Impact, sans-serif' }}>
+                {score2}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Continue Button - positioned at bottom */}
+        <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-10">
+          <button
+            onClick={handleContinue}
+            disabled={hasSentContinueRef.current || waitingForSync || isLoading}
+            className={`game-sharp px-10 py-5 text-lg font-black uppercase tracking-widest game-shadow-hard-lg ${
+              hasSentContinueRef.current || waitingForSync || isLoading ? '' : 'game-button-hover'
+            }`}
+            style={{
+              border: '6px solid var(--game-text-primary)',
+              backgroundColor: (hasSentContinueRef.current || waitingForSync || isLoading) ? 'var(--game-bg-alt)' : 'var(--game-green)',
+              color: (hasSentContinueRef.current || waitingForSync || isLoading) ? 'var(--game-text-dim)' : 'var(--game-text-white)',
+              cursor: (hasSentContinueRef.current || waitingForSync || isLoading) ? 'not-allowed' : 'pointer',
+              opacity: (hasSentContinueRef.current || waitingForSync || isLoading) ? 0.6 : 1
+            }}
+          >
+            {hasSentContinueRef.current 
+              ? 'WAITING FOR OTHERS...' 
+              : waitingForSync || isLoading
+                ? 'LOADING SCORES...'
+                : currentPhase === 'technical_score' 
+                  ? 'VIEW RESULTS' 
+                  : 'CONTINUE'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Fallback to list view for non-2-player games
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg">
       <div

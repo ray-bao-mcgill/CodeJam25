@@ -22,7 +22,7 @@ from game.scoring import calculate_phase_scores
 
 router = APIRouter()
 
-COUNTDOWN_SECONDS = 60  # For round start counter
+COUNTDOWN_SECONDS = 5  # For round start counter
 
 # Track ready players per lobby and phase (for scores display)
 # Structure: {lobby_id: {phase: set(player_ids)}}
@@ -435,11 +435,31 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                             "forceShow": True
                                         }
                                     )
+                            elif phase == "technical_practical":
+                                # Technical practical is standalone (technical_theory is quickfire, handled separately)
+                                # Check if practical phase is complete (both players submitted)
+                                phase_complete = phase_manager.check_phase_complete(match_id, phase, total_players)
+                                
+                                print(f"[SUBMIT] Technical practical completion status: {phase_complete} ({len(phase_state.player_submissions)}/{total_players} players)")
+                                
+                                if phase_complete:
+                                    print(f"[SUBMIT] Technical practical COMPLETE! All players submitted. Broadcasting show_results")
+                                    # Phase is complete - broadcast show_results
+                                    await lobby_manager.broadcast_game_message(
+                                        lobby_id,
+                                        {
+                                            "type": "show_results",
+                                            "phase": phase,
+                                            "reason": "phase_complete",
+                                            "phaseComplete": True,
+                                            "forceShow": True
+                                        }
+                                    )
                             else:
                                 # For other phases, check phase completion
                                 check_phase = phase
-                                if phase in ["technical_practical"]:
-                                    # Check parent "technical" phase completion
+                                if phase in ["technical_theory"]:
+                                    # Check parent "technical" phase completion (but technical_theory is quickfire, so this shouldn't happen)
                                     check_phase = "technical"
                                 
                                 # Check if phase completion criteria are met
