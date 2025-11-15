@@ -13,7 +13,7 @@ const DevTools: React.FC = () => {
     { to: "/round-start-counter/technical", label: "⏱️ Round Start (Technical)", description: "Countdown before technical round" },
     { to: "/behavioural-question", label: "💬 Behavioural Question", description: "Initial behavioural interview question" },
     { to: "/behavioural-answer", label: "💬 Behavioural Answer", description: "Follow-up behavioural question" },
-    { to: "/quickfire-round", label: "⚡ Quick Fire Round", description: "10 rapid-fire multiple choice questions" },
+    { to: "/technical-theory", label: "⚡ Technical Theory (Rapid Fire)", description: "10 rapid-fire multiple choice questions" },
     { to: "/technical-theory", label: "📚 Technical Theory", description: "Technical theory question" },
     { to: "/technical-practical", label: "💻 Technical Practical", description: "Practical coding question" },
     { to: "/current-score", label: "📊 Current Score", description: "View current round scores" },

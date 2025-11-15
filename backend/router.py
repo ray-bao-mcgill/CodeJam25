@@ -331,11 +331,11 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             print(f"[SUBMIT] Phase state player_submissions: {phase_state.player_submissions}")
                             print(f"[SUBMIT] Phase state question_submissions: {phase_state.question_submissions}")
                             
-                            # For quickfire: players work independently, only check completion when all 10 questions are done
-                            if phase == "quickfire":
+                            # For technical_theory: players work independently, only check completion when all 10 questions are done
+                            if phase == "technical_theory":
                                 player_submissions = phase_state.player_submissions.get(player_id, set())
                                 finished_all = len(player_submissions) >= 10
-                                print(f"[QUICKFIRE] Player {player_id} has submitted {len(player_submissions)}/10 questions. Finished all: {finished_all}")
+                                print(f"[TECHNICAL_THEORY] Player {player_id} has submitted {len(player_submissions)}/10 questions. Finished all: {finished_all}")
                                 
                                 if finished_all:
                                     # Player finished all questions - broadcast to show waiting status
@@ -343,7 +343,7 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                     await lobby_manager.broadcast_game_message(
                                         lobby_id,
                                         {
-                                            "type": "player_finished_quickfire",
+                                            "type": "player_finished_technical_theory",
                                             "player_id": player_id,
                                             "total_finished": len(finished_players),
                                             "total_players": total_players
@@ -352,12 +352,12 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                     
                                     # Check if all players finished
                                     if len(finished_players) >= total_players:
-                                        print(f"[QUICKFIRE] All players finished! Phase complete.")
+                                        print(f"[TECHNICAL_THEORY] All players finished! Phase complete.")
                                         await lobby_manager.broadcast_game_message(
                                             lobby_id,
                                             {
                                                 "type": "show_results",
-                                                "phase": "quickfire",
+                                                "phase": "technical_theory",
                                                 "reason": "phase_complete",
                                                 "phaseComplete": True,
                                                 "forceShow": True

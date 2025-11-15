@@ -11,9 +11,8 @@ import RoundStartCounter from "./pages/game-phase/RoundStartCounter";
 import Tutorial from "./pages/game-phase/Tutorial";
 import BehaviouralQuestion from "./pages/game-phase/behavioural/BehaviouralQuestion";
 import BehaviouralAnswer from "./pages/game-phase/behavioural/BehaviouralAnswer";
-import QuickFireRound from "./pages/game-phase/quickfire/QuickFireRound";
+import RapidFireQuiz from "./pages/game-phase/quickfire/RapidFireQuiz";
 import CurrentScore from "./pages/game-phase/CurrentScore";
-import RapidFireQuiz from "./pages/game-phase/RapidFireQuiz";
 import Winner from "./pages/game-phase/Winner";
 import WinLose from "./pages/WinLose";
 import Analytics from "./pages/Analytics";
@@ -42,12 +41,10 @@ const App: React.FC = () => {
           element={<BehaviouralQuestion />}
         />
         <Route path="/behavioural-answer" element={<BehaviouralAnswer />} />
-        <Route path="/quickfire-round" element={<QuickFireRound />} />
-        <Route path="/current-score" element={<CurrentScore />} />
-       
- 
- 
+        <Route path="/technical-theory" element={<RapidFireQuiz />} />
+        <Route path="/quickfire-round" element={<RapidFireQuiz />} />
         <Route path="/rapid-fire-quiz" element={<RapidFireQuiz />} />
+        <Route path="/current-score" element={<CurrentScore />} />
         <Route path="/winner" element={<Winner />} />
         <Route path="/win-lose" element={<WinLose />} />
         <Route path="/analytics" element={<Analytics />} />

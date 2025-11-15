@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { useNavigate } from 'react-router-dom'
+import { useGameSync } from '@/hooks/useGameSync'
+import { useLobby } from '@/hooks/useLobby'
 
 interface Question {
   question: string
@@ -10,6 +12,8 @@ interface Question {
 
 const RapidFireQuiz: React.FC = () => {
   const navigate = useNavigate()
+  const { lobbyId, playerId, lobby } = useLobby()
+  const { gameState, submitAnswer: syncSubmitAnswer, showResults } = useGameSync()
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
@@ -20,6 +24,8 @@ const RapidFireQuiz: React.FC = () => {
   const [gameOver, setGameOver] = useState(false)
   const [startTime] = useState(Date.now())
   const [opponentScore] = useState(Math.floor(Math.random() * 500) + 1200) // Random score between 1200-1700
+  const [submittedQuestions, setSubmittedQuestions] = useState<Set<number>>(new Set())
+  const [finishedAllQuestions, setFinishedAllQuestions] = useState(false)
   const maxQuestions = 10
 
   // Fetch questions from backend
@@ -95,19 +101,38 @@ const RapidFireQuiz: React.FC = () => {
     fetchQuestions()
   }, [])
 
-  // Auto-navigate to winner page after game over
+  // Check if all questions submitted and notify server
   useEffect(() => {
-    if (gameOver) {
+    if (submittedQuestions.size === 10 && questions.length === 10 && !finishedAllQuestions) {
+      setFinishedAllQuestions(true)
+      setGameOver(true)
+    }
+  }, [submittedQuestions.size, questions.length, finishedAllQuestions])
+
+  // Navigate when server says all players finished (phase complete)
+  useEffect(() => {
+    if (showResults && gameState?.showResults && gameState?.phaseComplete && gameState?.phase === 'technical_theory' && finishedAllQuestions) {
+      sessionStorage.setItem('currentRound', 'technical_theory')
+      setTimeout(() => {
+        navigate('/current-score')
+      }, 2500) // Match the VS page timer
+    }
+  }, [showResults, gameState?.showResults, gameState?.phaseComplete, gameState?.phase, finishedAllQuestions, navigate])
+
+  // Auto-navigate to score page after game over (fallback if no backend sync)
+  useEffect(() => {
+    if (gameOver && !lobbyId) {
+      // Single player mode - navigate after showing VS page
       const finalScore = calculateFinalScore()
       const playerWon = finalScore > opponentScore
       
       const timer = setTimeout(() => {
-        navigate('/technical-practical')
-      }, 3000)
+        navigate('/current-score')
+      }, 2500)
       
       return () => clearTimeout(timer)
     }
-  }, [gameOver, navigate, opponentScore])
+  }, [gameOver, navigate, opponentScore, lobbyId])
 
   // Timer countdown
   useEffect(() => {
@@ -154,6 +179,19 @@ const RapidFireQuiz: React.FC = () => {
     } else {
       setLives(prev => prev - 1)
     }
+
+    // Submit to backend via sync
+    if (lobbyId && playerId) {
+      syncSubmitAnswer(
+        currentQuestion.options[optionIndex], 
+        `technical_theory_q${currentQuestionIndex}`, 
+        'technical_theory', 
+        currentQuestionIndex
+      )
+    }
+
+    // Mark this question as submitted
+    setSubmittedQuestions(prev => new Set([...prev, currentQuestionIndex]))
 
     setTimeout(() => {
       if (!isCorrect && lives - 1 <= 0) {
