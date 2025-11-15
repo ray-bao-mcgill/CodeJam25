@@ -13,6 +13,8 @@ import BehaviouralAnswer from "./pages/game-phase/BehaviouralAnswer";
 import CurrentScore from "./pages/game-phase/CurrentScore";
 import TechnicalTheory from "./pages/game-phase/TechnicalTheory";
 import TechnicalPractical from "./pages/game-phase/TechnicalPractical";
+import RapidFireQuiz from "./pages/game-phase/RapidFireQuiz";
+import Winner from "./pages/game-phase/Winner";
 import WinLose from "./pages/WinLose";
 import Analytics from "./pages/Analytics";
 import DevTools from "./pages/DevTools";
@@ -42,6 +44,8 @@ const App: React.FC = () => {
         <Route path="/current-score" element={<CurrentScore />} />
         <Route path="/technical-theory" element={<TechnicalTheory />} />
         <Route path="/technical-practical" element={<TechnicalPractical />} />
+        <Route path="/rapid-fire-quiz" element={<RapidFireQuiz />} />
+        <Route path="/winner" element={<Winner />} />
         <Route path="/win-lose" element={<WinLose />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/dev" element={<DevTools />} />
