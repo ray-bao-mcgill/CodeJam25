@@ -50,6 +50,6 @@ useEffect(() => {
 ## TODO
 
 - [ ] Create `RoundPhaseContext` for shared timer state
-- [ ] Implement question/answer components
+- [ ] Implement question/answer components and pages
 - [ ] Connect to backend API for questions
 - [ ] Add scoring system

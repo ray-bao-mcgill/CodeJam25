@@ -61,6 +61,7 @@ htmlcov/
 *.bak
 *.tmp
 .cache/
+.DS_Store
 
 # Local environment files (never commit secrets)
 .env
