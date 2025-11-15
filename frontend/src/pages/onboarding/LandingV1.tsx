@@ -49,8 +49,8 @@ const LandingV1: React.FC = () => {
         }
         
         @keyframes shadowPulse {
-          0%, 100% { box-shadow: 12px 12px 0 #2d2d2d; }
-          50% { box-shadow: 15px 15px 0 #2d2d2d; }
+          0%, 100% { box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.2), 10px 10px 0 rgba(0, 0, 0, 0.15); }
+          50% { box-shadow: 15px 15px 0 rgba(0, 0, 0, 0.2), 12px 12px 0 rgba(0, 0, 0, 0.15); }
         }
         
         @keyframes fadeIn {
@@ -88,7 +88,7 @@ const LandingV1: React.FC = () => {
         }
         
         @keyframes buttonGlow {
-          0%, 100% { box-shadow: 8px 8px 0 #2d2d2d; }
+          0%, 100% { box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.2), 6px 6px 0 rgba(0, 0, 0, 0.15); }
           50% { box-shadow: 8px 8px 0 #7744ff; }
         }
         
@@ -104,7 +104,8 @@ const LandingV1: React.FC = () => {
             background: "#9966ff",
             border: "6px solid #000",
             color: "#fff",
-            boxShadow: "8px 8px 0 #2d2d2d",
+            boxShadow:
+              "8px 8px 0 rgba(0, 0, 0, 0.2), 6px 6px 0 rgba(0, 0, 0, 0.15)",
             width: "80px",
             height: "80px",
             fontSize: "3rem",
@@ -246,7 +247,8 @@ const LandingV1: React.FC = () => {
               style={{
                 border: "8px solid #000",
                 color: "#fff",
-                boxShadow: "10px 10px 0 #2d2d2d",
+                boxShadow:
+                  "10px 10px 0 rgba(0, 0, 0, 0.2), 8px 8px 0 rgba(0, 0, 0, 0.15)",
               }}
               onClick={() => navigate("/lobby-creation")}
             >
