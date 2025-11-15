@@ -12,6 +12,8 @@ import TechnicalTheory from "./pages/game-phase/TechnicalTheory";
 import TechnicalPractical from "./pages/game-phase/TechnicalPractical";
 import WinLose from "./pages/WinLose";
 import Analytics from "./pages/Analytics";
+import DevTools from "./pages/DevTools";
+import DatabaseAdmin from "./pages/DevTools/DatabaseAdmin";
 
 const App: React.FC = () => {
   const links = [
@@ -65,25 +67,10 @@ const App: React.FC = () => {
           <Route path="/technical-practical" element={<TechnicalPractical />} />
           <Route path="/win-lose" element={<WinLose />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/dev" element={<DevTools />} />
+          <Route path="/admin" element={<DatabaseAdmin />} />
         </Routes>
       </main>
-
-      <aside className="border-t p-4">
-        <div className="max-w-6xl mx-auto">
-          <p className="font-medium mb-2">Quick links</p>
-          <div className="flex flex-wrap gap-2">
-            {links.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="px-3 py-1 rounded border hover:bg-gray-50 text-sm"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </aside>
     </div>
   );
 };

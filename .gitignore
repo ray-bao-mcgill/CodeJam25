@@ -52,6 +52,11 @@ logs/
 htmlcov/
 .pytest_cache/
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
 # Misc
 *.bak
 *.tmp
