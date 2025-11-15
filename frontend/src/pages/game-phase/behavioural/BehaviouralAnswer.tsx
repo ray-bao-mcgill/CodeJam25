@@ -1,33 +1,72 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGameFlow } from '@/hooks/useGameFlow'
+import { useGameSync } from '@/hooks/useGameSync'
+import { useLobby } from '@/hooks/useLobby'
 
 const ANSWER_SECONDS = 60; // Z seconds for answer phase
 
 const BehaviouralAnswer: React.FC = () => {
   const navigate = useNavigate();
+  const { submitFollowUpAnswer } = useGameFlow()
+  const { lobby } = useLobby()
+  const { gameState, timeRemaining, submitAnswer: syncSubmitAnswer, isWaitingForOthers, showResults } = useGameSync()
   const [remaining, setRemaining] = useState(ANSWER_SECONDS);
   const [answer, setAnswer] = useState("");
-  const [question] = useState(
-    // TODO: Replace with shared state/context or backend question
-    "Describe a time you overcame a challenge at work."
-  );
+  const [followUpQuestion, setFollowUpQuestion] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (remaining <= 0) {
-      handleSubmit();
-      return;
+    // Use question from game state if available, otherwise use placeholder
+    if (gameState?.question) {
+      setFollowUpQuestion(gameState.question)
+      setIsLoading(false)
+    } else {
+      // TODO: Replace with shared state/context or backend question
+      setTimeout(() => {
+        setFollowUpQuestion("Describe a time you overcame a challenge at work.");
+        setIsLoading(false);
+      }, 500);
     }
-    const id = setTimeout(() => setRemaining((r) => r - 1), 1000);
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining]);
+  }, [gameState?.question]);
 
-  const handleSubmit = () => {
-    // TODO: send answer to backend or game state
-    navigate("/current-score");
+  // Use server-synced timer ONLY - no local timer conflicts
+  useEffect(() => {
+    if (timeRemaining !== undefined) {
+      setRemaining(timeRemaining);
+    }
+  }, [timeRemaining]);
+
+  // Navigate when phase is complete (both questions answered by all players)
+  useEffect(() => {
+    if (showResults && gameState?.showResults && gameState?.phaseComplete) {
+      // Phase complete, navigate to score display
+      sessionStorage.setItem('currentRound', 'behavioural')
+      setTimeout(() => {
+        navigate('/current-score')
+      }, 1000)
+    }
+  }, [showResults, gameState?.showResults, gameState?.phaseComplete, navigate])
+
+  const handleSubmit = async () => {
+    if (answer.trim()) {
+      await submitFollowUpAnswer(answer)
+      // Submit via sync with phase information
+      syncSubmitAnswer(answer, gameState?.questionId, 'behavioural', 1)
+    }
   };
 
   const handleClear = () => setAnswer("");
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg">
+        <div className="game-paper px-8 py-4 game-shadow-hard-lg">
+          <div className="text-lg font-bold">Loading follow-up question...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     // Use a fixed viewport height so the outer container actually scrolls
@@ -82,7 +121,7 @@ const BehaviouralAnswer: React.FC = () => {
               fontWeight: 600,
             }}
           >
-            {question}
+            {followUpQuestion}
           </p>
         </div>
 
@@ -121,8 +160,21 @@ const BehaviouralAnswer: React.FC = () => {
               letterSpacing: "0.01em",
               resize: "vertical",
             }}
+            disabled={isWaitingForOthers}
           />
         </section>
+
+        {/* Waiting for others indicator */}
+        {isWaitingForOthers && (
+          <div className="game-paper px-6 py-4 game-shadow-hard-lg">
+            <div className="text-center">
+              <div className="game-label-text text-sm mb-2">WAITING FOR OTHER PLAYERS...</div>
+              <div className="text-lg font-bold">
+                {gameState?.submittedPlayers.length || 0} / {lobby?.players.length || 0} players submitted
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex items-center justify-center gap-6 flex-wrap pt-2">
@@ -132,10 +184,13 @@ const BehaviouralAnswer: React.FC = () => {
               border: "6px solid var(--game-text-primary)",
               color: "var(--game-text-white)",
               minWidth: "220px",
+              opacity: (!answer.trim() || isWaitingForOthers) ? 0.5 : 1,
+              cursor: (!answer.trim() || isWaitingForOthers) ? 'not-allowed' : 'pointer',
             }}
             onClick={handleSubmit}
+            disabled={!answer.trim() || isWaitingForOthers}
           >
-            Submit Answer
+            {isWaitingForOthers ? 'WAITING FOR OTHERS...' : 'Submit Answer'}
           </button>
         </div>
 
@@ -154,3 +209,5 @@ const BehaviouralAnswer: React.FC = () => {
 };
 
 export default BehaviouralAnswer;
+
+

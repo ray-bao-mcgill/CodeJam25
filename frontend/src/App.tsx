@@ -8,11 +8,13 @@ import JobInputSelection from "./pages/onboarding/JobInputSelection";
 import LobbySetup from "./pages/onboarding/LobbySetup";
 import LobbyWaitingRoomPage from "./pages/LobbyWaitingRoomPage";
 import RoundStartCounter from "./pages/game-phase/RoundStartCounter";
-import BehaviouralQuestion from "./pages/game-phase/BehaviouralQuestion";
-import BehaviouralAnswer from "./pages/game-phase/BehaviouralAnswer";
+import Tutorial from "./pages/game-phase/Tutorial";
+import BehaviouralQuestion from "./pages/game-phase/behavioural/BehaviouralQuestion";
+import BehaviouralAnswer from "./pages/game-phase/behavioural/BehaviouralAnswer";
+import QuickFireRound from "./pages/game-phase/quickfire/QuickFireRound";
 import CurrentScore from "./pages/game-phase/CurrentScore";
-import TechnicalTheory from "./pages/game-phase/TechnicalTheory";
-import TechnicalPractical from "./pages/game-phase/TechnicalPractical";
+import TechnicalTheory from "./pages/game-phase/technical/TechnicalTheory";
+import TechnicalPractical from "./pages/game-phase/technical/TechnicalPractical";
 import WinLose from "./pages/WinLose";
 import Analytics from "./pages/Analytics";
 import DevTools from "./pages/DevTools";
@@ -30,6 +32,7 @@ const App: React.FC = () => {
         <Route path="/job-input" element={<JobInputSelection />} />
         <Route path="/lobby-setup" element={<LobbySetup />} />
         <Route path="/lobby-waiting" element={<LobbyWaitingRoomPage />} />
+        <Route path="/tutorial" element={<Tutorial />} />
         <Route
           path="/round-start-counter/:type"
           element={<RoundStartCounter />}
@@ -39,6 +42,7 @@ const App: React.FC = () => {
           element={<BehaviouralQuestion />}
         />
         <Route path="/behavioural-answer" element={<BehaviouralAnswer />} />
+        <Route path="/quickfire-round" element={<QuickFireRound />} />
         <Route path="/current-score" element={<CurrentScore />} />
         <Route path="/technical-theory" element={<TechnicalTheory />} />
         <Route path="/technical-practical" element={<TechnicalPractical />} />

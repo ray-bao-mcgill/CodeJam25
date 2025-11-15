@@ -7,6 +7,7 @@ from datetime import datetime
 import uuid
 from sqlalchemy.orm import Session
 from database import SessionLocal, OngoingMatch
+from database.game_state import update_phase, update_scores
 
 
 class Match:
@@ -123,6 +124,16 @@ class Match:
         # Update database
         self._update_match_record()
         
+        # Update phase to tutorial
+        update_phase(
+            match_id=self.match_id,
+            phase="tutorial",
+            phase_data={
+                "status": "in_progress",
+                "started_at": self.started_at.isoformat()
+            }
+        )
+        
         # Notify lobby
         self._notify_lobby("match_started", {
             "match_id": self.match_id,
@@ -133,7 +144,7 @@ class Match:
         
         return True
     
-    def update_score(self, player_id: str, points: int):
+    def update_score(self, player_id: str, points: int, phase: Optional[str] = None):
         """Update a player's score"""
         if player_id not in self.scores:
             print(f"Warning: Player {player_id} not found in match")
@@ -143,6 +154,13 @@ class Match:
         
         # Update database
         self._update_match_record()
+        
+        # Update scores in database with phase-specific tracking
+        update_scores(
+            match_id=self.match_id,
+            scores=self.scores,
+            phase=phase
+        )
         
         # Notify lobby
         self._notify_lobby("score_updated", {
