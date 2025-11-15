@@ -13,7 +13,15 @@ const SUPPORTED_LANGS = [
   { value: 'python', label: 'Python' },
   { value: 'java', label: 'Java' },
   { value: 'cpp', label: 'C++' },
-  { value: 'c', label: 'C' }
+  { value: 'c', label: 'C' },
+  { value: 'shell', label: 'Bash (sh)' },
+  { value: 'yaml', label: 'YAML' },
+  { value: 'sql', label: 'SQL' },
+  { value: 'dockerfile', label: 'Dockerfile' },
+  { value: 'html', label: 'HTML' },
+  { value: 'css', label: 'CSS' },
+  { value: 'json', label: 'JSON' },
+  { value: 'markdown', label: 'Markdown' },
 ];
 
 const CANVAS_WIDTH = 540;
