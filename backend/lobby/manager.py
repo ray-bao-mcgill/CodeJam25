@@ -198,6 +198,32 @@ class LobbyManager:
         for ws in disconnected:
             lobby.remove_connection(ws)
 
+    async def broadcast_game_message(self, lobby_id: str, message: dict):
+        """Broadcast a game message to ALL WebSocket connections in a lobby"""
+        lobby = self.get_lobby(lobby_id)
+        if not lobby:
+            print(f"Lobby {lobby_id} not found for game message broadcast")
+            return
+
+        if len(lobby.connections) == 0:
+            print(f"No connections for lobby {lobby_id}")
+            return
+
+        connections = lobby.connections.copy()
+        print(f"Broadcasting game message {message.get('type')} to {len(connections)} connections in lobby {lobby_id}")
+
+        disconnected = []
+        for ws in connections:
+            try:
+                await ws.send_json(message)
+                print(f"✓ Sent game message to WebSocket")
+            except Exception as e:
+                print(f"✗ Error sending game message to WebSocket: {e}")
+                disconnected.append(ws)
+
+        for ws in disconnected:
+            lobby.remove_connection(ws)
+
 
 # Global lobby manager instance
 lobby_manager = LobbyManager()
