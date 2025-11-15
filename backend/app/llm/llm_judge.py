@@ -6,6 +6,7 @@ Sections: behavioral, (future: technical_theory, technical_practical, ...)
 import os
 import json
 from .schemas import BehaviouralJudgeResult
+from .client import LLMTextRequest
 from .prompts.renderer import render as render_prompt
 
 class BehaviouralJudge:
@@ -22,7 +23,7 @@ class BehaviouralJudge:
             "role/behavioural/judge/user_prompt.jinja", question=question, answer=answer
         )
         llm_resp = await self.client.generate_text(
-            input=self.client.LLMTextRequest(
+            LLMTextRequest(
                 prompt=prompt,
                 system=system,
                 temperature=0.0,
