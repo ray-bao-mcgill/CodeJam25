@@ -1,24 +1,3 @@
-/*
- * STYLING RESPONSIBILITIES:
- * 
- * 1. index.css (this file):
- *    - CSS variables (colors, theme tokens)
- *    - Global base styles (resets, body defaults)
- *    - Game-specific utility classes (.game-bg, .game-text-glow-*, etc.)
- *    - Shared/reusable styles across multiple components
- * 
- * 2. Tailwind:
- *    - Layout utilities (flex, grid, spacing, sizing)
- *    - Component-specific styling in TSX files
- *    - Responsive breakpoints
- *    - One-off styling that doesn't need to be reused
- * 
- * 3. Component-specific CSS files:
- *    - AVOID creating these unless absolutely necessary
- *    - If created, only for complex component-specific styles
- *    - Prefer adding to index.css or using Tailwind instead
- */
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

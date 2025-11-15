@@ -1,9 +1,19 @@
+"""
+llm_judge.py -- For LLM-based answer judging/scoring of user responses.
+Sections: behavioral, (future: technical_theory, technical_practical, ...)
+"""
+
+import os
 import json
-from .schemas import BehaviouralJudgeResult, TheoreticalJudgeResult
+from .schemas import BehaviouralJudgeResult
 from .client import LLMTextRequest
 from .prompts.renderer import render as render_prompt
 
 class BehaviouralJudge:
+    """
+    Judge or score a behavioral question answer from a user using LLM logic.
+    Uses system/user prompts from prompts/role/behavioural/judge/.
+    """
     def __init__(self, openai_client):
         self.client = openai_client
 
@@ -22,19 +32,9 @@ class BehaviouralJudge:
         )
         try:
             result_data = json.loads(llm_resp.text)
+            # Validate/parse with Pydantic
             return BehaviouralJudgeResult(**result_data)
         except Exception as e:
             raise ValueError(f"LLM did not produce valid JSON judge output: {llm_resp.text}")
 
-class TheoreticalJudge:
-    def judge(self, question_data: dict, user_answer: str) -> TheoreticalJudgeResult:
-        correct_answer = question_data.get("correct", "").strip().lower()
-        user_answer_clean = user_answer.strip().lower()
-        is_correct = user_answer_clean == correct_answer
-        score = 200 if is_correct else 0
-        return TheoreticalJudgeResult(
-            score=score,
-            is_correct=is_correct,
-            correct_answer=correct_answer
-        )
-
+# Future: TechnicalTheoryJudge, TechnicalPracticalJudge, etc.

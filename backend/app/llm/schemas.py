@@ -25,16 +25,4 @@ class BehaviouralJudgeResult(BaseModel):
     star_points: Dict[str, int]
     reasoning: str
 
-class TheoreticalJudgeResult(BaseModel):
-    """
-    Judge output format for technical theory question evaluation.
-    Fields:
-        score (int): 200 if correct, 0 if incorrect.
-        is_correct (bool): Whether the answer matches the correct answer.
-        correct_answer (str): The correct answer for reference.
-    """
-    score: int
-    is_correct: bool
-    correct_answer: str
-
 
