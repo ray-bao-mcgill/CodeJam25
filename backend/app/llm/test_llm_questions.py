@@ -11,7 +11,6 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(SCRIPT_DIR, "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Output files by type
 OUTPUT_FILES = {
     "behavioural": os.path.join(OUTPUT_DIR, "behavioural.json"),
     "technical_theory": os.path.join(OUTPUT_DIR, "technical_theory.json"),
@@ -38,7 +37,6 @@ def load_type_file(path):
             existing = {}
     else:
         existing = {}
-    # Only convert invalid types to empty list, preserve dicts (for nested role/level structure)
     for k, v in list(existing.items()):
         if not isinstance(v, (list, dict)):
             existing[k] = []
@@ -49,26 +47,12 @@ def save_type_file(path, d):
         json.dump(d, f, indent=2, ensure_ascii=False)
 
 def get_nested_question_list(data, role, level):
-    """
-    Returns the question list for nested roles (like software engineering, consulting) or [] if not found.
-    role: str, level: str
-    """
     if isinstance(data.get(role), dict):
         level_dict = data[role]
         if level in level_dict and isinstance(level_dict[level], list):
             return level_dict[level]
         return []
-    elif role in data:
-        # Flat roles (e.g. ai/ml, backend, etc. with no levels)
-        val = data[role]
-        if isinstance(val, list):
-            return val
     return []
-
-def set_nested_questions(data, role, level, questions):
-    if role not in data or not isinstance(data[role], dict):
-        data[role] = {}
-    data[role][level] = questions
 
 async def run_generation():
     allowed_types = ["behavioural", "technical_theory", "technical_practical"]
@@ -87,15 +71,49 @@ async def run_generation():
         qtype = "behavioural"
         qtype_path = "behavioural"
     outfile = OUTPUT_FILES[qtype]
-    role_input = input("Enter the role: ").strip()
-    role = role_input.lower()
+    data = load_type_file(outfile)
+    
+    # Prompt for role group
+    role_lookup = {k.strip().lower(): k for k in data}
+    print("\nAvailable roles:", ", ".join(data.keys()) if data else "(none - will create new)")
+    while True:
+        role_input = input("Enter the role group (case/spacing insensitive): ").strip()
+        if not role_input:
+            print("Role group cannot be empty.")
+            continue
+        role_normalized = role_input.lower()
+        if role_normalized in role_lookup:
+            role = role_lookup[role_normalized]
+            break
+        else:
+            # Allow creating new role
+            create = input(f"Role '{role_input}' not found. Create new role? (y/n): ").strip().lower()
+            if create in ["y", "yes", ""]:
+                role = role_input  # Use original casing
+                break
+            else:
+                print("Please enter an existing role or choose 'y' to create a new one.")
+    
+    # Prompt for level (always use nested structure)
+    valid_levels = ["intern", "junior", "midlevel", "senior", "lead"]
+    level_lookup = {k.strip().lower(): k for k in valid_levels}
+    print(f"\nAvailable levels: {', '.join(valid_levels)}")
+    while True:
+        level_input = input("Enter the level (case/spacing insensitive): ").strip().lower()
+        if level_input in level_lookup:
+            level = level_lookup[level_input]
+            break
+        else:
+            print(f"Invalid level. Please choose from: {', '.join(valid_levels)}")
+    
     num = input("How many questions? (Default 5): ").strip()
     try:
         max_questions = int(num)
     except Exception:
         max_questions = 5
+    
     system = render_prompt(f"role/{qtype_path}/question/system_prompt.jinja")
-    prompt = render_prompt(f"role/{qtype_path}/question/user_prompt.jinja", role=role_input, max_questions=max_questions)
+    prompt = render_prompt(f"role/{qtype_path}/question/user_prompt.jinja", role=role, max_questions=max_questions)
     client = OpenAIClient(api_key=os.getenv("OPENAI_API_KEY"))
     resp = await client.generate_text(LLMTextRequest(
         prompt=prompt,
@@ -106,16 +124,24 @@ async def run_generation():
     lines = [line.strip() for line in resp.text.splitlines() if line.strip()]
     if len(lines) > max_questions:
         lines = lines[:max_questions]
-    data = load_type_file(outfile)
-    ex = data.get(role, [])
+    
+    # Ensure nested structure exists and add questions
+    if role not in data or not isinstance(data[role], dict):
+        data[role] = {}
+    if level not in data[role] or not isinstance(data[role][level], list):
+        data[role][level] = []
+    
+    # Add new questions to existing list (avoid duplicates)
+    ex = data[role][level]
     for q in lines:
         if q not in ex:
             ex.append(q)
-    data[role] = ex
+    data[role][level] = ex
+    
     save_type_file(outfile, data)
-    print(f"\nLLM Output for {qtype} / role '{role_input}':")
-    print(json.dumps({"role": role_input, "questions": ex}, indent=2, ensure_ascii=False))
-    print(f"Saved/updated role entry (stored as '{role}') in {outfile}\n")
+    print(f"\nLLM Output for {qtype} / role '{role}' / level '{level}':")
+    print(json.dumps({"role": role, "level": level, "questions": ex}, indent=2, ensure_ascii=False))
+    print(f"Saved/updated role entry (stored as '{role}' / '{level}') in {outfile}\n")
 
 async def run_behavioural_scoring():
     print("\n[Behavioural LLM Judge: Score an answer]\n")
@@ -146,10 +172,9 @@ async def run_behavioural_scoring():
             else:
                 print(f"Input '{level_input}' did not match any level for role '{role}'.")
                 print("Available levels:", ", ".join(level_lookup.values()))
-        print(f"DEBUG: Using questionlist at data['{role}']['{level}']")
     else:
+        # Flat role (backwards compatibility - though all roles should now be nested)
         question_list = behavioural_data.get(role, [])
-        print(f"DEBUG: Using questionlist at data['{role}']")
     if not question_list:
         missing = f"role '{role}'"
         if level:
