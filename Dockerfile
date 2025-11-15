@@ -27,9 +27,9 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 COPY frontend/package.json ./frontend/
 COPY frontend/vite.config.js ./frontend/
 
-# Install serve dependencies for frontend
+# Install dependencies (including devDependencies for vite preview)
 WORKDIR /app/frontend
-RUN npm install --only=production
+RUN npm install
 
 # Expose ports
 EXPOSE 8000 3000
