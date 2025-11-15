@@ -9,179 +9,193 @@
     "Describe a time when you had to manage a difficult client relationship. What strategies did you use to improve the situation?",
     "Can you share an experience where your analysis led to a significant change in a project or strategy? What was the outcome?"
   ],
-  "ai/ml intern": [
-    "Tell me about a time you had to learn a new technical concept quickly. How did you approach it and what was the result?",
-    "Describe a situation where you worked with messy or incomplete data. How did you handle it?",
-    "Give an example of when you asked for help on a technical challenge. How did you decide what you needed?"
-  ],
-  "ai/ml junior": [
-    "Describe a time when you debugged a model or pipeline that wasn’t performing as expected. What steps did you take?",
-    "Tell me about a situation where you collaborated with someone more experienced. How did you ensure productive communication?",
-    "Give an example of how you handled conflicting requirements in an ML task."
-  ],
-  "ai/ml midlevel": [
-    "Tell me about a time you improved an ML workflow or process. What motivated you and what happened?",
-    "Describe a situation where your analysis or model results influenced a team decision.",
-    "Give an example of how you handled pushback on a modeling choice you made."
-  ],
-  "ai/ml senior": [
-    "Describe a time you led the development of an ML solution from start to finish. What challenges came up?",
-    "Tell me about when you had to balance model performance with real-world constraints. What tradeoffs did you make?",
-    "Give an example of mentoring someone through a difficult ML problem."
-  ],
-  "ai/ml lead": [
-    "Tell me about a time you set the technical direction for an ML initiative. How did you align stakeholders?",
-    "Describe a difficult prioritization decision involving multiple ML projects.",
-    "Give an example of how you resolved a major disagreement about model architecture or approach."
-  ],
-  "backend intern": [
-    "Tell me about a time you worked on part of a backend system and had to understand existing code. What did you do?",
-    "Describe a situation where you were assigned a task you didn't fully understand at first. How did you proceed?",
-    "Give an example of collaborating with another intern or teammate on a small feature."
-  ],
-  "backend junior": [
-    "Describe a time when you had to debug an issue in a backend service. What was your approach?",
-    "Tell me about a time you communicated a technical limitation or blocker to your team.",
-    "Give an example of when you had to balance writing clean code with meeting a deadline."
-  ],
-  "backend midlevel": [
-    "Tell me about a time you improved the performance or reliability of a backend component.",
-    "Describe a situation where you coordinated with frontend or product teams to deliver an API.",
-    "Give an example of how you handled unexpected production issues."
-  ],
-  "backend senior": [
-    "Tell me about a time you designed or led a major backend architecture change.",
-    "Describe a situation where you guided your team through diagnosing a complex system failure.",
-    "Give an example of mentoring others on backend best practices."
-  ],
-  "backend lead": [
-    "Tell me about a time you owned the technical roadmap for a backend system.",
-    "Describe a situation where you had to balance system reliability with rapid delivery.",
-    "Give an example of resolving high-level architectural disagreements between senior engineers."
-  ],
-  "frontend intern": [
-    "Tell me about a time you worked on improving a UI component. What feedback did you receive?",
-    "Describe a situation where you had to fix a visual or interaction bug. How did you approach it?",
-    "Give an example of collaborating with designers or PMs."
-  ],
-  "frontend junior": [
-    "Describe a time you balanced design requirements with technical constraints.",
-    "Tell me about a bug that took longer than expected to fix. What did you learn?",
-    "Give an example of ensuring responsive or accessible UI behavior."
-  ],
-  "frontend midlevel": [
-    "Tell me about a time you improved frontend performance or maintainability.",
-    "Describe a situation where you mediated differing opinions between design and engineering.",
-    "Give an example of owning a user-facing feature end-to-end."
-  ],
-  "frontend senior": [
-    "Tell me about a major frontend architecture decision you led.",
-    "Describe a time you helped your team handle a large UI refactor or migration.",
-    "Give an example of mentoring or coaching junior frontend developers."
-  ],
-  "frontend lead": [
-    "Tell me about a time you defined frontend standards or patterns across teams.",
-    "Describe a situation where you advocated for frontend concerns at the organizational level.",
-    "Give an example of leading a multi-team initiative involving UI/UX alignment."
-  ],
-  "devops intern": [
-    "Tell me about a time you automated a small task or script. What impact did it have?",
-    "Describe a situation where you troubleshot an environment or configuration issue.",
-    "Give an example of how you documented or communicated setup steps to others."
-  ],
-  "devops junior": [
-    "Describe a time when you diagnosed a pipeline or deployment failure.",
-    "Tell me about a time you introduced a small automation or tooling improvement.",
-    "Give an example of balancing speed and safety in deployment work."
-  ],
-  "devops midlevel": [
-    "Tell me about a time you improved CI/CD reliability.",
-    "Describe a situation where you collaborated with developers to improve release processes.",
-    "Give an example of handling an incident or operational issue."
-  ],
-  "devops senior": [
-    "Tell me about a time you established best practices for deployment or infrastructure.",
-    "Describe a situation where you led incident response or postmortem efforts.",
-    "Give an example of influencing architectural decisions from an ops perspective."
-  ],
-  "devops lead": [
-    "Tell me about a time you defined long-term reliability or automation strategy.",
-    "Describe a situation where you balanced cross-team priorities around infra investment.",
-    "Give an example of resolving a major reliability or tooling conflict between teams."
-  ],
-  "full stack intern": [
-    "Tell me about a time you worked on both frontend and backend parts of a small feature.",
-    "Describe a situation where you had to quickly switch contexts between tasks.",
-    "Give an example of asking for clarification on ambiguous requirements."
-  ],
-  "full stack junior": [
-    "Describe a time you debugged an issue spanning both frontend and backend.",
-    "Tell me about a project where you had to manage multiple responsibilities at once.",
-    "Give an example of communicating tradeoffs about what to build first."
-  ],
-  "full stack midlevel": [
-    "Tell me about a time you designed a feature end-to-end involving multiple components.",
-    "Describe a situation where you coordinated API and UI development simultaneously.",
-    "Give an example of resolving conflicting priorities between different parts of a system."
-  ],
-  "full stack senior": [
-    "Tell me about a time you owned a complex cross-system initiative.",
-    "Describe a situation where you made architectural decisions that impacted multiple layers.",
-    "Give an example of mentoring teammates across specialties."
-  ],
-  "full stack lead": [
-    "Tell me about a time you defined an overall vision for a multi-layered system.",
-    "Describe a situation where you aligned frontend, backend, and product stakeholders.",
-    "Give an example of resolving high-impact technical tradeoffs across the stack."
-  ],
-  "mobile intern": [
-    "Tell me about a time you worked on a mobile UI component and had to adapt it to multiple screen sizes.",
-    "Describe a situation where you debugged an app crash or unexpected behavior.",
-    "Give an example of collaborating with designers on mobile interactions."
-  ],
-  "mobile junior": [
-    "Describe a time you optimized a mobile feature for usability or performance.",
-    "Tell me about a situation where you handled platform-specific constraints.",
-    "Give an example of when you balanced feature work with app stability."
-  ],
-  "mobile midlevel": [
-    "Tell me about a time you owned an entire mobile feature from design to release.",
-    "Describe a situation where you improved app reliability or performance.",
-    "Give an example of handling coordination across iOS and Android teams."
-  ],
-  "mobile senior": [
-    "Tell me about a time you led a mobile modernization, migration, or architecture change.",
-    "Describe a situation where you had to guide your team through tough platform tradeoffs.",
-    "Give an example of mentoring teammates in mobile best practices."
-  ],
-  "mobile lead": [
-    "Tell me about a time you set the technical direction for a mobile team.",
-    "Describe a situation where you aligned product vision with mobile constraints.",
-    "Give an example of navigating disagreements between platform teams."
-  ],
-  "cybersecurity intern": [
-    "Tell me about a time you identified a potential security issue, even a small one. What did you do?",
-    "Describe a situation where you had to follow strict procedures or guidelines.",
-    "Give an example of when you had to be detail-oriented to avoid making a mistake."
-  ],
-  "cybersecurity junior": [
-    "Describe a time you investigated a suspicious system behavior or vulnerability.",
-    "Tell me about a time you communicated security concerns to non-experts.",
-    "Give an example of how you balanced security requirements with usability."
-  ],
-  "cybersecurity midlevel": [
-    "Tell me about a time you responded to or helped mitigate a security incident.",
-    "Describe a situation where you influenced others to follow secure practices.",
-    "Give an example of working with cross-functional teams to resolve a security gap."
-  ],
-  "cybersecurity senior": [
-    "Tell me about a time you led a major security improvement or initiative.",
-    "Describe a situation where you handled conflicting priorities between security and product goals.",
-    "Give an example of mentoring or guiding others in security practices."
-  ],
-  "cybersecurity lead": [
-    "Tell me about a time you set the security strategy for a team or organization.",
-    "Describe a situation where you managed high-stakes tradeoffs during a security event.",
-    "Give an example of influencing executives or multiple teams on security direction."
-  ]
+  "ai/ml": {
+    "intern": [
+      "Tell me about a time you had to learn a new technical concept quickly. How did you approach it and what was the result?",
+      "Describe a situation where you worked with messy or incomplete data. How did you handle it?",
+      "Give an example of when you asked for help on a technical challenge. How did you decide what you needed?"
+    ],
+    "junior": [
+      "Describe a time when you debugged a model or pipeline that wasn’t performing as expected. What steps did you take?",
+      "Tell me about a situation where you collaborated with someone more experienced. How did you ensure productive communication?",
+      "Give an example of how you handled conflicting requirements in an ML task."
+    ],
+    "midlevel": [
+      "Tell me about a time you improved an ML workflow or process. What motivated you and what happened?",
+      "Describe a situation where your analysis or model results influenced a team decision.",
+      "Give an example of how you handled pushback on a modeling choice you made."
+    ],
+    "senior": [
+      "Describe a time you led the development of an ML solution from start to finish. What challenges came up?",
+      "Tell me about when you had to balance model performance with real-world constraints. What tradeoffs did you make?",
+      "Give an example of mentoring someone through a difficult ML problem."
+    ],
+    "lead": [
+      "Tell me about a time you set the technical direction for an ML initiative. How did you align stakeholders?",
+      "Describe a difficult prioritization decision involving multiple ML projects.",
+      "Give an example of how you resolved a major disagreement about model architecture or approach."
+    ]
+  },
+  "backend": {
+    "intern": [
+      "Tell me about a time you worked on part of a backend system and had to understand existing code. What did you do?",
+      "Describe a situation where you were assigned a task you didn't fully understand at first. How did you proceed?",
+      "Give an example of collaborating with another intern or teammate on a small feature."
+    ],
+    "junior": [
+      "Describe a time when you had to debug an issue in a backend service. What was your approach?",
+      "Tell me about a time you communicated a technical limitation or blocker to your team.",
+      "Give an example of when you had to balance writing clean code with meeting a deadline."
+    ],
+    "midlevel": [
+      "Tell me about a time you improved the performance or reliability of a backend component.",
+      "Describe a situation where you coordinated with frontend or product teams to deliver an API.",
+      "Give an example of how you handled unexpected production issues."
+    ],
+    "senior": [
+      "Tell me about a time you designed or led a major backend architecture change.",
+      "Describe a situation where you guided your team through diagnosing a complex system failure.",
+      "Give an example of mentoring others on backend best practices."
+    ],
+    "lead": [
+      "Tell me about a time you owned the technical roadmap for a backend system.",
+      "Describe a situation where you had to balance system reliability with rapid delivery.",
+      "Give an example of resolving high-level architectural disagreements between senior engineers."
+    ]
+  },
+  "frontend": {
+    "intern": [
+      "Tell me about a time you worked on improving a UI component. What feedback did you receive?",
+      "Describe a situation where you had to fix a visual or interaction bug. How did you approach it?",
+      "Give an example of collaborating with designers or PMs."
+    ],
+    "junior": [
+      "Describe a time you balanced design requirements with technical constraints.",
+      "Tell me about a bug that took longer than expected to fix. What did you learn?",
+      "Give an example of ensuring responsive or accessible UI behavior."
+    ],
+    "midlevel": [
+      "Tell me about a time you improved frontend performance or maintainability.",
+      "Describe a situation where you mediated differing opinions between design and engineering.",
+      "Give an example of owning a user-facing feature end-to-end."
+    ],
+    "senior": [
+      "Tell me about a major frontend architecture decision you led.",
+      "Describe a time you helped your team handle a large UI refactor or migration.",
+      "Give an example of mentoring or coaching junior frontend developers."
+    ],
+    "lead": [
+      "Tell me about a time you defined frontend standards or patterns across teams.",
+      "Describe a situation where you advocated for frontend concerns at the organizational level.",
+      "Give an example of leading a multi-team initiative involving UI/UX alignment."
+    ]
+  },
+  "devops": {
+    "intern": [
+      "Tell me about a time you automated a small task or script. What impact did it have?",
+      "Describe a situation where you troubleshot an environment or configuration issue.",
+      "Give an example of how you documented or communicated setup steps to others."
+    ],
+    "junior": [
+      "Describe a time when you diagnosed a pipeline or deployment failure.",
+      "Tell me about a time you introduced a small automation or tooling improvement.",
+      "Give an example of balancing speed and safety in deployment work."
+    ],
+    "midlevel": [
+      "Tell me about a time you improved CI/CD reliability.",
+      "Describe a situation where you collaborated with developers to improve release processes.",
+      "Give an example of handling an incident or operational issue."
+    ],
+    "senior": [
+      "Tell me about a time you established best practices for deployment or infrastructure.",
+      "Describe a situation where you led incident response or postmortem efforts.",
+      "Give an example of influencing architectural decisions from an ops perspective."
+    ],
+    "lead": [
+      "Tell me about a time you defined long-term reliability or automation strategy.",
+      "Describe a situation where you balanced cross-team priorities around infra investment.",
+      "Give an example of resolving a major reliability or tooling conflict between teams."
+    ]
+  },
+  "full stack": {
+    "intern": [
+      "Tell me about a time you worked on both frontend and backend parts of a small feature.",
+      "Describe a situation where you had to quickly switch contexts between tasks.",
+      "Give an example of asking for clarification on ambiguous requirements."
+    ],
+    "junior": [
+      "Describe a time you debugged an issue spanning both frontend and backend.",
+      "Tell me about a project where you had to manage multiple responsibilities at once.",
+      "Give an example of communicating tradeoffs about what to build first."
+    ],
+    "midlevel": [
+      "Tell me about a time you designed a feature end-to-end involving multiple components.",
+      "Describe a situation where you coordinated API and UI development simultaneously.",
+      "Give an example of resolving conflicting priorities between different parts of a system."
+    ],
+    "senior": [
+      "Tell me about a time you owned a complex cross-system initiative.",
+      "Describe a situation where you made architectural decisions that impacted multiple layers.",
+      "Give an example of mentoring teammates across specialties."
+    ],
+    "lead": [
+      "Tell me about a time you defined an overall vision for a multi-layered system.",
+      "Describe a situation where you aligned frontend, backend, and product stakeholders.",
+      "Give an example of resolving high-impact technical tradeoffs across the stack."
+    ]
+  },
+  "mobile": {
+    "intern": [
+      "Tell me about a time you worked on a mobile UI component and had to adapt it to multiple screen sizes.",
+      "Describe a situation where you debugged an app crash or unexpected behavior.",
+      "Give an example of collaborating with designers on mobile interactions."
+    ],
+    "junior": [
+      "Describe a time you optimized a mobile feature for usability or performance.",
+      "Tell me about a situation where you handled platform-specific constraints.",
+      "Give an example of when you balanced feature work with app stability."
+    ],
+    "midlevel": [
+      "Tell me about a time you owned an entire mobile feature from design to release.",
+      "Describe a situation where you improved app reliability or performance.",
+      "Give an example of handling coordination across iOS and Android teams."
+    ],
+    "senior": [
+      "Tell me about a time you led a mobile modernization, migration, or architecture change.",
+      "Describe a situation where you had to guide your team through tough platform tradeoffs.",
+      "Give an example of mentoring teammates in mobile best practices."
+    ],
+    "lead": [
+      "Tell me about a time you set the technical direction for a mobile team.",
+      "Describe a situation where you aligned product vision with mobile constraints.",
+      "Give an example of navigating disagreements between platform teams."
+    ]
+  },
+  "cybersecurity": {
+    "intern": [
+      "Tell me about a time you identified a potential security issue, even a small one. What did you do?",
+      "Describe a situation where you had to follow strict procedures or guidelines.",
+      "Give an example of when you had to be detail-oriented to avoid making a mistake."
+    ],
+    "junior": [
+      "Describe a time you investigated a suspicious system behavior or vulnerability.",
+      "Tell me about a time you communicated security concerns to non-experts.",
+      "Give an example of how you balanced security requirements with usability."
+    ],
+    "midlevel": [
+      "Tell me about a time you responded to or helped mitigate a security incident.",
+      "Describe a situation where you influenced others to follow secure practices.",
+      "Give an example of working with cross-functional teams to resolve a security gap."
+    ],
+    "senior": [
+      "Tell me about a time you led a major security improvement or initiative.",
+      "Describe a situation where you handled conflicting priorities between security and product goals.",
+      "Give an example of mentoring or guiding others in security practices."
+    ],
+    "lead": [
+      "Tell me about a time you set the security strategy for a team or organization.",
+      "Describe a situation where you managed high-stakes tradeoffs during a security event.",
+      "Give an example of influencing executives or multiple teams on security direction."
+    ]
+  }
 }
