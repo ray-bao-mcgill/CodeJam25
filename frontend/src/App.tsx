@@ -4,12 +4,12 @@ import { Link, Route, Routes, Navigate } from "react-router-dom";
 import Landing from "./pages/Landing";
 import LobbyCreation from "./pages/LobbyCreation";
 import WaitingRoom from "./pages/WaitingRoom";
-import RoundStartCounter from "./pages/RoundStartCounter";
-import BehaviouralQuestion from "./pages/BehaviouralQuestion";
-import BehaviouralAnswer from "./pages/BehaviouralAnswer";
-import CurrentScore from "./pages/CurrentScore";
-import TechnicalTheory from "./pages/TechnicalTheory";
-import TechnicalPractical from "./pages/TechnicalPractical";
+import RoundStartCounter from "./pages/game-phase/RoundStartCounter";
+import BehaviouralQuestion from "./pages/game-phase/BehaviouralQuestion";
+import BehaviouralAnswer from "./pages/game-phase/BehaviouralAnswer";
+import CurrentScore from "./pages/game-phase/CurrentScore";
+import TechnicalTheory from "./pages/game-phase/TechnicalTheory";
+import TechnicalPractical from "./pages/game-phase/TechnicalPractical";
 import WinLose from "./pages/WinLose";
 import Analytics from "./pages/Analytics";
 
@@ -43,7 +43,10 @@ const App: React.FC = () => {
 
       <main className="flex-1">
         <Routes>
-          <Route path="/" element={<Navigate to="/landing" replace />} />
+          <Route
+            path="/"
+            element={<Navigate to="/round-start-counter" replace />}
+          />
           <Route path="/landing" element={<Landing />} />
           <Route path="/lobby-creation" element={<LobbyCreation />} />
           <Route path="/waiting-room" element={<WaitingRoom />} />
