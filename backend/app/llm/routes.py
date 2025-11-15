@@ -97,11 +97,11 @@ def _parse_technical_theory_questions(text: str, max_questions: int):
                 questions.append(current_q)
                 if len(questions) >= max_questions:
                     break
-            current_q = {"question": line[2:].strip(), "correct_answer": "", "incorrect_answers": []}
+            current_q = {"question": line[2:].strip(), "correct": "", "incorrect": []}
         elif line.startswith("Correct:") and current_q:
-            current_q["correct_answer"] = line[8:].strip()
+            current_q["correct"] = line[8:].strip()
         elif line.startswith("Incorrect:") and current_q:
-            current_q["incorrect_answers"].append(line[10:].strip())
+            current_q["incorrect"].append(line[10:].strip())
     
     if current_q and current_q.get("question") and len(questions) < max_questions:
         questions.append(current_q)
