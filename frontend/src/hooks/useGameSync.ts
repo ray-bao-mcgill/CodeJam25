@@ -105,8 +105,29 @@ export function useGameSync() {
       })
     } else if (message.type === 'show_results') {
       // Force show results (timer expired or all submitted)
+      console.log('[GAME_SYNC] Received show_results:', {
+        phase: message.phase,
+        phaseComplete: message.phaseComplete,
+        reason: message.reason,
+        forceShow: message.forceShow
+      })
       setGameState((prev) => {
-        if (!prev) return prev
+        if (!prev) {
+          console.log('[GAME_SYNC] No previous gameState, creating new one')
+          return {
+            phase: message.phase || 'unknown',
+            submittedPlayers: [],
+            allPlayersSubmitted: false,
+            showResults: true,
+            phaseComplete: message.phaseComplete || false
+          }
+        }
+        console.log('[GAME_SYNC] Updating gameState:', {
+          prevShowResults: prev.showResults,
+          prevPhaseComplete: prev.phaseComplete,
+          newShowResults: true,
+          newPhaseComplete: message.phaseComplete || false
+        })
         return {
           ...prev,
           showResults: true,

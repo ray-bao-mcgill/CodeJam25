@@ -327,6 +327,10 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             total_players = len(lobby.players)
                             phase_state = phase_manager.get_phase_state(match_id, phase)
                             
+                            print(f"[SUBMIT] After recording submission - Phase: {phase}, Question index: {question_index}, Player: {player_id}")
+                            print(f"[SUBMIT] Phase state player_submissions: {phase_state.player_submissions}")
+                            print(f"[SUBMIT] Phase state question_submissions: {phase_state.question_submissions}")
+                            
                             # For quickfire: players work independently, only check completion when all 10 questions are done
                             if phase == "quickfire":
                                 player_submissions = phase_state.player_submissions.get(player_id, set())
@@ -359,6 +363,119 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                                 "forceShow": True
                                             }
                                         )
+                            
+                            # For behavioural phase: check completion BEFORE general phase check
+                            # This ensures we handle Q0->Q1 transition correctly
+                            if phase == "behavioural":
+                                # Check if question 0 is complete (all players submitted first question)
+                                question_0_submissions = phase_state.question_submissions.get(0, set())
+                                question_0_complete = len(question_0_submissions) >= total_players
+                                
+                                # Check if question 1 is complete
+                                question_1_submissions = phase_state.question_submissions.get(1, set())
+                                question_1_complete = len(question_1_submissions) >= total_players
+                                
+                                print(f"[SUBMIT] Behavioural status - Q0: {len(question_0_submissions)}/{total_players}, Q1: {len(question_1_submissions)}/{total_players}")
+                                print(f"[SUBMIT] Question index: {question_index}, Q0 complete: {question_0_complete}, Q1 complete: {question_1_complete}")
+                                
+                                # Check phase completion AFTER checking individual questions
+                                phase_complete = phase_manager.check_phase_complete(match_id, phase, total_players)
+                                print(f"[SUBMIT] Phase completion check result: {phase_complete}")
+                                
+                                # If Q0 is complete but Q1 is not, advance to Q1
+                                if question_0_complete and not question_1_complete:
+                                    # Question 0 complete but question 1 not complete - signal to advance to question 1
+                                    print(f"[SUBMIT] ✓ Behavioural question 0 complete ({len(question_0_submissions)}/{total_players} players), advancing to question 1")
+                                    print(f"[SUBMIT] Broadcasting show_results with phaseComplete=False to trigger navigation to behavioural-answer")
+                                    await lobby_manager.broadcast_game_message(
+                                        lobby_id,
+                                        {
+                                            "type": "show_results",
+                                            "phase": phase,
+                                            "reason": "question_0_complete",
+                                            "phaseComplete": False,
+                                            "forceShow": True
+                                        }
+                                    )
+                                    print(f"[SUBMIT] ✓ Broadcast complete for question 0 completion")
+                                elif phase_complete:
+                                    # Both questions complete - phase is done
+                                    print(f"[SUBMIT] ✓ Behavioural phase COMPLETE! All questions answered ({len(question_0_submissions)}/{total_players} Q0, {len(question_1_submissions)}/{total_players} Q1)")
+                                    print(f"[SUBMIT] Broadcasting show_results with phaseComplete=True to trigger navigation to current-score")
+                                    await lobby_manager.broadcast_game_message(
+                                        lobby_id,
+                                        {
+                                            "type": "show_results",
+                                            "phase": phase,
+                                            "reason": "phase_complete",
+                                            "phaseComplete": True,
+                                            "forceShow": True
+                                        }
+                                    )
+                                    print(f"[SUBMIT] ✓ Broadcast complete for phase completion")
+                                else:
+                                    print(f"[SUBMIT] ✗ Behavioural phase not ready - Q0: {question_0_complete}, Q1: {question_1_complete}, Phase: {phase_complete}")
+                            elif phase in ["technical_theory"]:
+                                # Theory complete - signal to advance to practical (not phase complete yet)
+                                # For technical sub-phases, check parent phase completion
+                                check_phase = "technical"
+                                phase_complete = phase_manager.check_phase_complete(match_id, check_phase, total_players)
+                                print(f"[SUBMIT] Phase {check_phase} completion status: {phase_complete} ({len(phase_state.player_submissions)}/{total_players} players)")
+                                
+                                sub_phase_complete = phase_manager.check_phase_complete(match_id, phase, total_players)
+                                if sub_phase_complete:
+                                    print(f"[SUBMIT] Technical theory complete, advancing to practical")
+                                    await lobby_manager.broadcast_game_message(
+                                        lobby_id,
+                                        {
+                                            "type": "show_results",
+                                            "phase": phase,
+                                            "reason": "sub_phase_complete",
+                                            "phaseComplete": False,
+                                            "forceShow": True
+                                        }
+                                    )
+                            else:
+                                # For other phases, check phase completion
+                                check_phase = phase
+                                if phase in ["technical_practical"]:
+                                    # Check parent "technical" phase completion
+                                    check_phase = "technical"
+                                
+                                # Check if phase completion criteria are met
+                                phase_complete = phase_manager.check_phase_complete(match_id, check_phase, total_players)
+                                
+                                print(f"[SUBMIT] Phase {check_phase} completion status: {phase_complete} ({len(phase_state.player_submissions)}/{total_players} players)")
+                                
+                                if phase_complete:
+                                    print(f"[SUBMIT] Phase {check_phase} COMPLETE! All criteria met. Broadcasting show_results")
+                                    # Phase is complete - broadcast show_results
+                                    await lobby_manager.broadcast_game_message(
+                                        lobby_id,
+                                        {
+                                            "type": "show_results",
+                                            "phase": check_phase,
+                                            "reason": "phase_complete",
+                                            "phaseComplete": True,
+                                            "forceShow": True
+                                        }
+                                    )
+                            
+                            print(f"[SUBMIT] Updated database for match {match_id}")
+                    
+                    # Broadcast player_submitted message to all connections in lobby
+                    # This is CRITICAL - all players need to see when someone submits
+                    await lobby_manager.broadcast_game_message(
+                        lobby_id,
+                        {
+                            "type": "player_submitted",
+                            "player_id": player_id,
+                            "questionId": question_id,
+                            "phase": phase,
+                            "question_index": question_index
+                        }
+                    )
+                    print(f"[SUBMIT] Broadcast player_submitted to all players for player {player_id}")
                 elif message.get("type") == "quickfire_finished":
                     # Player finished all quickfire questions - track and check completion
                     player_id = message.get("player_id")

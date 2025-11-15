@@ -33,19 +33,30 @@ const BehaviouralQuestion: React.FC = () => {
     },
   });
 
+  // Determine if this is Q0 or Q1 display
+  const isFollowUp = gameState?.questionIndex === 1 || (gameState?.showResults === true && gameState?.phaseComplete === false && gameState?.submittedPlayers?.length >= (lobby?.players.length || 0))
+
   useEffect(() => {
     // Use question from game state if available, otherwise use placeholder
-    if (gameState?.question) {
-      setQuestion(gameState.question)
-      setIsLoading(false)
+    if (isFollowUp) {
+      // Follow-up question
+      if (gameState?.question) {
+        setQuestion(gameState.question)
+        setIsLoading(false)
+      } else {
+        setTimeout(() => {
+          setQuestion("Now, describe how you handled the follow-up situation.");
+          setIsLoading(false);
+        }, 500);
+      }
     } else {
-      // TODO: Replace with backend fetch when API is ready
+      // First question
       setTimeout(() => {
         setQuestion("Describe a time you overcame a challenge at work.");
         setIsLoading(false);
       }, 500);
     }
-  }, [gameState?.question]);
+  }, [gameState?.question, isFollowUp]);
 
   // Use server-synced timer ONLY - no local timer conflicts
   useEffect(() => {
@@ -54,22 +65,31 @@ const BehaviouralQuestion: React.FC = () => {
     }
   }, [timeRemaining]);
 
-  // Navigate to follow-up question only when first question is complete (all players submitted)
-  // But NOT when phase is complete (that happens after follow-up)
+  // Navigate to answer page after timer expires or skip is clicked
+  // This is just a display page - no answer collection happens here
   useEffect(() => {
-    if (showResults && gameState?.showResults && !gameState?.phaseComplete) {
-      // First question complete, navigate to follow-up
-      setTimeout(() => {
-        navigate('/behavioural-answer')
-      }, 1000)
+    // Auto-navigate after timer expires (or skip)
+    if (remaining <= 0) {
+      console.log('[BEHAVIOURAL_Q] Timer expired, navigating to behavioural-answer')
+      navigate('/behavioural-answer')
     }
-  }, [showResults, gameState?.showResults, gameState?.phaseComplete, navigate])
+  }, [remaining, navigate])
 
-  const handleSubmit = async (answer: string) => {
-    await submitAnswer(answer)
-    // Submit via sync with phase information
-    syncSubmitAnswer(answer, gameState?.questionId, 'behavioural', 0)
-  }
+  // Countdown timer
+  useEffect(() => {
+    if (remaining > 0) {
+      const timer = setInterval(() => {
+        setRemaining((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [remaining])
 
   if (isLoading) {
     return (
