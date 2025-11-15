@@ -64,6 +64,28 @@
   display: flex;
   flex-direction: column;
   padding: 1rem;
+  min-height: 0;
+}
+.questionLabel {
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: var(--game-text-primary, #111);
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  border-bottom: 3px solid var(--game-yellow, #ffe838);
+  padding-bottom: 0.5rem;
+}
+.questionContent > div > div:last-child {
+  font-size: clamp(1.125rem, 2.5vw, 1.75rem);
+}
+@media (min-width: 1200px) {
+  .questionContent > div > div:last-child {
+    font-size: clamp(1.25rem, 2vw, 1.875rem);
+  }
+  .questionLabel {
+    font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+  }
 }
 .resizer {
   background: #ddd;

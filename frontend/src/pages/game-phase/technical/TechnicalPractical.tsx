@@ -406,14 +406,15 @@ const TechnicalPractical: React.FC = () => {
           >
             <div className={styles.questionContent}>
               <div className="game-paper px-6 py-5 game-shadow-hard-lg" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <div className="game-label-text text-sm mb-3" style={{ flexShrink: 0 }}>QUESTION</div>
+                <div className={styles.questionLabel} style={{ flexShrink: 0 }}>QUESTION</div>
                 <div 
-                  className="text-base font-bold text-gray-800 whitespace-pre-wrap"
+                  className="font-bold text-gray-800 whitespace-pre-wrap"
                   style={{ 
                     flex: '1 1 auto',
                     overflowY: 'auto',
                     paddingRight: '0.5rem',
-                    lineHeight: '1.6'
+                    lineHeight: '1.7',
+                    minHeight: 0
                   }}
                 >
                   {question}
