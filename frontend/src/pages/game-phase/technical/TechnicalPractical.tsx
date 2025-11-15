@@ -289,9 +289,9 @@ const TechnicalPractical: React.FC = () => {
   }, [activeTab]);
 
   return (
-    <div className="game-bg min-h-screen w-full p-8">
+    <div className="game-bg w-full" style={{ minHeight: '100vh', padding: '1rem 0.5rem 4rem', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <div className="mb-8 flex flex-col items-center">
+      <div className="mb-4 flex flex-col items-center" style={{ flexShrink: 0 }}>
         <div className="game-paper px-10 py-4 game-shadow-hard-lg mb-3">
           <h1 className="game-title text-3xl sm:text-4xl">TECHNICAL PRACTICAL</h1>
         </div>
@@ -301,7 +301,7 @@ const TechnicalPractical: React.FC = () => {
       </div>
 
       {/* TABS */}
-      <nav className={`${styles.tabs} flex justify-center gap-4 mb-6`} role="tablist">
+      <nav className={`${styles.tabs} flex justify-center gap-4 mb-4`} role="tablist" style={{ flexShrink: 0 }}>
         {TAB_OPTIONS.map(tab => (
           <button
             key={tab}
@@ -321,10 +321,10 @@ const TechnicalPractical: React.FC = () => {
         ))}
       </nav>
 
-      <div className={styles.tabpanel} style={{display:'flex', flexDirection:'row', width:'100%'}}>
+      <div className={styles.tabpanel} style={{display:'flex', flexDirection:'row', width:'100%', flex: '1 1 auto', minHeight: 0}}>
         {/* -- Minimal file sidebar, only in IDE tab -- */}
         {activeTab === TAB_IDE && (
-          <aside style={{minWidth:120, background:'#f5f5f5', borderRight:'2px solid #ddd', padding:'1rem 0.5rem', display:'flex', flexDirection:'column', alignItems:'stretch', gap:2}}>
+          <aside style={{minWidth:120, maxWidth:220, flexShrink:0, background:'#f5f5f5', borderRight:'2px solid #ddd', padding:'1rem 0.5rem', display:'flex', flexDirection:'column', alignItems:'stretch', gap:2}}>
             <div style={{marginBottom:5, fontWeight:700, fontSize:'1.08em'}}>Files</div>
             <ul style={{listStyle:'none',padding:0, margin:0, flex:1}}>
               {files.map((f, idx) => (
@@ -376,9 +376,9 @@ const TechnicalPractical: React.FC = () => {
           </aside>
         )}
         {activeTab === TAB_IDE && (
-          <div className="px-4 py-2" style={{width:'100%', display:'flex', flexDirection:'column'}}>
+          <div className="px-4 py-2" style={{flex:1, minWidth:0, width:'auto', display:'flex', flexDirection:'column', minHeight:0}}>
             {/* LANG DROPDOWN RESTORED */}
-            <div className="mb-2 flex items-center gap-2">
+            <div className="mb-2 flex items-center gap-2" style={{ flexShrink: 0 }}>
               <label className="font-bold text-gray-700">Code Editor:</label>
               <select
                 className="game-sharp px-3 py-1 border-2 border-gray-600 bg-white rounded text-base font-bold"
@@ -392,8 +392,8 @@ const TechnicalPractical: React.FC = () => {
                 ))}
               </select>
             </div>
-            <div style={{flexGrow:0}}>
-              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+            <div style={{flexShrink:0}}>
+              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
                 <button
                   title={files[currentFileIdx].language === 'javascript'? undefined : 'Only JavaScript files can be run in browser.'}
                   disabled={files[currentFileIdx].language !== 'javascript'}
@@ -443,15 +443,15 @@ string | null = null;
                 {copySuccess && <span style={{color:'#27c379',fontWeight:700,marginLeft:7,fontSize:'0.95em'}}>Copied!</span>}
               </div>
             </div>
-            <div style={{width:'100%'}}>
-              <div style={{width:'100%', height:440, minHeight:220, marginBottom:18}}>
+            <div style={{width:'100%', minWidth:0, flex: '1 1 auto', display: 'flex', flexDirection: 'column', minHeight: 0}}>
+              <div className={styles.editorWrapper}>
                 <div
                   id="code-editor"
                   ref={editorContainerRef}
-                  style={{ width: '100%', height: '100%', minHeight:200, border: '3px solid #222', borderRadius: 8, background: '#1e1e20', overflow: 'hidden' }}
+                  className={styles.editorContainer}
                 />
               </div>
-              <div style={{background:'#111',borderRadius:8,padding:'0.7em 1.02em 0.72em', color:'#d4e2cc', fontFamily:'monospace', fontSize:'1.04em', minHeight:58, maxHeight:160, boxShadow:'0 2px 8px #0002', width:'100%', whiteSpace:'pre-wrap',position:'relative',overflowY:'auto'}}>
+              <div className={styles.outputSection}>
                 <div style={{fontWeight:600,letterSpacing:'.025em',fontSize:'0.96em',color:'#ffe838',marginBottom:2}}>Output</div>
                 <div style={{overflowX:'auto', wordBreak:'break-all'}}>{(outputLog.length > 0)?outputLog.join('\n'):'(No output yet)'}</div>
                 <button onClick={()=>setOutputLog([])} style={{position:'absolute',top:8,right:15,fontSize:'0.95em',background:'none',border:'none',color:'#ffe838',cursor:'pointer'}}>Clear Output</button>
@@ -488,7 +488,7 @@ string | null = null;
         )}
       </div>
 
-      <div className="flex justify-center mt-8">
+      <div className="flex justify-center mt-4" style={{ flexShrink: 0 }}>
         <button
           className="game-sharp game-block-blue px-12 py-4 text-lg font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover"
           style={{ border: '6px solid var(--game-text-primary)', color: 'var(--game-text-white)' }}
