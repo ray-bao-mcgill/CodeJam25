@@ -5,8 +5,15 @@ from fastapi.responses import FileResponse
 import uvicorn
 import os
 from router import router
+from database import init_db
 
 app = FastAPI()
+
+# Initialize database on startup
+@app.on_event("startup")
+async def startup_event():
+    init_db()
+    print("Database initialized", flush=True)
 
 # CORS for React frontend
 cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173,https://codejam25-production.up.railway.app").split(",")
