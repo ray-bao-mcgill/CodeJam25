@@ -365,7 +365,7 @@ const TechnicalPractical: React.FC = () => {
       </div>
 
       {/* TABS */}
-      <nav className={`${styles.tabs} flex justify-start gap-2 mb-4`} role="tablist" style={{ flexShrink: 0, paddingLeft: '1rem' }}>
+      <nav className={`${styles.tabs} flex justify-center gap-2 mb-4`} role="tablist" style={{ flexShrink: 0 }}>
         {TAB_OPTIONS.map(tab => (
           <button
             key={tab}
