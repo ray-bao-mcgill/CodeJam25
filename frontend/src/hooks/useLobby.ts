@@ -16,18 +16,90 @@ export interface LobbyData {
 }
 
 export function useLobby() {
-  const [lobbyId, setLobbyId] = useState<string>("");
-  const [playerName, setPlayerName] = useState<string>("");
-  const [joined, setJoined] = useState<boolean>(false);
-  const [lobby, setLobby] = useState<LobbyData | null>(null);
+  // Load initial state from sessionStorage
+  const [lobbyId, setLobbyIdState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('lobbyId') || '';
+    }
+    return '';
+  });
+  const [playerName, setPlayerNameState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('playerName') || '';
+    }
+    return '';
+  });
+  const [joined, setJoinedState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('joined') === 'true';
+    }
+    return false;
+  });
+  const [lobby, setLobbyState] = useState<LobbyData | null>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem('lobby');
+      return stored ? JSON.parse(stored) : null;
+    }
+    return null;
+  });
   const [error, setError] = useState<string>("");
   const [isCreating, setIsCreating] = useState<boolean>(false);
-  const [playerId, setPlayerId] = useState<string | null>(null);
+  const [playerId, setPlayerIdState] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('playerId') || null;
+    }
+    return null;
+  });
 
-  const createLobby = async () => {
-    if (!playerName.trim()) {
+  // Wrapper setters that also update sessionStorage
+  const setLobbyId = (id: string) => {
+    setLobbyIdState(id);
+    if (id) {
+      sessionStorage.setItem('lobbyId', id);
+    } else {
+      sessionStorage.removeItem('lobbyId');
+    }
+  };
+
+  const setPlayerName = (name: string) => {
+    setPlayerNameState(name);
+    if (name) {
+      sessionStorage.setItem('playerName', name);
+    } else {
+      sessionStorage.removeItem('playerName');
+    }
+  };
+
+  const setJoined = (value: boolean) => {
+    setJoinedState(value);
+    sessionStorage.setItem('joined', value.toString());
+    if (!value) {
+      sessionStorage.removeItem('joined');
+    }
+  };
+
+  const setLobby = (lobbyData: LobbyData | null) => {
+    setLobbyState(lobbyData);
+    if (lobbyData) {
+      sessionStorage.setItem('lobby', JSON.stringify(lobbyData));
+    } else {
+      sessionStorage.removeItem('lobby');
+    }
+  };
+
+  const setPlayerId = (id: string | null) => {
+    setPlayerIdState(id);
+    if (id) {
+      sessionStorage.setItem('playerId', id);
+    } else {
+      sessionStorage.removeItem('playerId');
+    }
+  };
+
+  const createLobby = async (playerNameToUse: string) => {
+    if (!playerNameToUse || !playerNameToUse.trim()) {
       setError("Please enter your name");
-      return;
+      return { success: false, error: "Please enter your name" };
     }
 
     setIsCreating(true);
@@ -45,13 +117,16 @@ export function useLobby() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             lobby_id: createData.lobby_id,
-            player_name: playerName.trim(),
+            player_name: playerNameToUse.trim(),
           }),
         });
 
         const joinData = await joinResponse.json();
 
         if (joinData.success) {
+          // Only save to sessionStorage after successful lobby creation/join
+          setPlayerName(playerNameToUse.trim());
+          // Use wrapper setters which persist to sessionStorage
           setLobbyId(createData.lobby_id);
           setJoined(true);
           setLobby(joinData.lobby);
@@ -75,8 +150,12 @@ export function useLobby() {
     }
   };
 
-  const joinLobby = async () => {
-    if (!lobbyId.trim() || !playerName.trim()) {
+  const joinLobby = async (customLobbyId?: string, customPlayerName?: string) => {
+    // Use custom parameters if provided, otherwise use state
+    const lobbyIdToUse = customLobbyId || lobbyId;
+    const playerNameToUse = customPlayerName || playerName;
+
+    if (!lobbyIdToUse.trim() || !playerNameToUse.trim()) {
       setError("Please enter both lobby ID and your name");
       return { success: false, error: "Please enter both lobby ID and your name" };
     }
@@ -86,19 +165,23 @@ export function useLobby() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lobby_id: lobbyId.trim(),
-          player_name: playerName.trim(),
+          lobby_id: lobbyIdToUse.trim(),
+          player_name: playerNameToUse.trim(),
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        setLobbyId(lobbyId.trim());
+        // Use wrapper setters which persist to sessionStorage
+        // Use the lobby ID from the response, not the one we sent (in case of mismatch)
+        const responseLobbyId = data.lobby?.id || lobbyIdToUse.trim();
+        setLobbyId(responseLobbyId);
+        setPlayerName(playerNameToUse.trim());
         setJoined(true);
         setLobby(data.lobby);
         setPlayerId(data.player_id);
-        return { success: true, lobbyId: lobbyId.trim() };
+        return { success: true, lobbyId: responseLobbyId };
       } else {
         setError(data.message);
         return { success: false, error: data.message };
@@ -118,12 +201,41 @@ export function useLobby() {
     }
 
     try {
+      // Get match configuration from sessionStorage
+      const jobMode = sessionStorage.getItem('jobMode');
+      let matchType: string | null = null;
+      let jobDescription: string | null = null;
+      let role: string | null = null;
+      let level: string | null = null;
+
+      if (jobMode === 'description') {
+        matchType = 'job_posting';
+        jobDescription = sessionStorage.getItem('jobDescription');
+      } else if (jobMode === 'role') {
+        matchType = 'generalized';
+        role = sessionStorage.getItem('selectedRole');
+        level = sessionStorage.getItem('selectedLevel');
+      }
+
+      // Build request body
+      const requestBody: any = {
+        player_id: playerId,
+      };
+
+      if (matchType) {
+        requestBody.match_type = matchType;
+        if (matchType === 'job_posting' && jobDescription) {
+          requestBody.job_description = jobDescription;
+        } else if (matchType === 'generalized' && role && level) {
+          requestBody.role = role;
+          requestBody.level = level;
+        }
+      }
+
       const response = await fetch(`${API_URL}/api/lobby/${lobbyId}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          player_id: playerId,
-        }),
+        body: JSON.stringify(requestBody),
       });
       const data = await response.json();
 
@@ -157,13 +269,18 @@ export function useLobby() {
     } catch (err) {
       console.error("Error leaving lobby:", err);
     } finally {
-      // Reset state
+      // Reset state and clear sessionStorage
       setJoined(false);
       setLobby(null);
       setLobbyId("");
       setPlayerName("");
       setPlayerId(null);
       setError("");
+      // Clear sessionStorage
+      sessionStorage.removeItem('lobbyId');
+      sessionStorage.removeItem('playerId');
+      sessionStorage.removeItem('joined');
+      sessionStorage.removeItem('lobby');
     }
   };
 
@@ -175,6 +292,12 @@ export function useLobby() {
     setPlayerId(null);
     setError("");
     setIsCreating(false);
+    // Clear sessionStorage
+    sessionStorage.removeItem('lobbyId');
+    sessionStorage.removeItem('playerId');
+    sessionStorage.removeItem('joined');
+    sessionStorage.removeItem('lobby');
+    sessionStorage.removeItem('playerName');
   };
 
   return {

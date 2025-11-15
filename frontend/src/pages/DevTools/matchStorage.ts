@@ -17,12 +17,15 @@ export interface PlayerResult {
 }
 
 export interface MatchSummary {
-  id: string;
+  match_id: string;
+  lobby_id: string;
   created_at: string;
   started_at?: string;
-  completed_at: string;
+  completed_at?: string;
+  match_type: string;
+  match_config: Record<string, any>;
   players: Array<{ id: string; name: string }>;
-  results: Record<string, PlayerResult>;
+  game_state: Record<string, any>; // Contains scores, rounds, etc.
   match_summary_text?: string;
   winner_id?: string;
   total_questions: number;
@@ -42,14 +45,17 @@ class MatchStorage {
       const res = await fetch(`${DB_API}/matches`);
       const data = await res.json();
       if (data.success && data.matches) {
-        // Transform backend format to frontend format
+        // Backend format matches frontend format now
         return data.matches.map((m: any) => ({
-          id: m.match_id,
+          match_id: m.match_id,
+          lobby_id: m.lobby_id,
           created_at: m.created_at,
           started_at: m.started_at,
           completed_at: m.completed_at,
+          match_type: m.match_type,
+          match_config: m.match_config || {},
+          game_state: m.game_state || {},
           players: m.players,
-          results: m.results,
           match_summary_text: m.match_summary_text,
           winner_id: m.winner_id,
           total_questions: m.total_questions,
@@ -83,11 +89,14 @@ class MatchStorage {
    */
   async save(summary: MatchSummary): Promise<boolean> {
     try {
-      // Transform to backend format
+      // Backend format matches frontend format now
       const backendFormat = {
-        match_id: summary.id,
+        match_id: summary.match_id,
+        lobby_id: summary.lobby_id,
+        match_type: summary.match_type,
+        match_config: summary.match_config,
         players: summary.players,
-        results: summary.results,
+        game_state: summary.game_state,
         match_summary_text: summary.match_summary_text,
         winner_id: summary.winner_id,
         total_questions: summary.total_questions,
@@ -125,16 +134,18 @@ class MatchStorage {
     try {
       const summaries = this.getCached();
       
-      const existingIndex = summaries.findIndex(m => m.id === summary.id);
+      const existingIndex = summaries.findIndex(m => m.match_id === summary.match_id);
       if (existingIndex >= 0) {
         summaries[existingIndex] = summary;
       } else {
         summaries.push(summary);
       }
 
-      summaries.sort((a, b) => 
-        new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime()
-      );
+      summaries.sort((a, b) => {
+        const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+        const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+        return bTime - aTime;
+      });
 
       const jsonString = JSON.stringify(summaries);
       const sizeInBytes = new Blob([jsonString]).size;
@@ -164,15 +175,17 @@ class MatchStorage {
   private cacheLocally(summary: MatchSummary): void {
     try {
       const summaries = this.getCached();
-      const existingIndex = summaries.findIndex(m => m.id === summary.id);
+      const existingIndex = summaries.findIndex(m => m.match_id === summary.match_id);
       if (existingIndex >= 0) {
         summaries[existingIndex] = summary;
       } else {
         summaries.push(summary);
       }
-      summaries.sort((a, b) => 
-        new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime()
-      );
+      summaries.sort((a, b) => {
+        const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+        const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+        return bTime - aTime;
+      });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(summaries));
     } catch (error) {
       // Silently fail for cache operations
@@ -189,12 +202,15 @@ class MatchStorage {
       if (data.success && data.match) {
         const m = data.match;
         return {
-          id: m.match_id,
+          match_id: m.match_id,
+          lobby_id: m.lobby_id,
           created_at: m.created_at,
           started_at: m.started_at,
           completed_at: m.completed_at,
+          match_type: m.match_type,
+          match_config: m.match_config || {},
+          game_state: m.game_state || {},
           players: m.players,
-          results: m.results,
           match_summary_text: m.match_summary_text,
           winner_id: m.winner_id,
           total_questions: m.total_questions,
@@ -206,7 +222,7 @@ class MatchStorage {
       console.error('Error fetching match:', error);
       // Fallback to cache
       const summaries = this.getCached();
-      return summaries.find(m => m.id === matchId) || null;
+      return summaries.find(m => m.match_id === matchId) || null;
     }
   }
 
@@ -264,7 +280,7 @@ class MatchStorage {
       if (data.success) {
         // Also remove from cache
         const summaries = this.getCached();
-        const filtered = summaries.filter(m => m.id !== matchId);
+        const filtered = summaries.filter(m => m.match_id !== matchId);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
         return true;
       }
@@ -273,7 +289,7 @@ class MatchStorage {
       console.error('Error deleting match:', error);
       // Fallback to local cache deletion
       const summaries = this.getCached();
-      const filtered = summaries.filter(m => m.id !== matchId);
+      const filtered = summaries.filter(m => m.match_id !== matchId);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
       return filtered.length < summaries.length;
     }

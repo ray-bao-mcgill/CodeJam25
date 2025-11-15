@@ -55,7 +55,16 @@ class LobbyManager:
             print(f"Cleaning up empty lobby {lobby_id}")
             del self.lobbies[lobby.id]
     
-    def start_game(self, lobby_id: str, player_id: str = None) -> tuple[bool, str]:
+    def start_game(
+        self, 
+        lobby_id: str, 
+        player_id: str = None,
+        match_type: str = None,
+        job_description: str = None,
+        role: str = None,
+        level: str = None,
+        match_config: Dict = None
+    ) -> tuple[bool, str]:
         """Start the game in a lobby and create a Match instance"""
         lobby = self.get_lobby(lobby_id)
         if not lobby:
@@ -65,6 +74,19 @@ class LobbyManager:
         success, message = lobby.start_game(player_id)
         if not success:
             return False, message
+        
+        # Use provided match configuration or fall back to lobby's stored configuration
+        final_match_type = match_type or lobby.match_type or "generalized"
+        final_job_description = job_description or lobby.job_description
+        final_role = role or lobby.role
+        final_level = level or lobby.level
+        final_match_config = match_config or lobby.match_config or {}
+        
+        # Validate match configuration based on type
+        if final_match_type == "job_posting" and not final_job_description:
+            return False, "Job description is required for job_posting match type"
+        elif final_match_type == "generalized" and (not final_role or not final_level):
+            return False, "Role and level are required for generalized match type"
         
         # Create a Match instance
         match_id = str(uuid.uuid4())
@@ -92,6 +114,11 @@ class LobbyManager:
             match_id=match_id,
             lobby_id=lobby_id,
             players=lobby.players,
+            match_type=final_match_type,
+            job_description=final_job_description,
+            role=final_role,
+            level=final_level,
+            match_config=final_match_config,
             lobby_callback=match_callback
         )
         
@@ -100,7 +127,7 @@ class LobbyManager:
         # Start the match
         match.start()
         
-        print(f"Created and started match {match_id} for lobby {lobby_id}")
+        print(f"Created and started match {match_id} for lobby {lobby_id} (type: {final_match_type})")
         return True, f"Game started with match {match_id}"
     
     def transfer_ownership(self, lobby_id: str, new_owner_id: str, current_owner_id: str) -> tuple[bool, str]:

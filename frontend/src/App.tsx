@@ -1,8 +1,12 @@
 import React from "react";
-import { Link, Route, Routes, Navigate } from "react-router-dom";
+import { Route, Routes, Navigate } from "react-router-dom";
 
 import Landing from "./pages/onboarding/Landing";
 import LobbyCreation from "./pages/onboarding/LobbyCreation";
+import LobbyJoin from "./pages/onboarding/LobbyJoin";
+import JobInputSelection from "./pages/onboarding/JobInputSelection";
+import LobbySetup from "./pages/onboarding/LobbySetup";
+import LobbyWaitingRoomPage from "./pages/LobbyWaitingRoomPage";
 import WaitingRoom from "./pages/WaitingRoom";
 import RoundStartCounter from "./pages/game-phase/RoundStartCounter";
 import BehaviouralQuestion from "./pages/game-phase/BehaviouralQuestion";
@@ -16,63 +20,36 @@ import DevTools from "./pages/DevTools";
 import DatabaseAdmin from "./pages/DevTools/DatabaseAdmin";
 
 const App: React.FC = () => {
-  const links = [
-    { to: "/landing", label: "Landing" },
-    { to: "/lobby-creation", label: "LobbyCreation" },
-    { to: "/waiting-room", label: "WaitingRoom" },
-    { to: "/round-start-counter/behavioural", label: "Start Behavioural" },
-    { to: "/round-start-counter/technical", label: "Start Technical" },
-    { to: "/behavioural-question", label: "BehaviouralQuestion" },
-    { to: "/behavioural-answer", label: "BehaviouralAnswer" },
-    { to: "/current-score", label: "CurrentScore" },
-    { to: "/technical-theory", label: "TechnicalTheory" },
-    { to: "/technical-practical", label: "TechnicalPractical" },
-    { to: "/win-lose", label: "WinLose" },
-    { to: "/analytics", label: "Analytics" },
-  ];
-
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="p-4 border-b">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Frontend Scaffold</h1>
-          <nav className="text-sm">
-            <Link className="text-blue-600 hover:underline" to="/landing">
-              Home
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <main className="flex-1">
-        <Routes>
-          <Route
-            path="/"
-            element={<Navigate to="/landing" replace />}
-          />
-          <Route path="/landing" element={<Landing />} />
-          <Route path="/lobby-creation" element={<LobbyCreation />} />
-          <Route path="/waiting-room" element={<WaitingRoom />} />
-          <Route
-            path="/round-start-counter/:type"
-            element={<RoundStartCounter />}
-          />
-          <Route
-            path="/behavioural-question"
-            element={<BehaviouralQuestion />}
-          />
-          <Route path="/behavioural-answer" element={<BehaviouralAnswer />} />
-          <Route path="/current-score" element={<CurrentScore />} />
-          <Route path="/technical-theory" element={<TechnicalTheory />} />
-          <Route path="/technical-practical" element={<TechnicalPractical />} />
-          <Route path="/win-lose" element={<WinLose />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/dev" element={<DevTools />} />
-          <Route path="/admin" element={<DatabaseAdmin />} />
-        </Routes>
-      </main>
+    <div className="min-h-screen">
+      <Routes>
+        <Route path="/" element={<Navigate to="/landing" replace />} />
+        <Route path="/landing" element={<Landing />} />
+        <Route path="/lobby-creation" element={<LobbyCreation />} />
+        <Route path="/lobby-join" element={<LobbyJoin />} />
+        <Route path="/job-input" element={<JobInputSelection />} />
+        <Route path="/lobby-setup" element={<LobbySetup />} />
+        <Route path="/lobby-waiting" element={<LobbyWaitingRoomPage />} />
+        <Route
+          path="/round-start-counter/:type"
+          element={<RoundStartCounter />}
+        />
+        <Route
+          path="/behavioural-question"
+          element={<BehaviouralQuestion />}
+        />
+        <Route path="/behavioural-answer" element={<BehaviouralAnswer />} />
+        <Route path="/current-score" element={<CurrentScore />} />
+        <Route path="/technical-theory" element={<TechnicalTheory />} />
+        <Route path="/technical-practical" element={<TechnicalPractical />} />
+        <Route path="/win-lose" element={<WinLose />} />
+        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/dev" element={<DevTools />} />
+        <Route path="/admin" element={<DatabaseAdmin />} />
+      </Routes>
     </div>
   );
 };
 
 export default App;
+

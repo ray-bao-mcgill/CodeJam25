@@ -1,0 +1,1334 @@
+{
+  "software engineering": {
+    "intern": [
+      {
+        "question": "Explain what a variable is and how it is used in programming.",
+        "correct": "A variable is a named storage location in memory that holds a value, which can be changed during program execution.",
+        "incorrect": [
+          "A variable is a fixed value that cannot be changed once it is assigned, used to ensure data integrity in programs.",
+          "A variable is a special type of function that automatically updates its value based on user input.",
+          "A variable is a graphical representation of data used for debugging purposes in programming."
+        ]
+      },
+      {
+        "question": "Describe the difference between a for loop and a while loop, including examples of when to use each.",
+        "correct": "A for loop is used when the number of iterations is known beforehand, typically iterating over a range or collection, while a while loop continues until a specified condition becomes false, making it suitable for cases where the number of iterations is not predetermined (e.g., reading input until a specific value is entered).",
+        "incorrect": [
+          "A for loop is used for infinite iterations, while a while loop is used for a fixed number of iterations based on a defined range.",
+          "A for loop can only iterate through arrays, while a while loop can iterate through any data structure, including arrays and objects.",
+          "A for loop requires a conditional statement, while a while loop does not need any conditions to terminate."
+        ]
+      },
+      {
+        "question": "What is a function? Explain parameters and return values in simple terms.",
+        "correct": "A function is a reusable block of code designed to perform a specific task, which can take inputs (parameters) and produce an output (return value).",
+        "incorrect": [
+          "A function is a type of variable that stores data temporarily and can only be used once in a program.",
+          "A function is a way to create user interfaces, allowing users to interact with a program without writing any code.",
+          "A function is a programming tool that automatically generates random numbers and does not accept any inputs or provide outputs."
+        ]
+      }
+    ],
+    "junior": [
+      {
+        "question": "What is the difference between pass-by-value and pass-by-reference?",
+        "correct": "Pass-by-value creates a copy of the variable's value, while pass-by-reference passes a reference to the original variable, allowing modifications to the original data.",
+        "incorrect": [
+          "Pass-by-value allows modifications to the original variable, while pass-by-reference only allows read access to the variable's value.",
+          "Pass-by-value is used exclusively for primitive data types, while pass-by-reference is used only for complex data types.",
+          "Both pass-by-value and pass-by-reference create copies of variables, but pass-by-reference copies the variable's data structure instead of its value."
+        ]
+      },
+      {
+        "question": "Explain what object-oriented programming means, and list two main benefits.",
+        "correct": "Object-oriented programming (OOP) is a programming paradigm based on the concept of \"objects,\" which can contain data and code: data in the form of fields (attributes or properties) and code in the form of procedures (methods). Two main benefits are code reusability and improved maintainability.",
+        "incorrect": [
+          "Object-oriented programming (OOP) is a programming style that only uses functions and procedures without any data structures. Two main benefits are faster execution speed and lower memory usage.",
+          "Object-oriented programming (OOP) is a method of programming that requires all code to be written in a single file, promoting simplicity and ease of use. Two main benefits are reduced complexity and automatic error detection.",
+          "Object-oriented programming (OOP) focuses solely on using global variables to manage data and state. Two main benefits are ease of debugging and eliminating the need for documentation."
+        ]
+      },
+      {
+        "question": "Describe how hash tables work and give an example use case.",
+        "correct": "Hash tables store key-value pairs using a hash function to compute an index in an array, allowing for efficient data retrieval and insertion. A common use case is implementing a database index for fast record lookups.",
+        "incorrect": [
+          "Hash tables store data in a linked list where each node contains a key and value, ensuring that data retrieval is always done in linear time. A common use case is managing a queue of tasks.",
+          "Hash tables use a binary tree structure to store key-value pairs, allowing for logarithmic time complexity for both insertion and retrieval. A typical use case is sorting a list of items.",
+          "Hash tables require a fixed size, and when full, they automatically resize and rehash all existing entries. A common use case is caching frequently accessed web pages."
+        ]
+      }
+    ],
+    "midlevel": [
+      {
+        "question": "What are design patterns? Give two examples and their use cases.",
+        "correct": "Design patterns are reusable solutions to common software design problems, providing a template for how to solve these issues in various contexts. Examples include the Singleton pattern, which ensures a class has only one instance, and the Observer pattern, which allows a subject to notify observers of state changes.",
+        "incorrect": [
+          "Design patterns are specific programming languages that dictate how software should be developed, such as Python or Java. Examples include the Python pattern, which emphasizes indentation, and the Java pattern, which focuses on object-oriented principles.",
+          "Design patterns are frameworks that dictate the structure of a software application, such as MVC (Model-View-Controller) or REST (Representational State Transfer). Examples include MVC for database interactions and REST for external APIs.",
+          "Design patterns are coding standards that specify naming conventions and code formatting rules for software developers. Examples include the CamelCase pattern for variable names and the Indentation pattern for code blocks."
+        ]
+      },
+      {
+        "question": "Explain the concept of recursion and provide an example where it's appropriate.",
+        "correct": "Recursion is a programming technique where a function calls itself to solve a problem, typically used in problems that can be divided into smaller, similar subproblems, such as calculating factorials or navigating tree structures.",
+        "incorrect": [
+          "Recursion is a method of iterating over a sequence of elements using a loop, which is more efficient than using conditional statements.",
+          "Recursion involves creating multiple instances of a function simultaneously to execute parallel processing tasks, improving performance significantly.",
+          "Recursion is a technique used to optimize memory usage by storing multiple variables in a single data structure, reducing the overall memory footprint of the program."
+        ]
+      },
+      {
+        "question": "Describe how concurrency is handled in modern programming languages.",
+        "correct": "Modern programming languages handle concurrency through various mechanisms such as threads, asynchronous programming, and synchronization primitives to allow multiple tasks to execute simultaneously without conflicts.",
+        "incorrect": [
+          "Modern programming languages handle concurrency by executing all tasks sequentially to ensure that each task completes before the next one starts.",
+          "Concurrency in modern programming languages is managed by automatically distributing all tasks across multiple processors without any need for developer intervention.",
+          "In modern programming languages, concurrency is achieved solely through the use of global variables that allow different tasks to share and access data simultaneously."
+        ]
+      }
+    ],
+    "senior": [
+      {
+        "question": "What are the SOLID principles in software engineering? Summarize each principle.",
+        "correct": "The SOLID principles are a set of five design principles intended to make software designs more understandable, flexible, and maintainable: Single Responsibility Principle, Open/Closed Principle, Liskov Substitution Principle, Interface Segregation Principle, and Dependency Inversion Principle.",
+        "incorrect": [
+          "The SOLID principles are a set of five coding standards focused on optimizing performance, including Speed Optimization Principle, Memory Management Principle, Code Readability Principle, and Testing Efficiency Principle.",
+          "The SOLID principles are a collection of best practices for database normalization, which include Single Table Principle, One-to-Many Principle, Data Redundancy Principle, and Referential Integrity Principle.",
+          "The SOLID principles are guidelines for project management that emphasize time management, resource allocation, team collaboration, and budgeting efficiency as key factors for successful software development."
+        ]
+      },
+      {
+        "question": "Explain how dependency injection works and why it is useful.",
+        "correct": "Dependency injection is a design pattern that allows a class to receive its dependencies from an external source rather than creating them internally, promoting loose coupling and easier testing.",
+        "incorrect": [
+          "Dependency injection is a method of directly instantiating classes within a program to ensure they have all needed dependencies immediately available.",
+          "Dependency injection requires that all dependencies be declared as global variables to ensure they are accessible throughout the application.",
+          "Dependency injection is a technique for automatically generating code that enhances the performance of existing classes by adding additional features without modifying their source."
+        ]
+      },
+      {
+        "question": "Describe advantages and challenges of microservices architectures.",
+        "correct": "Microservices architectures enhance scalability and enable independent deployment of services, but they can introduce complexity in service management and inter-service communication.",
+        "incorrect": [
+          "Microservices architectures eliminate the need for any backend infrastructure, making them easier to manage than monolithic applications.",
+          "Microservices require a single database for all services, ensuring data consistency and reducing overhead.",
+          "Microservices architectures are more efficient because they reduce the number of network calls between services, resulting in faster response times."
+        ]
+      }
+    ],
+    "lead": [
+      {
+        "question": "Outline steps for conducting a code review process at the organization level.",
+        "correct": "Establish a checklist of coding standards, assign reviewers, conduct the review collaboratively, document feedback, and track follow-up actions.",
+        "incorrect": [
+          "Conduct reviews only after code has been deployed, use a single reviewer for all projects, and avoid documenting feedback to save time.",
+          "Require all developers to review their own code before submission, limit reviews to only major releases, and only discuss findings in private meetings.",
+          "Focus solely on performance issues during the review, skip the documentation process entirely, and allow reviewers to suggest changes without any justification."
+        ]
+      },
+      {
+        "question": "What is the role of software architecture documentation in large projects?",
+        "correct": "Software architecture documentation provides a blueprint for system structure, guiding development, ensuring consistency, and facilitating communication among stakeholders.",
+        "incorrect": [
+          "Software architecture documentation is primarily used for marketing purposes to attract potential investors to the project.",
+          "Software architecture documentation serves as a detailed user manual for end-users to understand how to operate the software.",
+          "Software architecture documentation is only necessary for the initial stages of a project and can be discarded once development begins."
+        ]
+      },
+      {
+        "question": "Explain the trade-offs between different distributed system communication protocols (e.g., REST, gRPC, GraphQL).",
+        "correct": "REST is stateless and easy to use with HTTP, gRPC offers efficient binary serialization and supports streaming, while GraphQL allows for flexible queries but can lead to over-fetching data.",
+        "incorrect": [
+          "REST is a binary protocol that requires a dedicated server for each client, gRPC is only suitable for web applications and is limited to JSON format, and GraphQL is inherently slower than REST due to its reliance on complex queries.",
+          "REST is the most efficient protocol for real-time communication, gRPC is primarily used for file transfers, and GraphQL does not support any form of caching.",
+          "REST and GraphQL both require the server to maintain state, while gRPC can only be used in microservices architecture, making it unsuitable for monolithic applications."
+        ]
+      }
+    ]
+  },
+  "consulting": {
+    "intern": [
+      {
+        "question": "What is a client deliverable and why is clarity important when defining it?",
+        "correct": "A client deliverable is a tangible output or result that is provided to a client at the end of a project, and clarity is important to ensure all parties have aligned expectations and understand the scope of what will be delivered.",
+        "incorrect": [
+          "A client deliverable is any communication sent to a client, and clarity is not important because clients often understand the context without detailed explanations.",
+          "A client deliverable refers to the internal documentation created during a project, and clarity is not necessary since it is only for the team's reference.",
+          "A client deliverable is a set of requirements that a client must meet, and clarity is only relevant during the initial negotiation phase of a project."
+        ]
+      },
+      {
+        "question": "Explain the role of a project timeline in consulting work.",
+        "correct": "A project timeline in consulting work serves as a roadmap that outlines key milestones, deadlines, and deliverables, ensuring that the project stays on track and meets client expectations.",
+        "incorrect": [
+          "A project timeline in consulting work is primarily used to allocate financial resources and determine the budget for the project without focusing on deadlines.",
+          "A project timeline in consulting work is only necessary for large projects, as smaller projects can be managed through informal communication and meetings.",
+          "A project timeline in consulting work is used to document the historical performance of past projects for future reference, rather than guiding current project execution."
+        ]
+      },
+      {
+        "question": "What is an NDA (Non-Disclosure Agreement) and why might a consulting intern encounter one?",
+        "correct": "An NDA (Non-Disclosure Agreement) is a legal contract that prevents the sharing of confidential information, which a consulting intern might encounter to protect proprietary data or trade secrets during their work.",
+        "incorrect": [
+          "An NDA is a type of financial agreement that ensures interns are paid fairly for their work, which they might encounter to guarantee compensation.",
+          "An NDA is a safety protocol that requires interns to follow specific guidelines while using company equipment, which they might encounter to ensure workplace safety.",
+          "An NDA is a performance evaluation document used to assess an intern's work during their internship, which they might encounter to receive feedback on their contributions."
+        ]
+      },
+      {
+        "question": "What is the primary purpose of a SWOT analysis in consulting?",
+        "correct": "To identify strengths, weaknesses, opportunities, and threats related to a business or project.",
+        "incorrect": [
+          "To outline the financial projections for the next fiscal year.",
+          "To create a detailed marketing strategy for a new product launch.",
+          "To assess employee performance within the organization."
+        ]
+      }
+    ],
+    "junior": [
+      {
+        "question": "What is a root cause analysis and when should it be used in consulting projects?",
+        "correct": "A root cause analysis is a systematic process for identifying the fundamental cause of a problem, and it should be used when persistent issues or failures arise in consulting projects to ensure effective solutions are implemented.",
+        "incorrect": [
+          "A root cause analysis is a method for brainstorming potential solutions, and it should be used at the beginning of consulting projects to generate ideas.",
+          "A root cause analysis is primarily a financial assessment tool, and it should be used when evaluating the profitability of consulting projects.",
+          "A root cause analysis is a marketing strategy to improve client engagement, and it should be used during the implementation phase of consulting projects."
+        ]
+      },
+      {
+        "question": "Describe how you would select a sample for a client survey and why sample selection matters.",
+        "correct": "I would use stratified random sampling to ensure representation across key demographics, which is crucial for obtaining valid insights that reflect the overall population's views.",
+        "incorrect": [
+          "I would select participants based solely on their willingness to participate, as this approach guarantees a high response rate.",
+          "I would randomly select participants from a large pool without considering any specific characteristics, as this method simplifies the process.",
+          "I would survey only the client's existing customers, as they are the most relevant audience and will provide the best feedback."
+        ]
+      },
+      {
+        "question": "Explain how market segmentation could assist in forming recommendations for a client.",
+        "correct": "Market segmentation allows a client to identify and target specific groups of consumers with tailored marketing strategies, leading to more effective recommendations and increased engagement.",
+        "incorrect": [
+          "Market segmentation focuses solely on analyzing competitors, which helps clients understand pricing strategies but does not influence customer targeting.",
+          "Market segmentation is primarily used to optimize product supply chains, ensuring that inventory levels match overall market demand without considering consumer preferences.",
+          "Market segmentation relies exclusively on demographic data, which limits the ability to make nuanced recommendations based on consumer behavior and psychographics."
+        ]
+      }
+    ],
+    "midlevel": [
+      {
+        "question": "What is a SWOT analysis, and what value does it give in client engagements?",
+        "correct": "A SWOT analysis is a strategic planning tool that identifies a client's internal Strengths and Weaknesses, as well as external Opportunities and Threats, providing insights that guide decision-making and strategy formulation.",
+        "incorrect": [
+          "A SWOT analysis is a financial forecasting model that predicts a client's revenue growth over the next five years, helping in budget allocation.",
+          "A SWOT analysis is a customer satisfaction survey that collects feedback on client products and services to improve their market position.",
+          "A SWOT analysis is a risk assessment framework that solely focuses on identifying potential legal liabilities faced by a client in their industry."
+        ]
+      },
+      {
+        "question": "Describe the concept of KPIs (Key Performance Indicators) in consulting.",
+        "correct": "KPIs (Key Performance Indicators) are measurable values that demonstrate how effectively a company is achieving key business objectives, used in consulting to assess performance and guide decision-making.",
+        "incorrect": [
+          "KPIs are financial metrics that only focus on profit margins and revenue growth, disregarding other aspects of business performance.",
+          "KPIs are qualitative assessments made through client feedback and personal opinions to evaluate a consulting project's success.",
+          "KPIs are solely used for internal employee performance evaluations and have no relevance to project outcomes in consulting engagements."
+        ]
+      },
+      {
+        "question": "How do you differentiate between milestones and deliverables in project planning?",
+        "correct": "Milestones are specific points in time that signify important stages in a project, while deliverables are tangible outcomes or products produced as a result of the project.",
+        "incorrect": [
+          "Milestones are tasks that need to be completed, while deliverables are simply deadlines for those tasks.",
+          "Milestones represent the total budget of the project, whereas deliverables are the resources allocated to each phase.",
+          "Milestones are the final results of a project, and deliverables are the processes used to achieve those results."
+        ]
+      }
+    ],
+    "senior": [
+      {
+        "question": "Explain change management and why it is critical in major client programs.",
+        "correct": "Change management is the structured approach to transitioning individuals, teams, and organizations from a current state to a desired future state, and it is critical in major client programs to ensure stakeholder buy-in, minimize resistance, and enhance the likelihood of successful implementation.",
+        "incorrect": [
+          "Change management is primarily focused on reducing project costs and increasing profitability, making it less relevant for client programs that are budget-driven.",
+          "Change management involves only the technical adjustments to software systems, so it is not necessary for managing people or processes in client programs.",
+          "Change management is a one-time event that occurs at the beginning of a project, and once implemented, no further actions are needed throughout the program lifecycle."
+        ]
+      },
+      {
+        "question": "Describe two frameworks for restructuring organizations and their comparative use cases.",
+        "correct": "Two frameworks for restructuring organizations are the McKinsey 7-S Framework, which focuses on aligning seven internal elements (strategy, structure, systems, shared values, skills, style, and staff) for improved performance, and the Kotter's 8-Step Change Model, which provides a step-by-step approach to implementing change within an organization, emphasizing the importance of creating urgency and building a guiding coalition.",
+        "incorrect": [
+          "The SWOT Analysis Framework, which evaluates an organization's strengths, weaknesses, opportunities, and threats, is primarily used for marketing strategies rather than restructuring organizations, and the PESTLE Analysis, which examines external factors (Political, Economic, Social, Technological, Legal, and Environmental), is not specifically designed for internal organizational restructuring.",
+          "The Agile Framework, which focuses on iterative project management and software development, is mainly used for product development rather than organizational restructuring, and the Lean Management Framework, which emphasizes waste reduction in manufacturing processes, doesn't address the broader organizational structure.",
+          "The Balanced Scorecard Framework, which is a strategic planning and management system for aligning business activities with the vision and strategy of the organization, is exclusively used for performance measurement and does not pertain to organizational restructuring, while the Six Sigma Framework, which aims for process improvement and defect reduction, is only applicable in production environments."
+        ]
+      },
+      {
+        "question": "What methods can be used for prioritizing recommendations when addressing multiple client pain points?",
+        "correct": "Conducting a cost-benefit analysis to evaluate the impact and feasibility of each recommendation.",
+        "incorrect": [
+          "Prioritizing based solely on the client's personal preferences without considering data or impact.",
+          "Implementing recommendations in a random order to avoid bias and promote creativity.",
+          "Focusing only on the pain points that are easiest to address, ignoring their overall importance."
+        ]
+      }
+    ],
+    "lead": [
+      {
+        "question": "How does a consulting lead ensure alignment between client executive vision and project execution?",
+        "correct": "A consulting lead facilitates regular communication and feedback sessions between client executives and project teams to ensure that the project objectives align with the client’s vision.",
+        "incorrect": [
+          "A consulting lead relies solely on the project team's expertise to determine the project's direction without consulting client executives.",
+          "A consulting lead creates a detailed project plan at the start and assumes it will remain unchanged throughout the project, regardless of client input.",
+          "A consulting lead delegates all decision-making to the client executives to avoid conflicts, thus removing any project oversight."
+        ]
+      },
+      {
+        "question": "Describe best practices for maintaining quality and risk standards across simultaneous consulting projects.",
+        "correct": "Establish a centralized quality management framework with regular audits and feedback loops for all projects.",
+        "incorrect": [
+          "Assign a single project manager to oversee all projects without delegation to ensure consistency in quality.",
+          "Focus solely on client satisfaction metrics, disregarding internal quality standards and risk assessments.",
+          "Implement a one-size-fits-all approach to project management, applying the same strategies and tools across all consulting projects regardless of their unique requirements."
+        ]
+      },
+      {
+        "question": "Explain how to structure and communicate a long-term transformation roadmap for a client organization.",
+        "correct": "Start by conducting a thorough assessment of the current state, define clear objectives, outline key milestones, integrate stakeholder feedback, and establish a timeline with measurable outcomes to communicate the transformation roadmap effectively.",
+        "incorrect": [
+          "Begin with drafting a detailed technical document that covers every aspect of the transformation without consulting stakeholders, and present it as a final version without room for feedback or adjustments.",
+          "Focus solely on the financial implications of the transformation and create a roadmap that highlights cost-saving measures, neglecting the organizational culture and employee engagement aspects.",
+          "Structure the roadmap by listing all potential technologies that could be implemented in the future, without prioritizing them based on business needs or aligning them with strategic goals."
+        ]
+      }
+    ]
+  },
+  "ai/ml": {
+    "intern": [
+      {
+        "question": "What is the difference between supervised and unsupervised learning?",
+        "correct": "Supervised learning uses labeled data to train models, while unsupervised learning uses unlabeled data to find patterns.",
+        "incorrect": [
+          "Supervised learning requires no data at all, while unsupervised learning requires a large amount of labeled data.",
+          "Supervised learning is used for clustering data, while unsupervised learning is used for regression tasks.",
+          "Supervised learning only applies to classification problems, while unsupervised learning only applies to image processing."
+        ]
+      },
+      {
+        "question": "What is the purpose of a train–test split in model development?",
+        "correct": "To evaluate the model's performance on unseen data and prevent overfitting.",
+        "incorrect": [
+          "To increase the size of the dataset by duplicating training data.",
+          "To optimize the model parameters during the training phase.",
+          "To ensure that all features are equally represented in the model."
+        ]
+      },
+      {
+        "question": "Why is normalization often required before training an ML model?",
+        "correct": "Normalization ensures that features are on a similar scale, which helps improve the convergence speed and performance of the model during training.",
+        "incorrect": [
+          "Normalization increases the number of features in the dataset, allowing the model to learn more complex patterns.",
+          "Normalization is only necessary for models that use decision trees, as they are sensitive to feature scales.",
+          "Normalization removes outliers from the dataset, making the training process more robust."
+        ]
+      }
+    ],
+    "junior": [
+      {
+        "question": "What is the bias–variance tradeoff in machine learning?",
+        "correct": "The bias–variance tradeoff refers to the balance between a model's ability to minimize bias (error due to oversimplification) and variance (error due to sensitivity to small fluctuations in the training data), affecting its generalization performance on unseen data.",
+        "incorrect": [
+          "The bias–variance tradeoff is the relationship between the complexity of a model and the number of features used, where more features always improve model accuracy.",
+          "The bias–variance tradeoff is the process of adjusting the learning rate in a neural network to minimize both training and testing errors simultaneously.",
+          "The bias–variance tradeoff is a method of selecting a training dataset size that maximizes the model's performance without any error."
+        ]
+      },
+      {
+        "question": "Explain the purpose of regularization in model training.",
+        "correct": "Regularization helps to prevent overfitting by adding a penalty for larger coefficients in the model, promoting simpler models that generalize better to unseen data.",
+        "incorrect": [
+          "Regularization increases the model's capacity to fit the training data by allowing it to use more complex functions.",
+          "Regularization is used to speed up the training process by reducing the number of training epochs required.",
+          "Regularization eliminates irrelevant features from the model entirely, ensuring that only the most important variables are used."
+        ]
+      },
+      {
+        "question": "What is the difference between precision and recall?",
+        "correct": "Precision measures the proportion of true positive results in all positive predictions, while recall measures the proportion of true positive results in all actual positives.",
+        "incorrect": [
+          "Precision is the measure of how many true negatives are present in a dataset, while recall is the measure of how many false positives are present.",
+          "Precision and recall are both measures of the accuracy of a model's performance, with precision focusing on true negatives and recall focusing on false negatives.",
+          "Precision indicates the speed of a model's predictions, whereas recall indicates the model's ability to generalize to unseen data."
+        ]
+      }
+    ],
+    "midlevel": [
+      {
+        "question": "How does gradient descent optimize model parameters?",
+        "correct": "Gradient descent optimizes model parameters by iteratively adjusting them in the direction of the negative gradient of the loss function to minimize the error.",
+        "incorrect": [
+          "Gradient descent optimizes model parameters by randomly adjusting them without considering the loss function, leading to an eventual convergence to the optimal solution.",
+          "Gradient descent optimizes model parameters by increasing them exponentially until the loss function reaches zero.",
+          "Gradient descent optimizes model parameters by using a genetic algorithm to evolve the parameters over multiple generations."
+        ]
+      },
+      {
+        "question": "What is the role of feature engineering in improving model performance?",
+        "correct": "Feature engineering enhances model performance by transforming raw data into meaningful features that better capture the underlying patterns relevant to the prediction task.",
+        "incorrect": [
+          "Feature engineering involves selecting the model architecture to use for training the algorithm.",
+          "Feature engineering is primarily concerned with the optimization of hyperparameters during model training.",
+          "Feature engineering automatically generates new data points from existing ones without any human intervention."
+        ]
+      },
+      {
+        "question": "Explain the difference between generative and discriminative models.",
+        "correct": "Generative models learn the joint probability distribution of the data and labels, allowing them to generate new samples, while discriminative models learn the conditional probability of the labels given the data, focusing on the decision boundary between classes.",
+        "incorrect": [
+          "Generative models only work with categorical data, while discriminative models can handle both categorical and continuous data types effectively.",
+          "Discriminative models are always more accurate than generative models regardless of the dataset size or complexity.",
+          "Generative models require less training data compared to discriminative models to achieve similar performance levels."
+        ]
+      }
+    ],
+    "senior": [
+      {
+        "question": "What factors determine whether a model is overfitting or underfitting?",
+        "correct": "The model's performance on training data versus validation data, specifically if it performs well on training data but poorly on validation data (overfitting) or poorly on both (underfitting).",
+        "incorrect": [
+          "The size of the training dataset alone, regardless of model complexity or performance metrics.",
+          "The number of features used in the model, without considering their relevance or interaction.",
+          "The type of algorithm used, as all algorithms will inherently produce the same level of fitting."
+        ]
+      },
+      {
+        "question": "How do you evaluate the effectiveness of a feature selection strategy?",
+        "correct": "By measuring model performance metrics (e.g., accuracy, F1 score) on validation data before and after applying the feature selection strategy.",
+        "incorrect": [
+          "By counting the number of features selected without considering their impact on model performance.",
+          "By assessing the computational time taken to run the feature selection algorithm only.",
+          "By evaluating the feature selection strategy using only training data metrics without validation."
+        ]
+      },
+      {
+        "question": "Explain the impact of class imbalance on model performance.",
+        "correct": "Class imbalance can lead to models being biased towards the majority class, resulting in poor predictive performance for the minority class and overall accuracy that does not reflect true model effectiveness.",
+        "incorrect": [
+          "Class imbalance has no effect on model performance as models treat all classes equally regardless of their distribution.",
+          "Models trained on imbalanced datasets will always achieve higher accuracy, as they tend to predict the majority class more often.",
+          "Class imbalance only affects the training phase and has no impact on the model's ability to generalize to new data."
+        ]
+      }
+    ],
+    "lead": [
+      {
+        "question": "What principles guide the selection of appropriate ML architectures for complex problems?",
+        "correct": "Consider the nature of the data, the complexity of the task, and the computational resources available.",
+        "incorrect": [
+          "Choose the architecture based solely on the latest trends in ML research, regardless of the problem specifics.",
+          "Always opt for the most complex architecture available, as it will yield the best results in every scenario.",
+          "Select an architecture based on its popularity among peers, rather than its suitability for the specific problem at hand."
+        ]
+      },
+      {
+        "question": "How do you ensure reproducibility across large-scale ML experiments?",
+        "correct": "Use version control for code, data, and experiment configurations alongside containerization to encapsulate the environment.",
+        "incorrect": [
+          "Rely solely on manual documentation of experiment settings and results without using any tools for tracking changes.",
+          "Use only the latest versions of libraries and frameworks to ensure that experiments are always up-to-date without considering potential compatibility issues.",
+          "Conduct experiments in a single environment without saving any model checkpoints or intermediate results, assuming they can be easily retrained later."
+        ]
+      },
+      {
+        "question": "What criteria should be used when deciding between classical ML and deep learning approaches?",
+        "correct": "Consider the size and complexity of the dataset, as well as the computational resources available.",
+        "incorrect": [
+          "Choose deep learning for all problems regardless of dataset size, as it always yields better results.",
+          "Use classical ML exclusively for any dataset that contains more than two features.",
+          "Select deep learning only if the model needs to be explainable and interpretable."
+        ]
+      }
+    ]
+  },
+  "backend": {
+    "intern": [
+      {
+        "question": "What is the difference between an API endpoint and a route?",
+        "correct": "An API endpoint is a specific URL where an API can be accessed, while a route is a defined path in an application that maps to a specific handler or function, potentially serving multiple endpoints.",
+        "incorrect": [
+          "An API endpoint is the same as a route; they refer to the same concept in web development.",
+          "An API endpoint is a type of database query, while a route is a method for handling server-side logic.",
+          "An API endpoint is only used for GET requests, while a route can handle any type of HTTP method."
+        ]
+      },
+      {
+        "question": "What is the purpose of an HTTP status code?",
+        "correct": "To indicate the outcome of an HTTP request and provide information about the response status.",
+        "incorrect": [
+          "To encrypt the data being transmitted between the client and server.",
+          "To define the speed at which a web page is loaded for the user.",
+          "To specify the type of content being sent in the HTTP response body."
+        ]
+      },
+      {
+        "question": "Why are environment variables used in backend development?",
+        "correct": "Environment variables are used to store configuration settings and sensitive information, such as API keys and database credentials, separate from the codebase for security and flexibility.",
+        "incorrect": [
+          "Environment variables are used to improve the performance of backend applications by caching frequently accessed data in memory.",
+          "Environment variables are primarily used for logging purposes, allowing developers to track application performance in real-time.",
+          "Environment variables are utilized to manage user sessions and authentication tokens directly within the application code."
+        ]
+      }
+    ],
+    "junior": [
+      {
+        "question": "What is the difference between synchronous and asynchronous processing?",
+        "correct": "Synchronous processing requires tasks to be completed one after another, while asynchronous processing allows tasks to be initiated and completed independently of each other.",
+        "incorrect": [
+          "Synchronous processing uses multiple threads to execute tasks simultaneously, whereas asynchronous processing runs tasks in a single thread.",
+          "Synchronous processing is faster because it executes tasks in parallel, while asynchronous processing is slower due to the sequential nature of task execution.",
+          "Synchronous processing can only be used in network applications, while asynchronous processing is limited to local computations."
+        ]
+      },
+      {
+        "question": "Explain how REST differs from GraphQL.",
+        "correct": "REST is an architectural style that uses predefined endpoints for each resource, while GraphQL allows clients to specify exactly what data they need in a single request.",
+        "incorrect": [
+          "REST requires clients to send multiple requests to retrieve different resources, whereas GraphQL allows all data to be fetched in separate requests.",
+          "REST is a query language specifically for databases, while GraphQL is a protocol for transferring data over the web.",
+          "REST supports only JSON data format, whereas GraphQL can handle multiple data formats like XML and plain text."
+        ]
+      },
+      {
+        "question": "What is the purpose of connection pooling in databases?",
+        "correct": "Connection pooling improves database performance by reusing existing connections instead of opening new ones for each request.",
+        "incorrect": [
+          "Connection pooling encrypts data transmitted between the application and the database to enhance security.",
+          "Connection pooling automatically backs up the database at regular intervals to prevent data loss.",
+          "Connection pooling reduces the size of the database by deleting unused records to save space."
+        ]
+      }
+    ],
+    "midlevel": [
+      {
+        "question": "What is the role of caching in backend performance?",
+        "correct": "Caching improves backend performance by storing frequently accessed data in memory to reduce latency and decrease load on databases.",
+        "incorrect": [
+          "Caching is primarily used to encrypt sensitive data before it is sent to the client.",
+          "Caching ensures that all backend processes run in real-time by eliminating the need for database queries.",
+          "Caching automatically scales the backend by distributing traffic across multiple servers."
+        ]
+      },
+      {
+        "question": "Explain the difference between horizontal and vertical scaling.",
+        "correct": "Horizontal scaling involves adding more machines or servers to handle increased load, while vertical scaling involves adding more resources (CPU, RAM) to an existing machine.",
+        "incorrect": [
+          "Horizontal scaling refers to increasing the speed of a single server, while vertical scaling means distributing the load across multiple servers.",
+          "Horizontal scaling requires more complex software architecture, whereas vertical scaling can be accomplished with any existing software without changes.",
+          "Horizontal scaling decreases redundancy, while vertical scaling increases it by using fewer, larger servers."
+        ]
+      },
+      {
+        "question": "What is the purpose of ACID properties in relational databases?",
+        "correct": "ACID properties ensure reliable transactions by guaranteeing Atomicity, Consistency, Isolation, and Durability in relational databases.",
+        "incorrect": [
+          "ACID properties are used to enhance the performance of database queries by optimizing data retrieval speed.",
+          "ACID properties focus on maintaining large volumes of data in a non-relational database environment.",
+          "ACID properties help in compressing data to save storage space in relational databases."
+        ]
+      }
+    ],
+    "senior": [
+      {
+        "question": "How do microservices differ from monolithic architectures at a systems level?",
+        "correct": "Microservices are structured as independent, loosely coupled services that can be developed, deployed, and scaled individually, while monolithic architectures are built as a single unified unit.",
+        "incorrect": [
+          "Microservices require a single database for all services to ensure data consistency, whereas monolithic architectures can use multiple databases.",
+          "Microservices are typically built using a single programming language, while monolithic architectures allow for multiple languages within the same application.",
+          "Microservices operate on a single server, while monolithic architectures are distributed across multiple servers for better performance."
+        ]
+      },
+      {
+        "question": "What factors influence the selection of an API communication protocol?",
+        "correct": "The required speed, data format, and security needs of the application.",
+        "incorrect": [
+          "The color scheme of the application interface.",
+          "The programming language used for backend development.",
+          "The size of the database being accessed."
+        ]
+      },
+      {
+        "question": "Explain the core principles of distributed systems consistency models.",
+        "correct": "Distributed systems consistency models define the rules governing how updates to shared data are seen by different nodes, balancing trade-offs between consistency, availability, and partition tolerance (CAP theorem).",
+        "incorrect": [
+          "Consistency models in distributed systems ensure that all nodes must be synchronized at all times, preventing any data discrepancies regardless of network conditions.",
+          "The primary goal of consistency models is to eliminate network latency completely, allowing instant data replication across all nodes.",
+          "Distributed systems consistency models require that every transaction be processed in a strict sequential order to maintain data integrity at all times."
+        ]
+      }
+    ],
+    "lead": [
+      {
+        "question": "What architectural principles guide the design of resilient backend systems?",
+        "correct": "Use of microservices to enable isolation and independent scaling of components.",
+        "incorrect": [
+          "Designing all components to be tightly coupled for easier management.",
+          "Implementing a single point of failure to simplify system architecture.",
+          "Relying solely on a monolithic architecture for increased performance."
+        ]
+      },
+      {
+        "question": "How do you evaluate tradeoffs between consistency, availability, and latency?",
+        "correct": "Evaluate tradeoffs using the CAP theorem, which states that a distributed system can only guarantee two out of three: consistency, availability, and partition tolerance at any given time.",
+        "incorrect": [
+          "Tradeoffs can be ignored if the system is designed with high redundancy, as this ensures all three factors are always met.",
+          "Increasing the number of servers in a system automatically improves consistency, availability, and reduces latency simultaneously without any tradeoffs.",
+          "Consistency and latency are the only factors to consider; availability is irrelevant in most systems since it's typically guaranteed by default."
+        ]
+      },
+      {
+        "question": "What is the purpose of establishing service boundaries in large-scale systems?",
+        "correct": "To improve system scalability and maintainability by defining clear interfaces and responsibilities between services.",
+        "incorrect": [
+          "To increase the overall system complexity by adding unnecessary layers of abstraction.",
+          "To ensure that all components of the system can communicate with each other without any restrictions.",
+          "To reduce the need for documentation by simplifying the architecture of the system."
+        ]
+      }
+    ]
+  },
+  "frontend": {
+    "intern": [
+      {
+        "question": "What is the purpose of the DOM in web development?",
+        "correct": "The DOM (Document Object Model) represents the structure of a web page, allowing scripts to dynamically access and manipulate its content and structure.",
+        "incorrect": [
+          "The DOM is responsible for managing server-side database connections in web applications.",
+          "The DOM is a programming language specifically designed for styling web pages.",
+          "The DOM is a protocol used for transferring data between a client and a server in web applications."
+        ]
+      },
+      {
+        "question": "What does CSS specificity determine?",
+        "correct": "CSS specificity determines which CSS rule is applied when multiple rules match the same element.",
+        "incorrect": [
+          "CSS specificity controls the order in which stylesheets are loaded in a browser.",
+          "CSS specificity is a measure of how many elements are styled by a particular CSS rule.",
+          "CSS specificity defines the overall size of text elements on a webpage."
+        ]
+      },
+      {
+        "question": "Why is responsive design important?",
+        "correct": "Responsive design ensures that websites function well on a variety of devices and screen sizes, providing a better user experience.",
+        "incorrect": [
+          "Responsive design is primarily focused on improving website loading speed across all browsers.",
+          "Responsive design makes websites look identical on all devices, regardless of screen size.",
+          "Responsive design is only necessary for e-commerce websites to enhance sales."
+        ]
+      }
+    ],
+    "junior": [
+      {
+        "question": "What is the difference between state and props?",
+        "correct": "State is mutable and managed within a component, while props are immutable and passed down from parent to child components.",
+        "incorrect": [
+          "State is used to define global variables, while props are used for local variables within a component.",
+          "State can be passed between components, while props can only be used within a single component.",
+          "State is automatically updated by the React library, while props require manual updates by the developer."
+        ]
+      },
+      {
+        "question": "Why are semantic HTML tags used?",
+        "correct": "Semantic HTML tags are used to give meaning to the content, improving accessibility and SEO.",
+        "incorrect": [
+          "Semantic HTML tags are used to increase page load speed by reducing file size.",
+          "Semantic HTML tags are used exclusively for styling purposes with CSS.",
+          "Semantic HTML tags are used to create interactive elements without JavaScript."
+        ]
+      },
+      {
+        "question": "What is the purpose of a virtual DOM?",
+        "correct": "The virtual DOM is used to optimize rendering performance by minimizing direct interactions with the actual DOM in web applications.",
+        "incorrect": [
+          "The virtual DOM is a method for storing large amounts of data in the browser's memory for faster access.",
+          "The virtual DOM is a framework for managing server-side rendering of web applications.",
+          "The virtual DOM is a protocol for data transfer between the client and server in web applications."
+        ]
+      }
+    ],
+    "midlevel": [
+      {
+        "question": "How do debouncing and throttling improve UI performance?",
+        "correct": "Debouncing and throttling reduce the frequency of function calls in response to rapid events, minimizing unnecessary re-renders and enhancing UI responsiveness.",
+        "incorrect": [
+          "Debouncing and throttling increase the number of function calls to ensure every event is processed immediately for better performance.",
+          "Debouncing and throttling allow for unlimited event handling, which improves performance by processing all user actions at once.",
+          "Debouncing and throttling automatically optimize the layout of the UI by adjusting element sizes based on user interactions."
+        ]
+      },
+      {
+        "question": "What is the difference between controlled and uncontrolled components?",
+        "correct": "Controlled components store their values in React state and update via props, while uncontrolled components manage their own state internally without relying on React.",
+        "incorrect": [
+          "Controlled components are always faster than uncontrolled components because they use less memory.",
+          "Uncontrolled components can only be used with functional components, whereas controlled components are exclusive to class components.",
+          "Controlled components cannot accept user input, while uncontrolled components can only accept user input without validation."
+        ]
+      },
+      {
+        "question": "Why is accessibility a core requirement in modern web development?",
+        "correct": "Accessibility ensures that all users, including those with disabilities, can effectively use and navigate web applications.",
+        "incorrect": [
+          "Accessibility is primarily focused on improving website aesthetics and design for all users.",
+          "Accessibility only benefits users with disabilities, making it an optional consideration for most websites.",
+          "Accessibility requirements are only necessary for government websites and not for private businesses."
+        ]
+      }
+    ],
+    "senior": [
+      {
+        "question": "What principles guide the design of scalable frontend architectures?",
+        "correct": "Decoupling components and leveraging microservices for independent scaling.",
+        "incorrect": [
+          "Using a monolithic architecture to simplify deployment and reduce complexity.",
+          "Relying solely on server-side rendering to enhance performance and SEO.",
+          "Prioritizing inline styles for faster loading times and better user experience."
+        ]
+      },
+      {
+        "question": "Explain how hydration works in server-side rendered applications.",
+        "correct": "Hydration in server-side rendered applications refers to the process where client-side JavaScript takes over the static HTML generated on the server, enabling interactivity by attaching event listeners and initializing components without needing to re-render the entire page.",
+        "incorrect": [
+          "Hydration in server-side rendered applications involves the server continuously sending updates to the client in real-time, ensuring that the client displays the most current state of the application at all times.",
+          "Hydration is the process by which the server caches user sessions, allowing for faster page loads by pre-loading all necessary data before the client renders any content.",
+          "Hydration refers to the method of transforming client-side JavaScript into static HTML before sending it to the browser, eliminating the need for any dynamic rendering on the client side."
+        ]
+      },
+      {
+        "question": "How do you choose between different state management strategies?",
+        "correct": "Evaluate the complexity of the application, data flow requirements, team familiarity, and scalability needs to choose an appropriate state management strategy.",
+        "incorrect": [
+          "Always choose the most popular state management library regardless of the project requirements.",
+          "State management strategies should always be the same regardless of the type of application (web, mobile, etc.).",
+          "Prioritize performance over maintainability when selecting a state management strategy, as speed is the only concern."
+        ]
+      }
+    ],
+    "lead": [
+      {
+        "question": "What factors influence the selection of a long-term frontend technology stack?",
+        "correct": "The project's scalability, maintainability, and community support for the technology.",
+        "incorrect": [
+          "The color scheme of the website and the logo design.",
+          "The number of developers available in the local area.",
+          "The popularity of the technology among social media influencers."
+        ]
+      },
+      {
+        "question": "How do design systems improve product scalability?",
+        "correct": "Design systems provide reusable components and guidelines, enabling teams to maintain consistency and efficiency as they scale products.",
+        "incorrect": [
+          "Design systems require extensive customization for each new product, making scalability more challenging.",
+          "Design systems focus solely on visual design, without addressing code or functionality, which limits scalability.",
+          "Design systems slow down the development process by introducing unnecessary complexity, hindering scalability."
+        ]
+      },
+      {
+        "question": "What architectural principles ensure maintainability in large UI codebases?",
+        "correct": "Modularization and separation of concerns",
+        "incorrect": [
+          "Monolithic architecture with tightly coupled components",
+          "Hardcoding values directly in the UI components",
+          "Using a single global state for all UI interactions"
+        ]
+      }
+    ]
+  },
+  "devops": {
+    "intern": [
+      {
+        "question": "What is the purpose of CI in a development workflow?",
+        "correct": "To automate the process of integrating code changes into a shared repository frequently.",
+        "incorrect": [
+          "To ensure that all developers work from the same physical location.",
+          "To manage project documentation and track changes in project scope.",
+          "To provide a platform for user feedback during the early stages of development."
+        ]
+      },
+      {
+        "question": "Why are logs important in diagnosing system issues?",
+        "correct": "Logs provide detailed records of system events and errors, helping to identify and troubleshoot issues effectively.",
+        "incorrect": [
+          "Logs are primarily used to improve system performance by optimizing resource allocation.",
+          "Logs are only useful for security auditing and have no relevance in diagnosing system issues.",
+          "Logs automatically fix system issues without any need for human intervention."
+        ]
+      },
+      {
+        "question": "What does containerization solve?",
+        "correct": "Containerization solves issues related to application deployment and portability across different environments by encapsulating applications and their dependencies in isolated containers.",
+        "incorrect": [
+          "Containerization solves the problem of network latency by optimizing data transfer speeds between servers.",
+          "Containerization eliminates the need for cloud infrastructure entirely, allowing applications to run on local machines only.",
+          "Containerization resolves security vulnerabilities by preventing all forms of data breaches in applications."
+        ]
+      }
+    ],
+    "junior": [
+      {
+        "question": "What is the difference between CI and CD?",
+        "correct": "CI (Continuous Integration) focuses on automating the integration of code changes from multiple contributors, while CD (Continuous Delivery/Continuous Deployment) automates the release process to production or staging environments.",
+        "incorrect": [
+          "CI is the process of deploying applications to production, while CD is the process of testing applications in a development environment.",
+          "CI involves manual code reviews, whereas CD involves automated code reviews.",
+          "CI is about writing unit tests, while CD is about writing integration tests."
+        ]
+      },
+      {
+        "question": "Why are infrastructure-as-code tools used?",
+        "correct": "Infrastructure-as-code tools are used to automate the provisioning and management of infrastructure through code, ensuring consistency and repeatability.",
+        "incorrect": [
+          "Infrastructure-as-code tools are primarily used for manual configuration of servers to avoid automation errors.",
+          "Infrastructure-as-code tools are designed to replace traditional programming languages for application development.",
+          "Infrastructure-as-code tools are utilized mainly for monitoring system performance and resource usage in real-time."
+        ]
+      },
+      {
+        "question": "What is the purpose of a load balancer?",
+        "correct": "A load balancer distributes incoming network traffic across multiple servers to ensure optimal resource utilization and improve application availability.",
+        "incorrect": [
+          "A load balancer serves as a firewall to protect the network from external threats.",
+          "A load balancer encrypts data transmitted over the network to secure user information.",
+          "A load balancer is responsible for managing database connections and optimizing queries."
+        ]
+      }
+    ],
+    "midlevel": [
+      {
+        "question": "What factors influence deployment strategy selection?",
+        "correct": "The application's architecture, scale, and operational requirements influence deployment strategy selection.",
+        "incorrect": [
+          "The color of the user interface and the font style used in the application.",
+          "The geographical location of the development team and their personal preferences.",
+          "The size of the development team and the number of lines of code written."
+        ]
+      },
+      {
+        "question": "Explain the role of observability in system reliability.",
+        "correct": "Observability allows teams to monitor and understand the internal state of a system, enabling them to detect, diagnose, and resolve issues quickly, thereby enhancing overall system reliability.",
+        "incorrect": [
+          "Observability solely focuses on the visual representation of system performance metrics without any impact on reliability.",
+          "Observability is primarily concerned with increasing system complexity, which inherently improves reliability by providing more data points to analyze.",
+          "Observability eliminates the need for error logging and monitoring since it provides a complete view of system health at all times."
+        ]
+      },
+      {
+        "question": "What is the difference between blue–green and rolling deployments?",
+        "correct": "Blue-green deployments involve maintaining two identical environments (blue and green) where one is live and the other is idle, allowing for quick switchovers, while rolling deployments gradually replace instances of the previous version with the new version across the environment.",
+        "incorrect": [
+          "Blue-green deployments require all instances to be updated simultaneously, while rolling deployments can only be done one instance at a time.",
+          "Blue-green deployments are used exclusively for web applications, whereas rolling deployments can be used for both web and mobile applications.",
+          "Blue-green deployments roll back automatically if an error is detected, while rolling deployments require manual intervention to revert to the previous version."
+        ]
+      }
+    ],
+    "senior": [
+      {
+        "question": "What principles guide highly available infrastructure design?",
+        "correct": "Redundancy, failover, and load balancing to ensure continuous operation and minimize downtime.",
+        "incorrect": [
+          "Single points of failure to simplify management and reduce costs.",
+          "Relying solely on regular backups to restore service during outages.",
+          "Utilizing a monolithic architecture to decrease complexity and improve performance."
+        ]
+      },
+      {
+        "question": "How do you evaluate the reliability of a CI/CD pipeline?",
+        "correct": "Evaluate the reliability of a CI/CD pipeline by monitoring success rates, deployment frequency, and mean time to recovery (MTTR) for failures.",
+        "incorrect": [
+          "Evaluate the reliability of a CI/CD pipeline by checking the number of lines of code written in the last month.",
+          "Evaluate the reliability of a CI/CD pipeline by assessing the number of developers contributing to the project.",
+          "Evaluate the reliability of a CI/CD pipeline by ensuring that all tests pass without ever failing during development."
+        ]
+      },
+      {
+        "question": "What is the purpose of distributed tracing?",
+        "correct": "To monitor and visualize the flow of requests across distributed systems, helping to identify performance bottlenecks and errors.",
+        "incorrect": [
+          "To ensure data consistency across multiple databases in a distributed system.",
+          "To encrypt communication between microservices to enhance security.",
+          "To automatically load balance traffic between servers in a cloud environment."
+        ]
+      }
+    ],
+    "lead": [
+      {
+        "question": "What architectural tradeoffs govern large-scale infrastructure decisions?",
+        "correct": "Scalability, reliability, and maintainability are key tradeoffs in large-scale infrastructure decisions.",
+        "incorrect": [
+          "Redundancy, simplicity, and immediate performance are the main tradeoffs in large-scale infrastructure decisions.",
+          "Cost, user interface design, and brand recognition are the primary tradeoffs for large-scale infrastructure decisions.",
+          "Aesthetics, software compatibility, and vendor lock-in are critical tradeoffs governing large-scale infrastructure decisions."
+        ]
+      },
+      {
+        "question": "How do you define SLIs, SLOs, and SLAs for critical systems?",
+        "correct": "SLIs (Service Level Indicators) measure the performance of a service, SLOs (Service Level Objectives) define the target level for SLIs, and SLAs (Service Level Agreements) are contracts that outline expectations and responsibilities between service providers and customers.",
+        "incorrect": [
+          "SLIs are the agreements between teams, SLOs are the performance metrics, and SLAs are the tools used to monitor system performance in real-time.",
+          "SLIs are only applicable to software applications, SLOs are used exclusively for hardware performance, and SLAs do not involve any quantitative measures.",
+          "SLIs are benchmarks set by the users, SLOs are the actual performance achieved, and SLAs are the maximum allowable downtime for a system."
+        ]
+      },
+      {
+        "question": "What principles ensure long-term operational scalability?",
+        "correct": "Modular architecture and microservices enable long-term operational scalability.",
+        "incorrect": [
+          "Relying solely on monolithic applications guarantees easy scalability.",
+          "Increasing server hardware resources indefinitely will ensure scalability.",
+          "Using a single database for all applications is the best way to scale operations."
+        ]
+      }
+    ]
+  },
+  "full stack": {
+    "intern": [
+      {
+        "question": "What is the difference between client-side and server-side rendering?",
+        "correct": "Client-side rendering generates the HTML in the browser using JavaScript, while server-side rendering generates the HTML on the server before sending it to the client.",
+        "incorrect": [
+          "Client-side rendering sends pre-rendered HTML to the browser, while server-side rendering requires a constant internet connection for displaying content.",
+          "Client-side rendering is faster because it uses less bandwidth, while server-side rendering is slower due to its reliance on heavy server resources.",
+          "Client-side rendering is only used for static websites, while server-side rendering is exclusively for dynamic websites."
+        ]
+      },
+      {
+        "question": "Why are APIs needed in full stack applications?",
+        "correct": "APIs enable communication between the front-end and back-end components of full stack applications, allowing them to exchange data and functionality seamlessly.",
+        "incorrect": [
+          "APIs are used to store all data on the client side, eliminating the need for a server in full stack applications.",
+          "APIs are only necessary for mobile applications and have no relevance in web-based full stack applications.",
+          "APIs automatically generate the user interface for full stack applications, removing the need for any front-end development."
+        ]
+      },
+      {
+        "question": "What is the purpose of JSON in data exchange?",
+        "correct": "JSON is used to format and exchange data between a server and a client in a lightweight, human-readable manner.",
+        "incorrect": [
+          "JSON is primarily used for data encryption to secure sensitive information during transmission.",
+          "JSON is a database management system that stores large volumes of structured data efficiently.",
+          "JSON is a programming language designed for creating web applications and user interfaces."
+        ]
+      }
+    ],
+    "junior": [
+      {
+        "question": "What is the difference between REST and RPC?",
+        "correct": "REST is an architectural style that uses standard HTTP methods and focuses on resources, while RPC is a protocol that allows for remote procedure calls, often using different transport methods and emphasizing actions.",
+        "incorrect": [
+          "REST requires the use of XML exclusively for data representation, whereas RPC can only use JSON.",
+          "REST is solely used for microservices architecture, while RPC is used for monolithic applications.",
+          "REST does not support stateful interactions, while RPC supports both stateful and stateless interactions."
+        ]
+      },
+      {
+        "question": "Why is authentication important in full stack apps?",
+        "correct": "Authentication ensures that only authorized users can access specific resources and functionalities, protecting sensitive data and maintaining security in full stack apps.",
+        "incorrect": [
+          "Authentication is primarily used to improve the app's performance by caching user data for faster access.",
+          "Authentication only matters during the initial setup of the app and does not affect ongoing user interactions.",
+          "Authentication is solely the responsibility of the front-end and does not have any implications for the back-end services."
+        ]
+      },
+      {
+        "question": "What is the purpose of cross-origin resource sharing (CORS)?",
+        "correct": "CORS allows web applications to make requests to domains other than their own, enabling resource sharing across different origins securely.",
+        "incorrect": [
+          "CORS is a method for compressing web resources to improve load times across different domains.",
+          "CORS is a security protocol that encrypts data sent between the client and server to prevent interception.",
+          "CORS is a browser feature that automatically redirects users to the secure version of a website when accessing it from an insecure link."
+        ]
+      }
+    ],
+    "midlevel": [
+      {
+        "question": "How do different persistence models affect application architecture?",
+        "correct": "Different persistence models influence data access patterns, scalability, and the complexity of the application architecture, as they dictate how data is stored, retrieved, and managed.",
+        "incorrect": [
+          "Persistence models have no impact on application architecture and are solely concerned with data visualization techniques.",
+          "All persistence models require the same level of infrastructure, making them interchangeable without affecting application performance.",
+          "Different persistence models only affect the user interface design, not the underlying architecture of the application."
+        ]
+      },
+      {
+        "question": "What is the purpose of service separation in modular apps?",
+        "correct": "Service separation in modular apps enhances maintainability and scalability by allowing independent development and deployment of services.",
+        "incorrect": [
+          "Service separation in modular apps is used to increase the speed of user interface rendering.",
+          "Service separation in modular apps is implemented to ensure that all services run on the same server for improved performance.",
+          "Service separation in modular apps is designed to reduce the amount of code needed for each module, streamlining the overall application size."
+        ]
+      },
+      {
+        "question": "Explain how session management works across the stack.",
+        "correct": "Session management involves creating a session identifier that is stored on the server and sent to the client, allowing the server to recognize subsequent requests from the same client and maintain user state across multiple interactions.",
+        "incorrect": [
+          "Session management relies solely on storing user credentials in cookies, which are sent with every request to authenticate the user without any server-side tracking.",
+          "Session management is achieved by sending user data directly in the URL, allowing the server to parse the information and maintain state across requests without any additional storage.",
+          "Session management only occurs at the client-side, where the browser keeps track of user interactions and automatically manages state without any input from the server."
+        ]
+      }
+    ],
+    "senior": [
+      {
+        "question": "What tradeoffs influence the choice between SSR, CSR, and hybrid rendering?",
+        "correct": "SSR provides better SEO and initial load performance, CSR offers a more dynamic user experience but may hinder SEO, while hybrid rendering balances both but can add complexity to implementation.",
+        "incorrect": [
+          "SSR is always the fastest option due to pre-rendering, CSR guarantees the best SEO performance, and hybrid rendering completely eliminates the need for JavaScript.",
+          "SSR requires no server resources, CSR is only suitable for static sites, and hybrid rendering is exclusively for mobile applications.",
+          "SSR and CSR are interchangeable without any impact on performance, hybrid rendering is the least efficient method available, and SSR is only beneficial for e-commerce sites."
+        ]
+      },
+      {
+        "question": "How does API contract design influence team velocity?",
+        "correct": "API contract design establishes clear expectations and reduces integration issues, allowing teams to work more efficiently and increase velocity.",
+        "incorrect": [
+          "API contract design has no impact on team velocity since it only affects the database structure.",
+          "API contract design slows down development because it requires extensive documentation that the team must follow.",
+          "API contract design is irrelevant to team velocity as it only pertains to frontend user experience."
+        ]
+      },
+      {
+        "question": "What principles guide the design of scalable full stack architectures?",
+        "correct": "Modularization, statelessness, and load balancing are key principles that guide scalable full stack architectures.",
+        "incorrect": [
+          "Full stack architectures should be designed to use a monolithic structure to reduce complexity and improve maintainability.",
+          "Scalable architectures rely on tightly-coupled services to ensure data consistency and integrity across the system.",
+          "The primary focus of scalable architecture is to minimize the number of server instances to save costs and resources."
+        ]
+      }
+    ],
+    "lead": [
+      {
+        "question": "How do you determine boundaries between frontend, backend, and shared services?",
+        "correct": "Boundaries are determined by the responsibilities and functionalities of each layer, where the frontend handles user interface and interactions, the backend manages data processing and business logic, and shared services provide common functionalities accessible by both layers.",
+        "incorrect": [
+          "Boundaries are determined solely based on the programming languages used for development, with frontend always using JavaScript and backend using Python.",
+          "Boundaries are defined by the physical location of the servers, where frontend services must reside on user devices and backend services must be hosted on cloud infrastructure.",
+          "Boundaries are based on the size of the codebase, with larger codebases being classified as backend and smaller ones as frontend, regardless of functionality."
+        ]
+      },
+      {
+        "question": "What factors influence multi-tier system reliability?",
+        "correct": "Redundancy in components and communication paths.",
+        "incorrect": [
+          "The number of users accessing the system at the same time.",
+          "The programming language used to develop the application.",
+          "The physical location of the data centers hosting the servers."
+        ]
+      },
+      {
+        "question": "What architectural considerations apply when building across multiple platforms?",
+        "correct": "Ensuring consistent data synchronization and communication protocols across platforms.",
+        "incorrect": [
+          "Designing a single user interface that works perfectly on all platforms without any modifications.",
+          "Using only one programming language for all platforms to simplify development.",
+          "Prioritizing performance over security, assuming all platforms have the same security measures in place."
+        ]
+      }
+    ]
+  },
+  "mobile": {
+    "intern": [
+      {
+        "question": "What is the purpose of a layout system in mobile development?",
+        "correct": "A layout system in mobile development is used to arrange UI components on the screen in a structured and responsive manner.",
+        "incorrect": [
+          "A layout system in mobile development is primarily responsible for managing the device's battery life and power consumption.",
+          "A layout system in mobile development is designed to handle network requests and manage data synchronization.",
+          "A layout system in mobile development is used to compile code and optimize application performance during runtime."
+        ]
+      },
+      {
+        "question": "What does an app's lifecycle method control?",
+        "correct": "The app's lifecycle method controls the transition between different states of the app, such as active, paused, and stopped.",
+        "incorrect": [
+          "The app's lifecycle method controls the user interface design and layout of the app.",
+          "The app's lifecycle method controls the performance optimization of the app's code execution.",
+          "The app's lifecycle method controls the security settings and permissions of the app."
+        ]
+      },
+      {
+        "question": "Why is device fragmentation a challenge?",
+        "correct": "Device fragmentation can lead to inconsistencies in app performance and user experience across different devices and operating system versions.",
+        "incorrect": [
+          "Device fragmentation ensures that all users have the same app experience regardless of their device specifications.",
+          "Device fragmentation simplifies the development process by allowing developers to target a single device model.",
+          "Device fragmentation guarantees higher security, as each device has unique characteristics that enhance protection."
+        ]
+      }
+    ],
+    "junior": [
+      {
+        "question": "What is the difference between native and cross-platform development?",
+        "correct": "Native development involves building applications specifically for a single platform using platform-specific languages and tools, while cross-platform development allows creating applications that can run on multiple platforms using a shared codebase.",
+        "incorrect": [
+          "Native development requires using web technologies like HTML, CSS, and JavaScript, whereas cross-platform development is exclusively done in low-level languages like C or C++.",
+          "Native development is faster and easier to implement than cross-platform development, which often involves more complex coding and debugging.",
+          "Native apps can only access device features through a web browser, while cross-platform apps have full access to all device functionalities by default."
+        ]
+      },
+      {
+        "question": "Why is memory management important in mobile apps?",
+        "correct": "Memory management is important in mobile apps to optimize performance and ensure efficient use of limited resources, preventing crashes and slowdowns.",
+        "incorrect": [
+          "Memory management is only necessary for desktop applications, as mobile apps have unlimited memory.",
+          "Mobile apps do not require memory management since they automatically allocate memory for all processes.",
+          "Efficient memory management is solely for improving app aesthetics, not performance or resource usage."
+        ]
+      },
+      {
+        "question": "What is the purpose of an API client in mobile applications?",
+        "correct": "An API client in mobile applications facilitates communication between the app and a server by sending requests and processing responses.",
+        "incorrect": [
+          "An API client is responsible for designing the user interface of the mobile application.",
+          "An API client is a tool that enhances the battery life of mobile devices during app usage.",
+          "An API client stores all user data locally on the device without interacting with any external servers."
+        ]
+      }
+    ],
+    "midlevel": [
+      {
+        "question": "How do background tasks differ across mobile platforms?",
+        "correct": "Background tasks on mobile platforms are managed differently, with iOS using a more restrictive approach compared to Android, which allows for more flexibility and concurrency in task execution.",
+        "incorrect": [
+          "Background tasks on mobile platforms are identical, with both iOS and Android allowing unlimited processing time for any app in the background.",
+          "iOS allows background tasks to run indefinitely while Android restricts them to a few minutes of execution time.",
+          "Both iOS and Android require apps to have user permissions to run any background tasks, regardless of the platform’s guidelines."
+        ]
+      },
+      {
+        "question": "What factors influence mobile performance optimization?",
+        "correct": "Efficient resource management, including CPU, memory, and network usage.",
+        "incorrect": [
+          "The size of the mobile device's screen.",
+          "The type of operating system being used (iOS vs. Android).",
+          "The color of the app's user interface."
+        ]
+      },
+      {
+        "question": "What is the role of dependency injection in mobile apps?",
+        "correct": "Dependency injection allows for better management of object lifecycles and improves code modularity and testability in mobile apps.",
+        "incorrect": [
+          "Dependency injection is used to increase the size of mobile app binaries by including additional libraries for functionality.",
+          "Dependency injection facilitates direct communication between UI components and backend services without any intermediaries.",
+          "Dependency injection automatically optimizes the performance of mobile apps by reducing memory usage during runtime."
+        ]
+      }
+    ],
+    "senior": [
+      {
+        "question": "What architectural patterns are commonly used in mobile applications?",
+        "correct": "Model-View-ViewModel (MVVM)",
+        "incorrect": [
+          "Client-Server-Database (CSD)",
+          "Layered Architecture (LA)",
+          "Event-Driven Architecture (EDA)"
+        ]
+      },
+      {
+        "question": "How does offline-first design influence data management?",
+        "correct": "Offline-first design prioritizes local data storage and synchronization, allowing applications to function seamlessly without an internet connection and ensuring data consistency across devices once online.",
+        "incorrect": [
+          "Offline-first design requires all data to be stored solely on the server, eliminating the need for local storage.",
+          "Offline-first design means that data is only accessible when online, making it less reliable during network outages.",
+          "Offline-first design focuses on real-time data updates, which reduces the need for data management strategies."
+        ]
+      },
+      {
+        "question": "What principles govern secure mobile app design?",
+        "correct": "Implementing least privilege access and data encryption.",
+        "incorrect": [
+          "Allowing unrestricted access to all device features for better functionality.",
+          "Using static passwords for user authentication to simplify login processes.",
+          "Relying solely on client-side validation for data security measures."
+        ]
+      }
+    ],
+    "lead": [
+      {
+        "question": "What criteria guide platform and framework selection for mobile teams?",
+        "correct": "Project requirements, team expertise, and target audience.",
+        "incorrect": [
+          "The number of devices manufactured by the platform provider.",
+          "The popularity of the platform among social media influencers.",
+          "The aesthetic appeal of the platform's branding and logo."
+        ]
+      },
+      {
+        "question": "How do you architect apps for long-term feature scalability?",
+        "correct": "Design the application using microservices architecture to allow independent scaling of features and services based on demand.",
+        "incorrect": [
+          "Build a monolithic application to streamline development and reduce complexity, as this will inherently support future scalability.",
+          "Use a single database for all features to simplify data management and avoid potential replication issues.",
+          "Focus solely on optimizing front-end performance, as this will ensure that the application can handle increased user load effectively."
+        ]
+      },
+      {
+        "question": "What considerations apply when coordinating multi-platform releases?",
+        "correct": "Ensuring compatibility and consistent user experience across all platforms.",
+        "incorrect": [
+          "Focusing solely on the platform with the largest user base.",
+          "Releasing updates simultaneously without prior testing on each platform.",
+          "Ignoring feedback from platform-specific user communities."
+        ]
+      }
+    ]
+  },
+  "cybersecurity": {
+    "intern": [
+      {
+        "question": "What is the purpose of authentication?",
+        "correct": "To verify the identity of a user or system before granting access to resources.",
+        "incorrect": [
+          "To encrypt data to protect it from unauthorized access.",
+          "To track user activity and monitor system performance.",
+          "To ensure data integrity by checking for errors during transmission."
+        ]
+      },
+      {
+        "question": "What is a vulnerability in basic security terms?",
+        "correct": "A vulnerability is a weakness in a system that can be exploited by threats to gain unauthorized access or cause harm.",
+        "incorrect": [
+          "A vulnerability is a strong security measure that protects systems from unauthorized access.",
+          "A vulnerability is a type of malware designed to infiltrate and damage a computer system.",
+          "A vulnerability is an encryption method used to secure data during transmission."
+        ]
+      },
+      {
+        "question": "Why are strong passwords important?",
+        "correct": "Strong passwords help protect accounts from unauthorized access and data breaches.",
+        "incorrect": [
+          "Strong passwords are only needed for public Wi-Fi networks.",
+          "Strong passwords can be easily remembered because they contain personal information.",
+          "Strong passwords are only important for banking and financial websites."
+        ]
+      }
+    ],
+    "junior": [
+      {
+        "question": "What is the difference between symmetric and asymmetric encryption?",
+        "correct": "Symmetric encryption uses the same key for both encryption and decryption, while asymmetric encryption uses a pair of keys (public and private) for these processes.",
+        "incorrect": [
+          "Symmetric encryption is faster than asymmetric encryption because it uses longer keys.",
+          "Asymmetric encryption can only be used for encrypting small amounts of data, while symmetric encryption can encrypt large files.",
+          "Symmetric encryption requires a certificate authority to verify the identity of users, while asymmetric does not."
+        ]
+      },
+      {
+        "question": "Why is input validation important for security?",
+        "correct": "Input validation is crucial for security as it prevents malicious data from being processed, thereby protecting against attacks like SQL injection and cross-site scripting.",
+        "incorrect": [
+          "Input validation is only necessary for preventing user interface bugs and improving user experience.",
+          "Input validation can slow down application performance and is not essential for security.",
+          "Input validation is primarily used to enhance the aesthetic design of web forms and applications."
+        ]
+      },
+      {
+        "question": "What is the purpose of hashing in authentication?",
+        "correct": "Hashing converts passwords into a fixed-length string to securely store and verify them without revealing the original value.",
+        "incorrect": [
+          "Hashing encrypts passwords to make them unreadable during transmission over the network.",
+          "Hashing generates a unique user ID to identify users in the authentication process.",
+          "Hashing compresses passwords to save storage space in databases."
+        ]
+      }
+    ],
+    "midlevel": [
+      {
+        "question": "What is the principle of least privilege?",
+        "correct": "The principle of least privilege states that users and systems should only have the minimum level of access necessary to perform their tasks.",
+        "incorrect": [
+          "The principle of least privilege requires that all users have unrestricted access to all systems and data to ensure efficiency.",
+          "The principle of least privilege dictates that users must change their passwords every week to maintain system security.",
+          "The principle of least privilege allows users to access any information they need as long as they are authorized to do so by their managers."
+        ]
+      },
+      {
+        "question": "How does multi-factor authentication improve security?",
+        "correct": "Multi-factor authentication improves security by requiring two or more verification methods, making unauthorized access more difficult.",
+        "incorrect": [
+          "Multi-factor authentication relies solely on a password, making it easier to remember for users.",
+          "Multi-factor authentication eliminates the need for regular password changes, simplifying user management.",
+          "Multi-factor authentication only requires a single biometric factor, such as a fingerprint, for secure access."
+        ]
+      },
+      {
+        "question": "What is the difference between IDS and IPS?",
+        "correct": "IDS (Intrusion Detection System) monitors and alerts on suspicious activity, while IPS (Intrusion Prevention System) actively blocks and prevents threats in real-time.",
+        "incorrect": [
+          "IDS and IPS are the same; both only monitor network traffic without any active response capabilities.",
+          "IDS is a hardware device, whereas IPS is solely a software application running on servers.",
+          "IDS is used for internal network security, while IPS is only used for external threats from the internet."
+        ]
+      }
+    ],
+    "senior": [
+      {
+        "question": "What factors influence the selection of a secure system architecture?",
+        "correct": "The organization's security requirements, threat landscape, and compliance regulations.",
+        "incorrect": [
+          "The color scheme of the user interface and overall aesthetic design.",
+          "The programming language used for the application development.",
+          "The number of users accessing the system at any given time."
+        ]
+      },
+      {
+        "question": "How do you evaluate the impact of a security vulnerability?",
+        "correct": "Assess the vulnerability's potential to exploit sensitive data, its ease of exploitation, and the value of the affected system to determine its overall impact.",
+        "incorrect": [
+          "Measure the vulnerability's impact solely based on the number of systems it affects, without considering the sensitivity of the data involved.",
+          "Evaluate the impact by solely looking at the age of the vulnerability and whether it has been previously exploited in the wild.",
+          "Determine the impact by analyzing user feedback and complaints about the system's performance after the vulnerability was discovered."
+        ]
+      },
+      {
+        "question": "What principles guide incident response planning?",
+        "correct": "Establishing a clear communication plan and defined roles and responsibilities.",
+        "incorrect": [
+          "Focusing solely on prevention and ignoring detection and recovery strategies.",
+          "Relying only on automated tools without human oversight or intervention.",
+          "Prioritizing speed over thoroughness in incident resolution processes."
+        ]
+      }
+    ],
+    "lead": [
+      {
+        "question": "What considerations guide the creation of an organization-wide security strategy?",
+        "correct": "Assessing the organization's risk profile, regulatory requirements, and business objectives.",
+        "incorrect": [
+          "Focusing solely on the latest technology trends and tools without considering organizational needs.",
+          "Implementing a one-size-fits-all approach based on industry standards without customization.",
+          "Prioritizing user convenience over security measures to enhance employee satisfaction."
+        ]
+      },
+      {
+        "question": "How do you evaluate tradeoffs between strict security controls and usability?",
+        "correct": "Evaluate the risk appetite of the organization and determine the acceptable level of security versus user convenience by conducting a thorough impact analysis and user feedback sessions.",
+        "incorrect": [
+          "Implement the strictest security controls possible without considering user feedback, as this will always ensure maximum security.",
+          "Focus solely on usability and ignore security controls, as user satisfaction is the most important factor in any system.",
+          "Rely on automated tools to make decisions about security and usability tradeoffs without human intervention, as they can perfectly balance both aspects."
+        ]
+      },
+      {
+        "question": "What principles ensure long-term risk mitigation in large systems?",
+        "correct": "Implementing redundancy and failover mechanisms",
+        "incorrect": [
+          "Relying solely on periodic software updates",
+          "Using a single point of control for system management",
+          "Minimizing documentation to reduce complexity"
+        ]
+      }
+    ]
+  }
+}

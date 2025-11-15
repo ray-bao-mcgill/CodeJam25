@@ -62,3 +62,8 @@ htmlcov/
 *.tmp
 .cache/
 .DS_Store
+
+# Local environment files (never commit secrets)
+.env
+.env.*
+backend/.env

@@ -1,0 +1,245 @@
+{
+  "software engineering": {
+    "intern": [
+      "Implement a simple script to process and summarize log files. Provide sample output.",
+      "Write code to parse user input from the command line and validate required fields. Include tests.",
+      "Create a Git workflow to manage basic branches and pull requests as an intern. Document each step."
+    ],
+    "junior": [
+      "Write a unit test for an existing function and explain the test case logic.",
+      "Refactor a legacy function to improve its readability and maintainability. Show your before/after code.",
+      "Develop a simple REST endpoint that performs input validation and returns specific error messages."
+    ],
+    "midlevel": [
+      "Build a function that processes data and persists results to a new type of storage backend. Provide documentation.",
+      "Implement a logging system for an application and demonstrate searching/filtering logs.",
+      "Update an app to use environment variables for configuration. Explain tradeoffs and security implications."
+    ],
+    "senior": [
+      "Design and implement a caching layer for a web service. Explain your rationale and testing approach.",
+      "Develop an automated deployment script for a small project and describe the steps for using it.",
+      "Introduce type checking to a dynamic language codebase (like Python or JS) and discuss challenges."
+    ],
+    "lead": [
+      "Architect a migration plan from a monolith to microservices for a sample application, highlighting risk areas.",
+      "Define a process for reviewing and merging code contributions across multiple teams.",
+      "Devise a monitoring strategy and set of SLIs for a critical business service, explaining your choices."
+    ]
+  },
+  "consulting": {
+    "intern": [
+      "Analyze a small dataset (in Excel or Python) for a client to find the main trends and visualize key insights.",
+      "Document client meeting notes and distill the main points into an action-item list. Provide your approach.",
+      "Automate a recurring reporting task with a simple macro or script as a consulting intern."
+    ],
+    "junior": [
+      "Prepare a draft client presentation (slides or doc) on a project update and incorporate feedback from a senior consultant.",
+      "Create a checklist to ensure contract deliverables are met for a small project.",
+      "Demonstrate compiling a competitor research summary using public sources and present findings concisely."
+    ],
+    "midlevel": [
+      "Conduct stakeholder interviews for a consulting case, synthesize feedback, and outline suggested next steps.",
+      "Develop a simple project management template to track deliverable statuses and report progress to a client.",
+      "Automate repetitive data-cleaning steps for standard consulting deliverables using scripts and describe the impact."
+    ],
+    "senior": [
+      "Lead a requirements-gathering session with a client, document insights, and identify missing information.",
+      "Integrate feedback from various client departments into a coherent recommendation and document your decision process.",
+      "Design and run a lightweight pilot project for a client, then present metrics evaluating its success."
+    ],
+    "lead": [
+      "Draft a multi-phase delivery plan for a large-scale project, highlighting resource and risk management.",
+      "Negotiate engagement scope adjustments with a client and provide reasoning for changes in scope or deliverables.",
+      "Lead the post-engagement review for a series of client projects, summarizing lessons learned and process improvements."
+    ]
+  },
+  "ai/ml": {
+    "intern": [
+      "Write a Python script that loads a CSV dataset, performs basic preprocessing, and trains a simple logistic regression model.",
+      "Implement a function that splits a dataset into train and test sets without using built-in libraries and demonstrate it on sample data.",
+      "Create a visualization script that plots distributions and correlations from a small dataset using matplotlib."
+    ],
+    "junior": [
+      "Implement k-means clustering from scratch using NumPy and evaluate it on synthetic data.",
+      "Write code that calculates precision, recall, and F1-score given lists of true and predicted labels.",
+      "Train a small neural network using PyTorch or TensorFlow and provide the training loop implementation."
+    ],
+    "midlevel": [
+      "Build a feature engineering pipeline that processes numeric and text data, then trains a model using it.",
+      "Implement gradient descent manually for linear regression and chart the loss curve over iterations.",
+      "Create an MLflow experiment that logs parameters, metrics, and model artifacts with a reproducible script."
+    ],
+    "senior": [
+      "Design a batch inference pipeline that loads data, runs predictions, and writes outputs to a storage system.",
+      "Write code that monitors model drift by comparing online prediction statistics to training baselines.",
+      "Implement a modular training framework with configuration files and isolated reusable components."
+    ],
+    "lead": [
+      "Outline a production ML architecture including data ingestion, training, inference, and monitoring, with example configs.",
+      "Design a multi-model routing system using confidence thresholds and provide pseudocode for fallback logic.",
+      "Describe and provide configuration samples for deploying ML services across multiple environments with CI/CD."
+    ]
+  },
+  "backend": {
+    "intern": [
+      "Write a basic REST endpoint that accepts JSON, validates fields, and stores data in memory or a file.",
+      "Connect to a relational database and perform simple CRUD operations using your preferred language.",
+      "Implement request validation logic that returns structured error responses for incorrect input."
+    ],
+    "junior": [
+      "Build a CRUD API that connects to a real database and provide sample routes for each operation.",
+      "Write SQL queries to perform filtering, sorting, and joining across two related tables.",
+      "Implement basic caching for an API endpoint using Redis and demonstrate setting and invalidating keys."
+    ],
+    "midlevel": [
+      "Develop a token-based authentication flow including login, verification middleware, and protected routes.",
+      "Implement a rate-limiting mechanism (sliding window or token bucket) and test it using sample requests.",
+      "Create an OpenAPI/Swagger documentation file for an API with at least three endpoints."
+    ],
+    "senior": [
+      "Implement an asynchronous job worker using a message queue and demonstrate producing and consuming jobs.",
+      "Design and code a robust error-handling middleware that logs errors and formats consistent responses.",
+      "Write Docker and Compose configurations to containerize a backend service with a database."
+    ],
+    "lead": [
+      "Architect a scalable multi-service backend and sketch service boundaries with example interfaces.",
+      "Set up CI/CD automation for building, testing, and deploying backend services using YAML configs.",
+      "Implement a blue-green deployment strategy including traffic shifting and rollback logic."
+    ]
+  },
+  "frontend": {
+    "intern": [
+      "Build a simple interactive form using HTML/CSS/JS that validates user input and displays error messages.",
+      "Write JavaScript code to fetch data from an API and render it dynamically into the page.",
+      "Create a responsive layout using CSS Grid or Flexbox and demonstrate how it adapts to screen sizes."
+    ],
+    "junior": [
+      "Implement a modal component using vanilla JavaScript with open/close animations.",
+      "Create a debounced search input that fetches results from an API as the user types.",
+      "Build a custom dropdown component with keyboard navigation support."
+    ],
+    "midlevel": [
+      "Develop a client-side router that updates the page content based on URL changes without a full reload.",
+      "Implement dark/light theme switching using CSS variables and JavaScript state management.",
+      "Write a script that lazy-loads images using the IntersectionObserver API."
+    ],
+    "senior": [
+      "Build a reusable component system with clear state management patterns using vanilla JS or a micro-framework.",
+      "Implement a drag-and-drop sortable list with full mouse and touch support.",
+      "Create a performance profiling script using the Performance API to measure render and interaction metrics."
+    ],
+    "lead": [
+      "Design a scalable frontend architecture including component libraries, routing, and state management layers.",
+      "Create a build configuration using Webpack or Vite with code splitting and environment handling.",
+      "Define coding standards and tooling (linting, formatting, testing) and provide configuration files."
+    ]
+  },
+  "devops": {
+    "intern": [
+      "Write a Bash script that installs dependencies and starts a simple local service.",
+      "Create a Dockerfile that builds and runs a basic application.",
+      "Set up a GitHub Actions workflow that runs tests on push."
+    ],
+    "junior": [
+      "Write a Docker Compose file that runs an app and a database together.",
+      "Create a CI pipeline that builds and tests an application before merging.",
+      "Provision a compute instance using Terraform with minimal configuration."
+    ],
+    "midlevel": [
+      "Write Kubernetes deployment and service YAML for a simple API.",
+      "Configure Prometheus to scrape basic CPU and memory metrics.",
+      "Set up log forwarding using Fluentd or a similar agent and show example config."
+    ],
+    "senior": [
+      "Build a blue-green deployment script that switches traffic based on health checks.",
+      "Create Helm chart templates for deploying a service with configurable values.",
+      "Configure a reverse proxy with TLS termination using Nginx or Traefik."
+    ],
+    "lead": [
+      "Architect a full CI/CD pipeline including environments, tests, and deployment stages.",
+      "Write infrastructure modules in Terraform for reusable cloud resources.",
+      "Design a disaster recovery plan including automated backups and restoration scripts."
+    ]
+  },
+  "full stack": {
+    "intern": [
+      "Build a small form in the frontend that sends data to a backend API and displays the response.",
+      "Implement a simple CRUD endpoint and show how the frontend calls it.",
+      "Create a basic full-stack environment using Docker Compose with a frontend and backend container."
+    ],
+    "junior": [
+      "Build authentication using JWT including signup, login, and token verification.",
+      "Implement optimistic UI updates for an action such as liking a post.",
+      "Create an error boundary on the frontend and error middleware on the backend for consistent handling."
+    ],
+    "midlevel": [
+      "Design a relational or NoSQL schema and provide migration scripts.",
+      "Implement real-time updates using WebSockets or SSE between the frontend and backend.",
+      "Write a database seeding script that populates mock data for development."
+    ],
+    "senior": [
+      "Build a full-stack dashboard that includes charts and API-driven data loading.",
+      "Implement a secure session management flow with cookies and CSRF protection.",
+      "Set up end-to-end tests using Playwright or Cypress with API mocking."
+    ],
+    "lead": [
+      "Architect a scalable multi-service full-stack system and define clear boundaries between components.",
+      "Design and configure API gateway routing with rate limiting and caching.",
+      "Deploy a full-stack application with automated build pipelines and environment isolation."
+    ]
+  },
+  "mobile": {
+    "intern": [
+      "Build a basic list/detail screen in React Native or Swift/Kotlin.",
+      "Implement local persistence using simple device storage APIs.",
+      "Write code to fetch data from an API and render it in a mobile UI."
+    ],
+    "junior": [
+      "Implement offline caching for API responses using local storage or SQLite.",
+      "Create a debounced search bar that filters results in real time.",
+      "Build a simple animated component using the framework’s animation library."
+    ],
+    "midlevel": [
+      "Write navigation code for a multi-screen flow including parameter passing.",
+      "Implement secure storage for auth tokens using the platform’s secure store.",
+      "Create a custom reusable component library with shared styling."
+    ],
+    "senior": [
+      "Design and implement an offline-first data sync mechanism with conflict resolution.",
+      "Architect state management for a large mobile application and provide example structures.",
+      "Implement push notification handling including registration, tokens, and message processing."
+    ],
+    "lead": [
+      "Define a scalable mobile app architecture including modules, shared libraries, and platform abstractions.",
+      "Create CI/CD pipelines for mobile builds including automated testing and release channels.",
+      "Coordinate multi-platform release strategies and write automation scripts for building artifacts."
+    ]
+  },
+  "cybersecurity": {
+    "intern": [
+      "Write a script that hashes passwords using a secure hashing algorithm and verifies inputs.",
+      "Scan a small web app for common vulnerabilities using an automated tool and summarize findings.",
+      "Implement basic input sanitization to prevent XSS in a simple form."
+    ],
+    "junior": [
+      "Perform a basic SQL injection test on a demo API and describe how you would patch it.",
+      "Implement role-based access control in a small application with protected routes.",
+      "Write a script that detects insecure configurations in a server setup."
+    ],
+    "midlevel": [
+      "Conduct a small penetration test on a sample application and write a remediation plan.",
+      "Implement encryption for sensitive data at rest and in transit with example code.",
+      "Create a logging and alerting setup that tracks suspicious authentication attempts."
+    ],
+    "senior": [
+      "Design a secure authentication flow including MFA, session handling, and token revocation.",
+      "Implement automated dependency scanning in CI/CD and enforce policies for risky packages.",
+      "Conduct a threat-modeling exercise and document mitigations for each threat vector."
+    ],
+    "lead": [
+      "Architect a full organization-wide security framework including app, network, and data layers.",
+      "Implement SIEM ingestion pipelines with correlation rules for real-time detection.",
+      "Create an incident response playbook with automated containment scripts."
+    ]
+  }
+}

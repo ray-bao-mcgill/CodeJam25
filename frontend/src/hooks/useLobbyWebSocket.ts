@@ -20,18 +20,57 @@ export function useLobbyWebSocket({
   onGameStarted,
 }: UseLobbyWebSocketOptions): RefObject<WebSocketWithInterval | null> {
   const wsRef = useRef<WebSocketWithInterval | null>(null);
+  const callbacksRef = useRef({ onLobbyUpdate, onGameStarted });
+  const connectedLobbyIdRef = useRef<string | null>(null);
+  const isConnectingRef = useRef(false);
+
+  // Update callbacks ref without triggering reconnection
+  useEffect(() => {
+    callbacksRef.current = { onLobbyUpdate, onGameStarted };
+  }, [onLobbyUpdate, onGameStarted]);
 
   useEffect(() => {
+    // If disabled or no lobbyId, close connection
     if (!enabled || !lobbyId) {
+      if (wsRef.current && connectedLobbyIdRef.current) {
+        wsRef.current.close(1000);
+        wsRef.current = null;
+        connectedLobbyIdRef.current = null;
+      }
+      isConnectingRef.current = false;
       return;
     }
 
-    // Close existing connection
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
+    // If already connected to this lobby, don't reconnect
+    if (
+      wsRef.current &&
+      wsRef.current.readyState === WebSocket.OPEN &&
+      connectedLobbyIdRef.current === lobbyId
+    ) {
+      return;
     }
 
+    // If already connecting to this lobby, don't start another connection
+    if (isConnectingRef.current && connectedLobbyIdRef.current === lobbyId) {
+      return;
+    }
+
+    // Close existing connection if connecting to a different lobby
+    if (wsRef.current && connectedLobbyIdRef.current && connectedLobbyIdRef.current !== lobbyId) {
+      const oldWs = wsRef.current;
+      oldWs.close(1000);
+      wsRef.current = null;
+      connectedLobbyIdRef.current = null;
+      isConnectingRef.current = false;
+    }
+
+    // Prevent duplicate connections
+    if (isConnectingRef.current) {
+      return;
+    }
+
+    isConnectingRef.current = true;
+    connectedLobbyIdRef.current = lobbyId;
     console.log(`Connecting WebSocket to lobby ${lobbyId}`);
 
     const ws: WebSocketWithInterval = new WebSocket(
@@ -41,6 +80,7 @@ export function useLobbyWebSocket({
 
     ws.onopen = () => {
       console.log("✓ WebSocket connected");
+      isConnectingRef.current = false;
       // Send ping every 20 seconds
       const pingInterval: number = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -55,15 +95,14 @@ export function useLobbyWebSocket({
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        console.log("Received WebSocket message:", message.type);
 
         if (message.type === "lobby_update") {
-          console.log("Updating lobby state:", message.lobby);
-          onLobbyUpdate(message.lobby);
+          // Use ref to get latest callbacks without recreating connection
+          callbacksRef.current.onLobbyUpdate(message.lobby);
           
           // Check if game has started
           if (message.lobby.status === "starting" || message.lobby.status === "in_progress") {
-            onGameStarted?.();
+            callbacksRef.current.onGameStarted?.();
           }
         }
       } catch (error) {
@@ -73,6 +112,7 @@ export function useLobbyWebSocket({
 
     ws.onerror = (error) => {
       console.error("WebSocket error:", error);
+      isConnectingRef.current = false;
     };
 
     ws.onclose = (event) => {
@@ -80,28 +120,36 @@ export function useLobbyWebSocket({
       if (ws._pingInterval) {
         clearInterval(ws._pingInterval);
       }
-      wsRef.current = null;
-
-      // Reconnect if not intentional and still enabled
-      if (event.code !== 1000 && lobbyId && enabled) {
-        setTimeout(() => {
-          console.log("Reconnecting...");
-          // This will trigger the effect again
-        }, 2000);
-      }
-    };
-
-    // Cleanup on unmount or when dependencies change
-    return () => {
-      if (wsRef.current) {
-        if (wsRef.current._pingInterval) {
-          clearInterval(wsRef.current._pingInterval);
-        }
-        wsRef.current.close();
+      isConnectingRef.current = false;
+      // Only clear if this was the current connection
+      if (wsRef.current === ws) {
         wsRef.current = null;
+        if (connectedLobbyIdRef.current === lobbyId) {
+          connectedLobbyIdRef.current = null;
+        }
       }
     };
-  }, [lobbyId, enabled, onLobbyUpdate, onGameStarted]);
+
+    // Cleanup on unmount or when lobbyId/enabled changes
+    return () => {
+      // Only cleanup if this is still the current connection AND it's for the same lobby
+      // This prevents cleanup from running when React StrictMode causes double renders
+      if (wsRef.current === ws && connectedLobbyIdRef.current === lobbyId) {
+        if (ws._pingInterval) {
+          clearInterval(ws._pingInterval);
+        }
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+          ws.close(1000); // Normal closure
+        }
+        // Only clear refs if this was the active connection
+        if (wsRef.current === ws) {
+          wsRef.current = null;
+          connectedLobbyIdRef.current = null;
+          isConnectingRef.current = false;
+        }
+      }
+    };
+  }, [lobbyId, enabled]); // Only depend on lobbyId and enabled, not callbacks
 
   return wsRef;
 }
