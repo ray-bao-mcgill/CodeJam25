@@ -18,19 +18,11 @@ const App: React.FC = () => {
     { to: "/landing", label: "Landing" },
     { to: "/lobby-creation", label: "LobbyCreation" },
     { to: "/waiting-room", label: "WaitingRoom" },
-    { to: "/behavioural-start-counter", label: "BehaviouralStartCounter" },
+    { to: "/round-start-counter", label: "RoundStartCounter" },
     { to: "/behavioural-question", label: "BehaviouralQuestion" },
     { to: "/behavioural-answer", label: "BehaviouralAnswer" },
     { to: "/current-score", label: "CurrentScore" },
-    {
-      to: "/technical-theory-start-counter",
-      label: "TechnicalTheoryStartCounter",
-    },
     { to: "/technical-theory", label: "TechnicalTheory" },
-    {
-      to: "/technical-practical-start-counter",
-      label: "TechnicalPracticalStartCounter",
-    },
     { to: "/technical-practical", label: "TechnicalPractical" },
     { to: "/win-lose", label: "WinLose" },
     { to: "/analytics", label: "Analytics" },
@@ -55,25 +47,14 @@ const App: React.FC = () => {
           <Route path="/landing" element={<Landing />} />
           <Route path="/lobby-creation" element={<LobbyCreation />} />
           <Route path="/waiting-room" element={<WaitingRoom />} />
-          <Route
-            path="/behavioural-start-counter"
-            element={<BehaviouralStartCounter />}
-          />
+          <Route path="/round-start-counter" element={<RoundStartCounter />} />
           <Route
             path="/behavioural-question"
             element={<BehaviouralQuestion />}
           />
           <Route path="/behavioural-answer" element={<BehaviouralAnswer />} />
           <Route path="/current-score" element={<CurrentScore />} />
-          <Route
-            path="/technical-theory-start-counter"
-            element={<TechnicalTheoryStartCounter />}
-          />
           <Route path="/technical-theory" element={<TechnicalTheory />} />
-          <Route
-            path="/technical-practical-start-counter"
-            element={<TechnicalPracticalStartCounter />}
-          />
           <Route path="/technical-practical" element={<TechnicalPractical />} />
           <Route path="/win-lose" element={<WinLose />} />
           <Route path="/analytics" element={<Analytics />} />
