@@ -1,27 +1,45 @@
-import React, { useState } from "react";
-import Lobby from "../components/Lobby";
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const Landing: React.FC = () => {
-  const [showLobby, setShowLobby] = useState(false);
-
-  if (showLobby) {
-    return <Lobby />;
-  }
+  const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-6">
-      <h1 className="text-3xl font-bold mb-4">Landing</h1>
-      <p className="text-gray-600 mb-6">
-        TODO: Team fills in UI for this page.
-      </p>
-      <button
-        onClick={() => setShowLobby(true)}
-        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        Join Lobby
-      </button>
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg">
+      <div className="text-center space-y-12">
+        <h1 
+          className="text-7xl font-black tracking-widest game-text-glow-cyan"
+          style={{ 
+            fontFamily: 'Impact, Arial Black, sans-serif',
+            color: 'var(--game-cyan)',
+            textTransform: 'uppercase'
+          }}
+        >
+          CHOOSE MODE
+        </h1>
+        
+        <Button 
+          size="lg"
+          className="px-16 py-8 text-2xl font-bold rounded-2xl transform hover:scale-110 transition-all duration-300 game-border-glow-cyan"
+          style={{
+            background: `linear-gradient(135deg, var(--game-cyan-dark), var(--game-cyan))`,
+            border: `3px solid var(--game-cyan)`,
+            color: 'var(--game-text-primary)',
+            fontFamily: 'Impact, Arial Black, sans-serif',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em'
+          }}
+          onClick={() => navigate('/lobby-creation')}
+        >
+          START GAME
+        </Button>
+      </div>
     </div>
   );
 };
 
 export default Landing;
+
+
+
