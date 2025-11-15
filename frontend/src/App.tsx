@@ -18,7 +18,8 @@ const App: React.FC = () => {
     { to: "/landing", label: "Landing" },
     { to: "/lobby-creation", label: "LobbyCreation" },
     { to: "/waiting-room", label: "WaitingRoom" },
-    { to: "/round-start-counter", label: "RoundStartCounter" },
+    { to: "/round-start-counter/behavioural", label: "Start Behavioural" },
+    { to: "/round-start-counter/technical", label: "Start Technical" },
     { to: "/behavioural-question", label: "BehaviouralQuestion" },
     { to: "/behavioural-answer", label: "BehaviouralAnswer" },
     { to: "/current-score", label: "CurrentScore" },
@@ -50,7 +51,10 @@ const App: React.FC = () => {
           <Route path="/landing" element={<Landing />} />
           <Route path="/lobby-creation" element={<LobbyCreation />} />
           <Route path="/waiting-room" element={<WaitingRoom />} />
-          <Route path="/round-start-counter" element={<RoundStartCounter />} />
+          <Route
+            path="/round-start-counter/:type"
+            element={<RoundStartCounter />}
+          />
           <Route
             path="/behavioural-question"
             element={<BehaviouralQuestion />}

@@ -8,22 +8,22 @@
     --game-bg-dark: #0f0a1f;
     --game-bg-mid: #1a1436;
     --game-bg-purple: #2d1b69;
-    
+
     /* Glowing Cyan/Blue for Primary Actions */
     --game-cyan: #00d9ff;
     --game-cyan-dark: #0099cc;
     --game-cyan-glow: rgba(0, 217, 255, 0.5);
-    
+
     /* Glowing Red for Secondary Actions */
     --game-red: #ff3366;
     --game-red-dark: #cc0044;
     --game-red-glow: rgba(255, 51, 102, 0.5);
-    
+
     /* Accent Colors */
     --game-pink: #ff006e;
     --game-purple: #8b5cf6;
     --game-green: #00ff88;
-    
+
     /* Text Colors */
     --game-text-primary: #ffffff;
     --game-text-secondary: rgba(255, 255, 255, 0.7);
@@ -51,7 +51,7 @@
     --ring: 0 0% 3.9%;
     --radius: 0.5rem;
   }
-  
+
   .dark {
     --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
@@ -82,7 +82,7 @@
     box-sizing: border-box;
     @apply border-border;
   }
-  
+
   body {
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
       "Liberation Mono", monospace;
@@ -94,23 +94,45 @@
 
 /* Game-specific utility classes */
 @layer utilities {
+  /* Scoped rem sizing: Use this class on game components to enable 1rem = 10px */
+  .game-rem-10 {
+    font-size: 62.5%; /* Makes 1rem = 10px for children */
+  }
+
+  .game-rem-10 * {
+    font-size: 1.6rem; /* Reset text to 16px by default */
+  }
+
+  .container {
+    max-width: 120rem; /* 1200px when used inside .game-rem-10 */
+    margin: 0 auto;
+    padding: 1rem; /* 10px when used inside .game-rem-10 */
+  }
+
   .game-bg {
-    background: linear-gradient(135deg, var(--game-bg-dark) 0%, var(--game-bg-mid) 50%, var(--game-bg-purple) 100%);
+    background: linear-gradient(
+      135deg,
+      var(--game-bg-dark) 0%,
+      var(--game-bg-mid) 50%,
+      var(--game-bg-purple) 100%
+    );
   }
-  
+
   .game-text-glow-cyan {
-    text-shadow: 0 0 20px var(--game-cyan-glow), 0 0 40px var(--game-cyan-glow);
+    text-shadow: 0 0 2rem var(--game-cyan-glow), 0 0 4rem var(--game-cyan-glow); /* 20px, 40px when used inside .game-rem-10 */
   }
-  
+
   .game-text-glow-red {
-    text-shadow: 0 0 20px var(--game-red-glow), 0 0 40px var(--game-red-glow);
+    text-shadow: 0 0 2rem var(--game-red-glow), 0 0 4rem var(--game-red-glow); /* 20px, 40px when used inside .game-rem-10 */
   }
-  
+
   .game-border-glow-cyan {
-    box-shadow: 0 0 20px var(--game-cyan-glow), inset 0 0 20px rgba(0, 217, 255, 0.1);
+    box-shadow: 0 0 2rem var(--game-cyan-glow),
+      inset 0 0 2rem rgba(0, 217, 255, 0.1); /* 20px when used inside .game-rem-10 */
   }
-  
+
   .game-border-glow-red {
-    box-shadow: 0 0 20px var(--game-red-glow), inset 0 0 20px rgba(255, 51, 102, 0.1);
+    box-shadow: 0 0 2rem var(--game-red-glow),
+      inset 0 0 2rem rgba(255, 51, 102, 0.1); /* 20px when used inside .game-rem-10 */
   }
 }
