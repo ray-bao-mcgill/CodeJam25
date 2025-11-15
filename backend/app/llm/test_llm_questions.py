@@ -20,7 +20,7 @@ OUTPUT_FILES = {
 APP_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
 if APP_DIR not in sys.path:
     sys.path.insert(0, APP_DIR)
-from app.llm.providers.openai import OpenAIClient
+from app.llm.openai import OpenAIClient
 from app.llm.client import LLMTextRequest
 from app.llm.prompts.renderer import render as render_prompt
 

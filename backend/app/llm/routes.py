@@ -2,6 +2,8 @@ from fastapi import APIRouter
 from .client import LLMTextRequest
 from .schemas import RoleQuestionsRequest, RoleQuestionsResponse
 from .prompts.renderer import render as render_prompt
+# If OpenAIClient is imported elsewhere, import from .openai
+# (If instantiated in main.py only, no need to change this file.)
 
 def create_llm_router(client):
     router = APIRouter()
