@@ -6,5 +6,187 @@
   "consulting": [
     "What is the primary purpose of a stakeholder analysis in consulting, and how does it influence project outcomes?",
     "Explain the difference between qualitative and quantitative data in consulting, and provide an example of when each type would be most effectively used."
+  ],
+
+  "ai/ml intern": [
+    "What is the difference between supervised and unsupervised learning?",
+    "What is the purpose of a train–test split in model development?",
+    "Why is normalization often required before training an ML model?"
+  ],
+  "ai/ml junior": [
+    "What is the bias–variance tradeoff in machine learning?",
+    "Explain the purpose of regularization in model training.",
+    "What is the difference between precision and recall?"
+  ],
+  "ai/ml midlevel": [
+    "How does gradient descent optimize model parameters?",
+    "What is the role of feature engineering in improving model performance?",
+    "Explain the difference between generative and discriminative models."
+  ],
+  "ai/ml senior": [
+    "What factors determine whether a model is overfitting or underfitting?",
+    "How do you evaluate the effectiveness of a feature selection strategy?",
+    "Explain the impact of class imbalance on model performance."
+  ],
+  "ai/ml lead": [
+    "What principles guide the selection of appropriate ML architectures for complex problems?",
+    "How do you ensure reproducibility across large-scale ML experiments?",
+    "What criteria should be used when deciding between classical ML and deep learning approaches?"
+  ],
+
+  "backend intern": [
+    "What is the difference between an API endpoint and a route?",
+    "What is the purpose of an HTTP status code?",
+    "Why are environment variables used in backend development?"
+  ],
+  "backend junior": [
+    "What is the difference between synchronous and asynchronous processing?",
+    "Explain how REST differs from GraphQL.",
+    "What is the purpose of connection pooling in databases?"
+  ],
+  "backend midlevel": [
+    "What is the role of caching in backend performance?",
+    "Explain the difference between horizontal and vertical scaling.",
+    "What is the purpose of ACID properties in relational databases?"
+  ],
+  "backend senior": [
+    "How do microservices differ from monolithic architectures at a systems level?",
+    "What factors influence the selection of an API communication protocol?",
+    "Explain the core principles of distributed systems consistency models."
+  ],
+  "backend lead": [
+    "What architectural principles guide the design of resilient backend systems?",
+    "How do you evaluate tradeoffs between consistency, availability, and latency?",
+    "What is the purpose of establishing service boundaries in large-scale systems?"
+  ],
+
+  "frontend intern": [
+    "What is the purpose of the DOM in web development?",
+    "What does CSS specificity determine?",
+    "Why is responsive design important?"
+  ],
+  "frontend junior": [
+    "What is the difference between state and props?",
+    "Why are semantic HTML tags used?",
+    "What is the purpose of a virtual DOM?"
+  ],
+  "frontend midlevel": [
+    "How do debouncing and throttling improve UI performance?",
+    "What is the difference between controlled and uncontrolled components?",
+    "Why is accessibility a core requirement in modern web development?"
+  ],
+  "frontend senior": [
+    "What principles guide the design of scalable frontend architectures?",
+    "Explain how hydration works in server-side rendered applications.",
+    "How do you choose between different state management strategies?"
+  ],
+  "frontend lead": [
+    "What factors influence the selection of a long-term frontend technology stack?",
+    "How do design systems improve product scalability?",
+    "What architectural principles ensure maintainability in large UI codebases?"
+  ],
+
+  "devops intern": [
+    "What is the purpose of CI in a development workflow?",
+    "Why are logs important in diagnosing system issues?",
+    "What does containerization solve?"
+  ],
+  "devops junior": [
+    "What is the difference between CI and CD?",
+    "Why are infrastructure-as-code tools used?",
+    "What is the purpose of a load balancer?"
+  ],
+  "devops midlevel": [
+    "What factors influence deployment strategy selection?",
+    "Explain the role of observability in system reliability.",
+    "What is the difference between blue–green and rolling deployments?"
+  ],
+  "devops senior": [
+    "What principles guide highly available infrastructure design?",
+    "How do you evaluate the reliability of a CI/CD pipeline?",
+    "What is the purpose of distributed tracing?"
+  ],
+  "devops lead": [
+    "What architectural tradeoffs govern large-scale infrastructure decisions?",
+    "How do you define SLIs, SLOs, and SLAs for critical systems?",
+    "What principles ensure long-term operational scalability?"
+  ],
+
+  "full stack intern": [
+    "What is the difference between client-side and server-side rendering?",
+    "Why are APIs needed in full stack applications?",
+    "What is the purpose of JSON in data exchange?"
+  ],
+  "full stack junior": [
+    "What is the difference between REST and RPC?",
+    "Why is authentication important in full stack apps?",
+    "What is the purpose of cross-origin resource sharing (CORS)?"
+  ],
+  "full stack midlevel": [
+    "How do different persistence models affect application architecture?",
+    "What is the purpose of service separation in modular apps?",
+    "Explain how session management works across the stack."
+  ],
+  "full stack senior": [
+    "What tradeoffs influence the choice between SSR, CSR, and hybrid rendering?",
+    "How does API contract design influence team velocity?",
+    "What principles guide the design of scalable full stack architectures?"
+  ],
+  "full stack lead": [
+    "How do you determine boundaries between frontend, backend, and shared services?",
+    "What factors influence multi-tier system reliability?",
+    "What architectural considerations apply when building across multiple platforms?"
+  ],
+
+  "mobile intern": [
+    "What is the purpose of a layout system in mobile development?",
+    "What does an app's lifecycle method control?",
+    "Why is device fragmentation a challenge?"
+  ],
+  "mobile junior": [
+    "What is the difference between native and cross-platform development?",
+    "Why is memory management important in mobile apps?",
+    "What is the purpose of an API client in mobile applications?"
+  ],
+  "mobile midlevel": [
+    "How do background tasks differ across mobile platforms?",
+    "What factors influence mobile performance optimization?",
+    "What is the role of dependency injection in mobile apps?"
+  ],
+  "mobile senior": [
+    "What architectural patterns are commonly used in mobile applications?",
+    "How does offline-first design influence data management?",
+    "What principles govern secure mobile app design?"
+  ],
+  "mobile lead": [
+    "What criteria guide platform and framework selection for mobile teams?",
+    "How do you architect apps for long-term feature scalability?",
+    "What considerations apply when coordinating multi-platform releases?"
+  ],
+
+  "cybersecurity intern": [
+    "What is the purpose of authentication?",
+    "What is a vulnerability in basic security terms?",
+    "Why are strong passwords important?"
+  ],
+  "cybersecurity junior": [
+    "What is the difference between symmetric and asymmetric encryption?",
+    "Why is input validation important for security?",
+    "What is the purpose of hashing in authentication?"
+  ],
+  "cybersecurity midlevel": [
+    "What is the principle of least privilege?",
+    "How does multi-factor authentication improve security?",
+    "What is the difference between IDS and IPS?"
+  ],
+  "cybersecurity senior": [
+    "What factors influence the selection of a secure system architecture?",
+    "How do you evaluate the impact of a security vulnerability?",
+    "What principles guide incident response planning?"
+  ],
+  "cybersecurity lead": [
+    "What considerations guide the creation of an organization-wide security strategy?",
+    "How do you evaluate tradeoffs between strict security controls and usability?",
+    "What principles ensure long-term risk mitigation in large systems?"
   ]
 }
