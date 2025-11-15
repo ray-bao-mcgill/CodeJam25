@@ -17,6 +17,13 @@ class Lobby:
         self.connections: List = []  # WebSocket connections
         self.match: Optional[Any] = None  # Match instance (imported from matches module to avoid circular import)
         self.owner_id: str = None  # Player ID of the lobby owner
+        
+        # Match configuration - set when lobby is created/configured
+        self.match_type: Optional[str] = None  # "job_posting" or "generalized"
+        self.job_description: Optional[str] = None
+        self.role: Optional[str] = None
+        self.level: Optional[str] = None
+        self.match_config: Dict = {}  # Additional configuration
     
     def add_player(self, player_name: str) -> tuple[bool, str, str]:
         """Add a player to the lobby. Returns (success, message, player_id)"""

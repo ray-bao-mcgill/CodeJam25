@@ -24,6 +24,11 @@ class TransferOwnershipRequest(BaseModel):
 
 class StartGameRequest(BaseModel):
     player_id: str
+    match_type: str = None  # "job_posting" or "generalized"
+    job_description: str = None
+    role: str = None
+    level: str = None
+    match_config: dict = None
 
 
 # Root route removed - frontend is served at / by main.py
@@ -88,7 +93,15 @@ async def join_lobby(request: JoinLobbyRequest):
 @router.post("/api/lobby/{lobby_id}/start")
 async def start_game(lobby_id: str, request: StartGameRequest):
     """Start the game - requires owner player_id"""
-    success, message = lobby_manager.start_game(lobby_id, request.player_id)
+    success, message = lobby_manager.start_game(
+        lobby_id, 
+        request.player_id,
+        match_type=request.match_type,
+        job_description=request.job_description,
+        role=request.role,
+        level=request.level,
+        match_config=request.match_config
+    )
     if success:
         await lobby_manager.broadcast_lobby_update(lobby_id)
         return {"success": True, "message": message}

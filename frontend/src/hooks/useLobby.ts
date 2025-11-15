@@ -201,12 +201,41 @@ export function useLobby() {
     }
 
     try {
+      // Get match configuration from sessionStorage
+      const jobMode = sessionStorage.getItem('jobMode');
+      let matchType: string | null = null;
+      let jobDescription: string | null = null;
+      let role: string | null = null;
+      let level: string | null = null;
+
+      if (jobMode === 'description') {
+        matchType = 'job_posting';
+        jobDescription = sessionStorage.getItem('jobDescription');
+      } else if (jobMode === 'role') {
+        matchType = 'generalized';
+        role = sessionStorage.getItem('selectedRole');
+        level = sessionStorage.getItem('selectedLevel');
+      }
+
+      // Build request body
+      const requestBody: any = {
+        player_id: playerId,
+      };
+
+      if (matchType) {
+        requestBody.match_type = matchType;
+        if (matchType === 'job_posting' && jobDescription) {
+          requestBody.job_description = jobDescription;
+        } else if (matchType === 'generalized' && role && level) {
+          requestBody.role = role;
+          requestBody.level = level;
+        }
+      }
+
       const response = await fetch(`${API_URL}/api/lobby/${lobbyId}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          player_id: playerId,
-        }),
+        body: JSON.stringify(requestBody),
       });
       const data = await response.json();
 

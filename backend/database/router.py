@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import List, Dict, Optional, Any
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
-from database import SessionLocal, MatchSummary, init_db, engine
+from database import SessionLocal, OngoingMatch, init_db, engine
 
 db_router = APIRouter()
 
@@ -25,10 +25,13 @@ def get_db():
         db.close()
 
 
-class MatchSummaryCreate(BaseModel):
+class OngoingMatchCreate(BaseModel):
     match_id: str
+    lobby_id: str
+    match_type: str
+    match_config: Dict[str, Any] = {}
     players: List[Dict[str, Any]]
-    results: Dict[str, Any]
+    game_state: Dict[str, Any] = {}
     match_summary_text: Optional[str] = None
     winner_id: Optional[str] = None
     total_questions: int = 0
@@ -55,7 +58,7 @@ async def init_database():
 async def get_database_stats(db: Session = Depends(get_db)):
     """Get database statistics"""
     try:
-        total_matches = db.query(MatchSummary).count()
+        total_matches = db.query(OngoingMatch).count()
         return {
             "success": True,
             "stats": {
@@ -66,12 +69,12 @@ async def get_database_stats(db: Session = Depends(get_db)):
         return {"success": False, "error": str(e)}
 
 
-# Match-specific endpoints (legacy)
+# Match-specific endpoints
 @db_router.get("/admin/db/matches")
 async def list_all_matches(db: Session = Depends(get_db)):
-    """List all match summaries"""
+    """List all ongoing matches"""
     try:
-        matches = db.query(MatchSummary).order_by(MatchSummary.completed_at.desc()).all()
+        matches = db.query(OngoingMatch).order_by(OngoingMatch.completed_at.desc().nullslast(), OngoingMatch.created_at.desc()).all()
         return {
             "success": True,
             "matches": [match.to_dict() for match in matches]
@@ -81,10 +84,10 @@ async def list_all_matches(db: Session = Depends(get_db)):
 
 
 @db_router.post("/admin/db/matches")
-async def create_match_summary(match_data: MatchSummaryCreate, db: Session = Depends(get_db)):
-    """Create a new match summary"""
+async def create_match(match_data: OngoingMatchCreate, db: Session = Depends(get_db)):
+    """Create a new match"""
     try:
-        existing = db.query(MatchSummary).filter(MatchSummary.match_id == match_data.match_id).first()
+        existing = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_data.match_id).first()
         if existing:
             return JSONResponse(
                 status_code=400,
@@ -102,15 +105,16 @@ async def create_match_summary(match_data: MatchSummaryCreate, db: Session = Dep
         try:
             if match_data.completed_at:
                 completed_at = datetime.fromisoformat(match_data.completed_at.replace('Z', '+00:00'))
-            else:
-                completed_at = datetime.utcnow()
         except:
-            completed_at = datetime.utcnow()
+            pass
         
-        match_summary = MatchSummary(
+        match_record = OngoingMatch(
             match_id=match_data.match_id,
+            lobby_id=match_data.lobby_id,
+            match_type=match_data.match_type,
+            match_config=match_data.match_config,
             players=match_data.players,
-            results=match_data.results,
+            game_state=match_data.game_state,
             match_summary_text=match_data.match_summary_text,
             winner_id=match_data.winner_id,
             total_questions=match_data.total_questions,
@@ -119,13 +123,13 @@ async def create_match_summary(match_data: MatchSummaryCreate, db: Session = Dep
             completed_at=completed_at
         )
         
-        db.add(match_summary)
+        db.add(match_record)
         db.commit()
-        db.refresh(match_summary)
+        db.refresh(match_record)
         
         return JSONResponse(
             status_code=200,
-            content={"success": True, "match": match_summary.to_dict()}
+            content={"success": True, "match": match_record.to_dict()}
         )
     except Exception as e:
         db.rollback()
@@ -138,10 +142,10 @@ async def create_match_summary(match_data: MatchSummaryCreate, db: Session = Dep
 
 
 @db_router.get("/admin/db/matches/{match_id}")
-async def get_match_summary(match_id: str, db: Session = Depends(get_db)):
-    """Get a specific match summary"""
+async def get_match(match_id: str, db: Session = Depends(get_db)):
+    """Get a specific match"""
     try:
-        match = db.query(MatchSummary).filter(MatchSummary.match_id == match_id).first()
+        match = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
         if not match:
             return {"success": False, "error": "Match not found"}
         return {"success": True, "match": match.to_dict()}
@@ -150,17 +154,19 @@ async def get_match_summary(match_id: str, db: Session = Depends(get_db)):
 
 
 @db_router.put("/admin/db/matches/{match_id}")
-async def update_match_summary(match_id: str, match_data: Dict = Body(...), db: Session = Depends(get_db)):
-    """Update a match summary"""
+async def update_match(match_id: str, match_data: Dict = Body(...), db: Session = Depends(get_db)):
+    """Update a match"""
     try:
-        match = db.query(MatchSummary).filter(MatchSummary.match_id == match_id).first()
+        match = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
         if not match:
             return {"success": False, "error": "Match not found"}
         
         if "players" in match_data:
             match.players = match_data["players"]
-        if "results" in match_data:
-            match.results = match_data["results"]
+        if "game_state" in match_data:
+            match.game_state = match_data["game_state"]
+        if "match_config" in match_data:
+            match.match_config = match_data["match_config"]
         if "match_summary_text" in match_data:
             match.match_summary_text = match_data["match_summary_text"]
         if "winner_id" in match_data:
@@ -180,10 +186,10 @@ async def update_match_summary(match_id: str, match_data: Dict = Body(...), db: 
 
 
 @db_router.delete("/admin/db/matches/{match_id}")
-async def delete_match_summary(match_id: str, db: Session = Depends(get_db)):
-    """Delete a match summary"""
+async def delete_match(match_id: str, db: Session = Depends(get_db)):
+    """Delete a match"""
     try:
-        match = db.query(MatchSummary).filter(MatchSummary.match_id == match_id).first()
+        match = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
         if not match:
             return {"success": False, "error": "Match not found"}
         
@@ -198,10 +204,10 @@ async def delete_match_summary(match_id: str, db: Session = Depends(get_db)):
 
 @db_router.delete("/admin/db/matches")
 async def delete_all_matches(db: Session = Depends(get_db)):
-    """Delete all match summaries"""
+    """Delete all matches"""
     try:
-        count = db.query(MatchSummary).count()
-        db.query(MatchSummary).delete()
+        count = db.query(OngoingMatch).count()
+        db.query(OngoingMatch).delete()
         db.commit()
         return {"success": True, "message": f"Deleted {count} match(es)"}
     except Exception as e:
