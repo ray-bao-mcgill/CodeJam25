@@ -23,8 +23,8 @@ if APP_DIR not in sys.path:
 from app.llm.openai import OpenAIClient
 from app.llm.client import LLMTextRequest
 from app.llm.prompts.renderer import render as render_prompt
-from app.llm.llm_judge import BehaviouralJudge
-from app.llm.schemas import BehaviouralJudgeResult
+from app.llm.judge import BehaviouralJudge, TheoreticalJudge
+from app.llm.schemas import BehaviouralJudgeResult, TheoreticalJudgeResult
 
 def load_type_file(path):
     if os.path.exists(path):
@@ -222,7 +222,6 @@ async def run_behavioural_scoring():
                 print(f"Input '{level_input}' did not match any level for role '{role}'.")
                 print("Available levels:", ", ".join(level_lookup.values()))
     else:
-        # Flat role (backwards compatibility - though all roles should now be nested)
         question_list = behavioural_data.get(role, [])
     if not question_list:
         missing = f"role '{role}'"
@@ -244,17 +243,76 @@ async def run_behavioural_scoring():
     print("\nLLM Judge Result:")
     print(json.dumps(result.dict(), indent=2, ensure_ascii=False))
 
+async def run_theoretical_scoring():
+    print("\n[Theoretical Judge: Score an answer]\n")
+    theory_data = load_type_file(OUTPUT_FILES["technical_theory"])
+    role_lookup = {k.strip().lower(): k for k in theory_data}
+    print("Available roles:", ", ".join(theory_data.keys()))
+    while True:
+        role_input = input("Enter the role group (case/spacing insensitive): ").strip().lower()
+        if role_input in role_lookup:
+            role = role_lookup[role_input]
+            print(f"Matched role group: '{role}' (raw key from file)")
+            break
+        else:
+            print(f"Input '{role_input}' did not match any available role.")
+            print("Available roles:", ", ".join(theory_data.keys()))
+    level = None
+    question_list = None
+    if isinstance(theory_data[role], dict):
+        level_lookup = {k.strip().lower(): k for k in theory_data[role]}
+        print(f"Levels for {role}: {', '.join(level_lookup.values())}")
+        while True:
+            level_input = input("Enter the level (case/spacing insensitive): ").strip().lower()
+            if level_input in level_lookup:
+                level = level_lookup[level_input]
+                print(f"Matched level: '{level}' (raw key from file)")
+                question_list = get_nested_question_list(theory_data, role, level)
+                break
+            else:
+                print(f"Input '{level_input}' did not match any level for role '{role}'.")
+                print("Available levels:", ", ".join(level_lookup.values()))
+    else:
+        question_list = theory_data.get(role, [])
+    if not question_list:
+        missing = f"role '{role}'"
+        if level:
+            missing += f" / level '{level}'"
+        print(f"No questions found for {missing}. Please generate or add some first.")
+        return
+    question_data = random.choice(question_list)
+    if not isinstance(question_data, dict) or "question" not in question_data:
+        print("Invalid question format.")
+        return
+    print(f"\nQuestion for {role} / {level}:")
+    print(f">> {question_data['question']}\n")
+    if question_data.get("incorrect"):
+        print("Options:")
+        all_answers = [question_data["correct"]] + question_data["incorrect"]
+        random.shuffle(all_answers)
+        for i, ans in enumerate(all_answers, 1):
+            print(f"  {i}. {ans}")
+        print()
+    answer = input("Enter your answer: ").strip()
+    judge = TheoreticalJudge()
+    result = judge.judge(question_data, answer)
+    print("\nJudge Result:")
+    print(json.dumps(result.dict(), indent=2, ensure_ascii=False))
+
 async def main():
     print("--- LLM Question/Test Utility ---")
     print("g: Generate questions by type and role")
     print("s: Score (judge) a behavioral answer (random question by role)")
-    mode = input("Mode ([g]enerate or [s]core)? ").strip().lower()
+    print("t: Score (judge) a theoretical answer (random question by role)")
+    mode = input("Mode ([g]enerate, [s]core behavioural, or [t]score theoretical)? ").strip().lower()
     if mode in ("g", "generate", ""):  # default
         await run_generation()
     elif mode in ("s", "score"):
         await run_behavioural_scoring()
+    elif mode in ("t", "theory", "theoretical"):
+        await run_theoretical_scoring()
     else:
-        print(f"Unknown choice '{mode}', use 'g' or 's'.")
+        print(f"Unknown choice '{mode}', use 'g', 's', or 't'.")
 
 if __name__ == "__main__":
     asyncio.run(main())
