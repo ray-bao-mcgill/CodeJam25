@@ -7,7 +7,7 @@ app = FastAPI()
 
 # CORS for React frontend
 import os
-cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
+cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173,https://codejam25-production.up.railway.app").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Container, Stack, Title, TextInput, Button, Text, Paper, List, Group, ActionIcon } from '@mantine/core'
+import { API_URL, WS_URL } from '../config'
 
 export default function Lobby() {
   const [lobbyId, setLobbyId] = useState('')
@@ -32,7 +33,7 @@ export default function Lobby() {
     console.log(`Connecting WebSocket to lobby ${id}`)
     lobbyIdRef.current = id
     
-    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/lobby/${id}`)
+    const ws = new WebSocket(`${WS_URL}/ws/lobby/${id}`)
     wsRef.current = ws
 
     ws.onopen = () => {
@@ -97,7 +98,7 @@ export default function Lobby() {
     setError('')
 
     try {
-      const createResponse = await fetch('http://127.0.0.1:8000/api/lobby/create', {
+      const createResponse = await fetch(`${API_URL}/api/lobby/create`, {
         method: 'POST',
       })
       const createData = await createResponse.json()
@@ -105,7 +106,7 @@ export default function Lobby() {
 
       if (createData.lobby_id) {
         console.log('Attempting to join lobby:', createData.lobby_id)
-        const joinResponse = await fetch('http://127.0.0.1:8000/api/lobby/join', {
+        const joinResponse = await fetch(`${API_URL}/api/lobby/join`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -144,7 +145,7 @@ export default function Lobby() {
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/lobby/join', {
+      const response = await fetch(`${API_URL}/api/lobby/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -177,7 +178,7 @@ export default function Lobby() {
     if (!lobbyIdRef.current) return
     
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/lobby/${lobbyIdRef.current}/start`, {
+      const response = await fetch(`${API_URL}/api/lobby/${lobbyIdRef.current}/start`, {
         method: 'POST',
       })
       const data = await response.json()
@@ -277,7 +278,7 @@ export default function Lobby() {
                 try {
                   // Call backend to leave lobby
                   if (lobbyIdRef.current && playerIdRef.current) {
-                    await fetch(`http://127.0.0.1:8000/api/lobby/${lobbyIdRef.current}/leave`, {
+                    await fetch(`${API_URL}/api/lobby/${lobbyIdRef.current}/leave`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
