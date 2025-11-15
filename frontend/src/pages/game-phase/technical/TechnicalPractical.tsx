@@ -10,15 +10,101 @@ const TAB_OPTIONS: TabType[] = [TAB_IDE, TAB_TEXT, TAB_DRAW];
 const CANVAS_WIDTH = 540;
 const CANVAS_HEIGHT = 320;
 
+// CDN info
+const MONACO_LOADER_SRC = "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js";
+
+function loadMonacoLoaderScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as any).require) return resolve(); // Already loaded
+    if (document.getElementById('monaco-loader')) return resolve();
+    const script = document.createElement('script');
+    script.id = 'monaco-loader';
+    script.src = MONACO_LOADER_SRC;
+    script.onload = () => {
+      console.log('[Monaco] Loader script loaded');
+      resolve();
+    };
+    script.onerror = e => reject(e);
+    document.head.appendChild(script);
+  });
+}
+
+function loadMonaco(): Promise<any> {
+  return loadMonacoLoaderScript().then(() => {
+    return new Promise((resolve, reject) => {
+      if ((window as any).monaco && (window as any).monaco.editor) {
+        console.log('[Monaco] Monaco already loaded');
+        resolve((window as any).monaco);
+        return;
+      }
+      (window as any).require.config({ paths: { vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs" } });
+      (window as any).require(["vs/editor/editor.main"], () => {
+        console.log('[Monaco] Monaco loaded successfully!');
+        resolve((window as any).monaco);
+      });
+    });
+  });
+}
+
 const TechnicalPractical: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>(TAB_IDE);
-  const [codeValue, setCodeValue] = useState('');
+  const [codeValue, setCodeValue] = useState('// Start coding here...');
   const [textValue, setTextValue] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const monacoEditorRef = useRef<any>(null);
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const drawing = useRef(false);
   const lastPoint = useRef<{x:number, y:number} | null>(null);
 
-  // attach event listeners for mouse draw
+  // MONACO INTEGRATION: Only load when IDE tab is active
+  useEffect(() => {
+    (async () => {
+      if (activeTab !== TAB_IDE) return;
+      // Wait for tiny delay so container is rendered
+      await new Promise(r => setTimeout(r, 0));
+      const container = editorContainerRef.current;
+      if (!container) {
+        console.warn('[Monaco] #code-editor container missing');
+        return;
+      }
+      // Clean up previous instance
+      if (monacoEditorRef.current) {
+        try { monacoEditorRef.current.dispose(); } catch {}
+        monacoEditorRef.current = null;
+      }
+      try {
+        const monaco = await loadMonaco();
+        const editor = monaco.editor.create(container, {
+          value: codeValue,
+          language: 'javascript',
+          automaticLayout: true,
+          minimap: { enabled: false },
+          theme: "vs-dark",
+          fontSize: 14,
+          roundedSelection: true,
+        });
+        monacoEditorRef.current = editor;
+        // Listen for changes
+        editor.onDidChangeModelContent(() => {
+          setCodeValue(editor.getValue());
+        });
+        // Clean up on unmount
+        console.log('[Monaco] Editor initialized in IDE tab');
+      } catch (e) {
+        console.error('[Monaco] Error initializing Monaco:', e);
+      }
+    })();
+    // Clean up on unmount or tab switch
+    return () => {
+      if (monacoEditorRef.current) {
+        try { monacoEditorRef.current.dispose(); } catch {}
+        monacoEditorRef.current = null;
+        console.log('[Monaco] Editor disposed');
+      }
+    };
+  }, [activeTab]);
+
+  // Draw tab: attach event listeners
   useEffect(() => {
     if (activeTab !== TAB_DRAW) return;
     const canvas = canvasRef.current;
@@ -122,14 +208,10 @@ const TechnicalPractical: React.FC = () => {
         {activeTab === TAB_IDE && (
           <div className="px-4 py-2">
             <label className="block font-bold mb-2 text-gray-700">Code Editor:</label>
-            <textarea
-              className={`${styles.idearea} w-full min-h-[280px] font-mono border-4 border-gray-900 rounded-none p-4 text-base focus:outline-none focus:ring-2 focus:ring-blue-600 game-shadow-hard`}
-              value={codeValue}
-              onChange={e => setCodeValue(e.target.value)}
-              placeholder="Write your code here..."
-              spellCheck={false}
-              autoCapitalize="off"
-              autoCorrect="off"
+            <div
+              id="code-editor"
+              ref={editorContainerRef}
+              style={{ width: '100%', height: 400, border: '3px solid #222', borderRadius: 8, background: '#1e1e20', overflow: 'hidden' }}
             />
           </div>
         )}
