@@ -181,6 +181,83 @@ class QuestionManager:
             db.close()
     
     @staticmethod
+    def get_technical_theory_questions(
+        role: str,
+        level: str,
+        count: int = 10,
+        seed: Optional[str] = None
+    ) -> list[Dict[str, Any]]:
+        """
+        Get multiple technical theory questions in a deterministic order (same for all clients)
+        
+        Args:
+            role: Role name
+            level: Level name
+            count: Number of questions to return (default 10)
+            seed: Optional seed for deterministic selection (e.g., match_id)
+        
+        Returns:
+            List of question dicts with question data including correct/incorrect answers
+        """
+        db: Session = SessionLocal()
+        try:
+            query = db.query(TechnicalTheoryPool).filter(
+                TechnicalTheoryPool.role == role,
+                TechnicalTheoryPool.level == level
+            )
+            
+            questions = query.all()
+            
+            if not questions:
+                print(f"[QUESTION_MANAGER] No technical theory questions found for role={role}, level={level}")
+                return []
+            
+            if len(questions) < count:
+                print(f"[QUESTION_MANAGER] WARNING: Only {len(questions)} questions available, requested {count}")
+                count = len(questions)
+            
+            # Use seed for deterministic selection if provided
+            if seed:
+                # Create a deterministic random state from seed
+                seed_hash = hash(seed)
+                rng = random.Random(seed_hash)
+                selected_questions = rng.sample(questions, min(count, len(questions)))
+            else:
+                # Random selection (not deterministic)
+                selected_questions = random.sample(questions, min(count, len(questions)))
+            
+            # Increment used_count for all selected questions
+            for q in selected_questions:
+                q.used_count += 1
+            db.commit()
+            
+            print(f"[QUESTION_MANAGER] Selected {len(selected_questions)} technical theory questions for role={role}, level={level}")
+            
+            # Return questions in a list with their index
+            result = []
+            for idx, selected_question in enumerate(selected_questions):
+                result.append({
+                    "question_id": f"technical_theory_{selected_question.id}_{idx}",
+                    "question": selected_question.question,
+                    "correct_answer": selected_question.correct_answer,
+                    "incorrect_answers": selected_question.incorrect_answers,
+                    "phase": "technical_theory",
+                    "question_index": idx,
+                    "role": selected_question.role,
+                    "level": selected_question.level
+                })
+            
+            return result
+        except Exception as e:
+            db.rollback()
+            print(f"[QUESTION_MANAGER] Error getting technical theory questions: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+        finally:
+            db.close()
+    
+    @staticmethod
     def _get_technical_practical_question(
         role: str,
         level: str

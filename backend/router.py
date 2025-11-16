@@ -435,66 +435,184 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                         
                         # Update database with answer
                         if match_id:
-                            # Record the answer
-                            record_answer(
-                                match_id=match_id,
-                                player_id=player_id,
-                                question_id=question_id or f"q_{phase}_{question_index}_{player_id}",
-                                answer=answer_text,
-                                phase=phase,
-                                question_index=question_index
-                            )
-                            
-                            # Update submission status
-                            update_player_submission_status(
-                                match_id=match_id,
-                                player_id=player_id,
-                                question_id=question_id or f"q_{phase}_{question_index}_{player_id}",
-                                submitted=True
-                            )
-                            
-                            # Record submission in phase manager
-                            phase_manager.record_submission(match_id, phase, player_id, question_index)
-                            
-                            total_players = len(lobby.players)
-                            phase_state = phase_manager.get_phase_state(match_id, phase)
-                            
-                            print(f"[SUBMIT] After recording submission - Phase: {phase}, Question index: {question_index}, Player: {player_id}")
-                            print(f"[SUBMIT] Phase state player_submissions: {phase_state.player_submissions}")
-                            print(f"[SUBMIT] Phase state question_submissions: {phase_state.question_submissions}")
-                            
-                            # For technical_theory: players work independently, only check completion when all 10 questions are done
-                            if phase == "technical_theory":
-                                player_submissions = phase_state.player_submissions.get(player_id, set())
-                                finished_all = len(player_submissions) >= 10
-                                print(f"[TECHNICAL_THEORY] Player {player_id} has submitted {len(player_submissions)}/10 questions. Finished all: {finished_all}")
+                            # Create database session for this handler
+                            db = SessionLocal()
+                            try:
+                                # Record the answer
+                                record_answer(
+                                    match_id=match_id,
+                                    player_id=player_id,
+                                    question_id=question_id or f"q_{phase}_{question_index}_{player_id}",
+                                    answer=answer_text,
+                                    phase=phase,
+                                    question_index=question_index
+                                )
                                 
-                                if finished_all:
-                                    # Player finished all questions - broadcast to show waiting status
-                                    finished_players = [p for p in phase_state.player_submissions.keys() if len(phase_state.player_submissions.get(p, set())) >= 10]
-                                    await lobby_manager.broadcast_game_message(
-                                        lobby_id,
-                                        {
-                                            "type": "player_finished_technical_theory",
-                                            "player_id": player_id,
-                                            "total_finished": len(finished_players),
-                                            "total_players": total_players
-                                        }
-                                    )
+                                # Update submission status
+                                update_player_submission_status(
+                                    match_id=match_id,
+                                    player_id=player_id,
+                                    question_id=question_id or f"q_{phase}_{question_index}_{player_id}",
+                                    submitted=True
+                                )
+                                
+                                # Record submission in phase manager
+                                phase_manager.record_submission(match_id, phase, player_id, question_index)
+                                
+                                # For technical_theory, score the answer immediately
+                                if phase == "technical_theory":
+                                    from game.technical_theory_scoring import score_technical_theory_answer
+                                    try:
+                                        score = await score_technical_theory_answer(
+                                            match_id=match_id,
+                                            player_id=player_id,
+                                            question_index=question_index,
+                                            answer=answer_text
+                                        )
+                                        if score is not None:
+                                            print(f"[SUBMIT] Scored technical theory answer: {score} points")
+                                        else:
+                                            print(f"[SUBMIT] WARNING: Could not score technical theory answer")
+                                    except Exception as e:
+                                        print(f"[SUBMIT] Error scoring technical theory answer: {e}")
+                                        import traceback
+                                        traceback.print_exc()
+                                
+                                total_players = len(lobby.players)
+                                phase_state = phase_manager.get_phase_state(match_id, phase)
+                                
+                                print(f"[SUBMIT] After recording submission - Phase: {phase}, Question index: {question_index}, Player: {player_id}")
+                                print(f"[SUBMIT] Phase state player_submissions: {phase_state.player_submissions}")
+                                print(f"[SUBMIT] Phase state question_submissions: {phase_state.question_submissions}")
+                                
+                                # For technical_theory: players work independently, check completion when all questions are done
+                                if phase == "technical_theory":
+                                    # Get question count from game_state (refresh record first)
+                                    match_record_check = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
+                                    if match_record_check:
+                                        db.refresh(match_record_check)
                                     
-                                    # Check if all players finished
-                                    if len(finished_players) >= total_players:
-                                        print(f"[TECHNICAL_THEORY] All players finished! Phase complete.")
+                                    question_count = 10  # Default fallback
+                                    if match_record_check and match_record_check.game_state:
+                                        game_state_check = match_record_check.game_state
+                                        if isinstance(game_state_check, dict):
+                                            phase_metadata = game_state_check.get("phase_metadata", {})
+                                            if phase in phase_metadata:
+                                                question_count = phase_metadata[phase].get("question_count", 10)
+                                                print(f"[SUBMIT] Found question_count in phase_metadata: {question_count}")
+                                            else:
+                                                print(f"[SUBMIT] WARNING: phase_metadata['{phase}'] not found. Available keys: {list(phase_metadata.keys())}")
+                                                # Try to count questions from cache as fallback
+                                                questions_cache = game_state_check.get("questions", {})
+                                                tech_questions = [k for k in questions_cache.keys() if k.startswith(f"{phase}_")]
+                                                if tech_questions:
+                                                    # Get max index + 1
+                                                    max_idx = -1
+                                                    for q_key in tech_questions:
+                                                        try:
+                                                            # Handle format: technical_theory_0, technical_theory_1, etc.
+                                                            parts = q_key.split("_")
+                                                            if len(parts) >= 3:
+                                                                idx = int(parts[-1])
+                                                                max_idx = max(max_idx, idx)
+                                                        except:
+                                                            pass
+                                                    if max_idx >= 0:
+                                                        question_count = max_idx + 1
+                                                        print(f"[SUBMIT] Calculated question_count from cache: {question_count}")
+                                    else:
+                                        print(f"[SUBMIT] WARNING: match_record_check or game_state not found")
+                                    
+                                    print(f"[SUBMIT] Using question_count for technical_theory: {question_count}")
+                                    
+                                    # Refresh phase state to get latest submissions
+                                    phase_state = phase_manager.get_phase_state(match_id, phase)
+                                    player_submissions = phase_state.player_submissions.get(player_id, set())
+                                    finished_all = len(player_submissions) >= question_count
+                                    print(f"[TECHNICAL_THEORY] Player {player_id} has submitted {len(player_submissions)}/{question_count} questions. Finished all: {finished_all}")
+                                    print(f"[TECHNICAL_THEORY] Lobby has {total_players} players: {[p.get('id') if isinstance(p, dict) else str(p) for p in lobby.players]}")
+                                    
+                                    if finished_all:
+                                        # Player finished all questions - broadcast to show waiting status
+                                        # Calculate finished players by checking all players in lobby
+                                        finished_players = []
+                                        for p in lobby.players:
+                                            # Handle both dict format {"id": "..."} and direct string format
+                                            if isinstance(p, dict):
+                                                p_id = p.get("id") or p.get("player_id") or str(p)
+                                            else:
+                                                p_id = str(p)
+                                            
+                                            p_submissions = phase_state.player_submissions.get(p_id, set())
+                                            submission_count = len(p_submissions)
+                                            if submission_count >= question_count:
+                                                finished_players.append(p_id)
+                                                print(f"[TECHNICAL_THEORY] Player {p_id} finished ({submission_count}/{question_count})")
+                                            else:
+                                                print(f"[TECHNICAL_THEORY] Player {p_id} not finished yet ({submission_count}/{question_count})")
+                                        
+                                        print(f"[TECHNICAL_THEORY] Broadcasting finished status: {len(finished_players)}/{total_players} players finished")
                                         await lobby_manager.broadcast_game_message(
                                             lobby_id,
                                             {
-                                                "type": "show_results",
-                                                "phase": "technical_theory",
-                                                "reason": "phase_complete",
-                                                "phaseComplete": True,
-                                                "forceShow": True
+                                                "type": "player_finished_technical_theory",
+                                                "player_id": player_id,
+                                                "total_finished": len(finished_players),
+                                                "total_players": total_players
                                             }
                                         )
+                                        
+                                        # Check if all players finished
+                                        if len(finished_players) >= total_players:
+                                            print(f"[TECHNICAL_THEORY] All players finished! Getting pre-calculated scores.")
+                                            
+                                            # Get pre-calculated scores (scored incrementally as answers were submitted)
+                                            try:
+                                                from game.technical_theory_scoring import get_technical_theory_total_score
+                                                player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
+                                                scores = {}
+                                                for pid in player_ids:
+                                                    score = await get_technical_theory_total_score(match_id, pid)
+                                                    scores[pid] = score
+                                                    print(f"[TECHNICAL_THEORY] Player {pid} total score: {score}")
+                                                
+                                                # Store scores in database for consistency
+                                                await calculate_and_store_scores(match_id, "technical_theory", player_ids)
+                                                print(f"[TECHNICAL_THEORY] Scores retrieved: {scores}")
+                                            except Exception as e:
+                                                print(f"[TECHNICAL_THEORY] Error getting scores: {e}")
+                                                import traceback
+                                                traceback.print_exc()
+                                                # Fallback: use RNG scores
+                                                import random
+                                                player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
+                                                scores = {pid: random.randint(50, 100) for pid in player_ids}
+                                            
+                                            # Broadcast scores and phase completion
+                                            await lobby_manager.broadcast_game_message(
+                                                lobby_id,
+                                                {
+                                                    "type": "scores_ready",
+                                                    "phase": "technical_theory",
+                                                    "scores": scores,
+                                                    "serverTime": datetime.utcnow().timestamp() * 1000
+                                                }
+                                            )
+                                            
+                                            await lobby_manager.broadcast_game_message(
+                                                lobby_id,
+                                                {
+                                                    "type": "show_results",
+                                                    "phase": "technical_theory",
+                                                    "reason": "phase_complete",
+                                                    "phaseComplete": True,
+                                                    "forceShow": True,
+                                                    "total_finished": len(finished_players),
+                                                    "total_players": total_players
+                                                }
+                                            )
+                            finally:
+                                db.close()
                             
                             # For behavioural phase: check completion BEFORE general phase check
                             # This ensures we handle Q0->Q1 transition correctly
@@ -550,11 +668,14 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             elif phase in ["technical_theory"]:
                                 # Theory complete - signal to advance to practical (not phase complete yet)
                                 # For technical sub-phases, check parent phase completion
+                                # Get all player IDs for accurate completion check
+                                player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
+                                
                                 check_phase = "technical"
-                                phase_complete = phase_manager.check_phase_complete(match_id, check_phase, total_players)
+                                phase_complete = phase_manager.check_phase_complete(match_id, check_phase, total_players, player_ids=player_ids)
                                 print(f"[SUBMIT] Phase {check_phase} completion status: {phase_complete} ({len(phase_state.player_submissions)}/{total_players} players)")
                                 
-                                sub_phase_complete = phase_manager.check_phase_complete(match_id, phase, total_players)
+                                sub_phase_complete = phase_manager.check_phase_complete(match_id, phase, total_players, player_ids=player_ids)
                                 if sub_phase_complete:
                                     print(f"[SUBMIT] Technical theory complete, advancing to practical")
                                     await lobby_manager.broadcast_game_message(
@@ -617,21 +738,90 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                     
                     # Broadcast player_submitted message to all connections in lobby
                     # This is CRITICAL - all players need to see when someone submits
-                    await lobby_manager.broadcast_game_message(
-                        lobby_id,
-                        {
-                            "type": "player_submitted",
-                            "player_id": player_id,
-                            "questionId": question_id,
-                            "phase": phase,
-                            "question_index": question_index
-                        }
-                    )
+                    # For technical_theory, also include all players' progress
+                    broadcast_data = {
+                        "type": "player_submitted",
+                        "player_id": player_id,
+                        "questionId": question_id,
+                        "phase": phase,
+                        "question_index": question_index
+                    }
+                    
+                    # Add progress info for technical_theory phase
+                    if phase == "technical_theory":
+                        # Get question count
+                        question_count = 10  # Default
+                        match_record_check = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
+                        if match_record_check:
+                            game_state_check = match_record_check.game_state or {}
+                            if isinstance(game_state_check, dict):
+                                phase_metadata = game_state_check.get("phase_metadata", {})
+                                if phase in phase_metadata:
+                                    question_count = phase_metadata[phase].get("question_count", 10)
+                                else:
+                                    # Fallback: count from questions cache
+                                    questions_cache_check = game_state_check.get("questions", {})
+                                    max_idx = -1
+                                    for key in questions_cache_check.keys():
+                                        if key.startswith(f"{phase}_"):
+                                            try:
+                                                idx = int(key.split("_")[-1])
+                                                max_idx = max(max_idx, idx)
+                                            except:
+                                                pass
+                                    if max_idx >= 0:
+                                        question_count = max_idx + 1
+                        
+                        # Get all players' progress (based on correct answers)
+                        phase_state = phase_manager.get_phase_state(match_id, phase)
+                        player_progress = {}
+                        
+                        # Get correct answer counts from technical_theory_scores
+                        db_refresh = SessionLocal()
+                        try:
+                            match_record_progress = db_refresh.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
+                            if match_record_progress:
+                                game_state_progress = match_record_progress.game_state or {}
+                                if isinstance(game_state_progress, dict):
+                                    technical_theory_scores = game_state_progress.get("technical_theory_scores", {})
+                                    
+                                    for p in lobby.players:
+                                        if isinstance(p, dict):
+                                            p_id = p.get("id") or p.get("player_id") or str(p)
+                                        else:
+                                            p_id = str(p)
+                                        
+                                        player_submissions = phase_state.player_submissions.get(p_id, set())
+                                        submission_count = len(player_submissions)
+                                        
+                                        # Count correct answers from scores
+                                        player_scores = technical_theory_scores.get(p_id, {})
+                                        correct_count = 0
+                                        if isinstance(player_scores, dict):
+                                            for key, score_data in player_scores.items():
+                                                if key != "_total" and isinstance(score_data, dict):
+                                                    if score_data.get("is_correct", False):
+                                                        correct_count += 1
+                                        
+                                        player_progress[p_id] = {
+                                            "submitted": submission_count,
+                                            "total": question_count,
+                                            "correct": correct_count,
+                                            "percentage": int((correct_count / question_count) * 100) if question_count > 0 else 0
+                                        }
+                        finally:
+                            db_refresh.close()
+                        
+                        broadcast_data["player_progress"] = player_progress
+                        broadcast_data["question_count"] = question_count
+                    
+                    await lobby_manager.broadcast_game_message(lobby_id, broadcast_data)
                     print(f"[SUBMIT] Broadcast player_submitted to all players for player {player_id}")
                 elif message.get("type") == "technical_theory_finished":
-                    # Player finished all technical theory questions - track and check completion
+                    # Player finished all technical theory questions (or died) - track and check completion
                     player_id = message.get("player_id")
-                    print(f"[TECHNICAL_THEORY] Player {player_id} finished all technical theory questions in lobby {lobby_id}")
+                    is_dead = message.get("is_dead", False)  # Flag to indicate if player died
+                    print(f"[TECHNICAL_THEORY] Player {player_id} finished all technical theory questions in lobby {lobby_id} (dead: {is_dead})")
                     
                     lobby = lobby_manager.get_lobby(lobby_id)
                     if lobby:
@@ -644,19 +834,113 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                 match_id = match_record.match_id
                         
                         if match_id:
-                            # Record that player finished all questions (if not already recorded)
-                            # This is a backup in case submit_answer didn't catch it
+                            # If player is dead, mark them as dead in game state
+                            if is_dead:
+                                db_dead = SessionLocal()
+                                try:
+                                    match_record_dead = db_dead.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).with_for_update().first()
+                                    if match_record_dead:
+                                        game_state_dead = match_record_dead.game_state or {}
+                                        if not isinstance(game_state_dead, dict):
+                                            game_state_dead = {}
+                                        
+                                        # Track dead players
+                                        if "technical_theory_dead_players" not in game_state_dead:
+                                            game_state_dead["technical_theory_dead_players"] = []
+                                        
+                                        if player_id not in game_state_dead["technical_theory_dead_players"]:
+                                            game_state_dead["technical_theory_dead_players"].append(player_id)
+                                            print(f"[TECHNICAL_THEORY] Marked player {player_id} as DEAD")
+                                        
+                                        from sqlalchemy.orm.attributes import flag_modified
+                                        match_record_dead.game_state = game_state_dead
+                                        flag_modified(match_record_dead, "game_state")
+                                        db_dead.commit()
+                                finally:
+                                    db_dead.close()
+                            # Get question count from game_state with proper fallback
+                            db_session = SessionLocal()
+                            try:
+                                match_record_check = db_session.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
+                                question_count = 10  # Default fallback
+                                if match_record_check and match_record_check.game_state:
+                                    game_state_check = match_record_check.game_state
+                                    if isinstance(game_state_check, dict):
+                                        phase_metadata = game_state_check.get("phase_metadata", {})
+                                        if "technical_theory" in phase_metadata:
+                                            question_count = phase_metadata["technical_theory"].get("question_count", 10)
+                                            print(f"[TECHNICAL_THEORY] Found question_count in phase_metadata: {question_count}")
+                                        else:
+                                            print(f"[TECHNICAL_THEORY] WARNING: phase_metadata['technical_theory'] not found. Available keys: {list(phase_metadata.keys())}")
+                                            # Try to count questions from cache as fallback
+                                            questions_cache = game_state_check.get("questions", {})
+                                            tech_questions = [k for k in questions_cache.keys() if k.startswith("technical_theory_")]
+                                            if tech_questions:
+                                                # Get max index + 1
+                                                max_idx = -1
+                                                for q_key in tech_questions:
+                                                    try:
+                                                        # Handle format: technical_theory_0, technical_theory_1, etc.
+                                                        parts = q_key.split("_")
+                                                        if len(parts) >= 3:
+                                                            idx = int(parts[-1])
+                                                            max_idx = max(max_idx, idx)
+                                                    except:
+                                                        pass
+                                                if max_idx >= 0:
+                                                    question_count = max_idx + 1
+                                                    print(f"[TECHNICAL_THEORY] Calculated question_count from cache: {question_count}")
+                                else:
+                                    print(f"[TECHNICAL_THEORY] WARNING: match_record_check or game_state not found")
+                            finally:
+                                db_session.close()
+                            
+                            print(f"[TECHNICAL_THEORY] Using question_count: {question_count}")
+                            
+                            # Get phase state and check all players
                             phase_state = phase_manager.get_phase_state(match_id, "technical_theory")
-                            player_submissions = phase_state.player_submissions.get(player_id, set())
-                            
-                            # If player hasn't submitted all 10 yet, this message might be premature
-                            # But we'll still check if all players are done
                             total_players = len(lobby.players)
-                            finished_players = [p for p in phase_state.player_submissions.keys() if len(phase_state.player_submissions.get(p, set())) >= 10]
                             
-                            print(f"[TECHNICAL_THEORY] Finished players: {len(finished_players)}/{total_players}")
+                            # Get dead players from game state
+                            db_dead_check = SessionLocal()
+                            dead_players_set = set()
+                            try:
+                                match_record_dead = db_dead_check.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
+                                if match_record_dead:
+                                    game_state_dead = match_record_dead.game_state or {}
+                                    if isinstance(game_state_dead, dict):
+                                        dead_players_set = set(game_state_dead.get("technical_theory_dead_players", []))
+                            finally:
+                                db_dead_check.close()
                             
-                            # Broadcast player finished status
+                            # Calculate finished players - check all players in the lobby
+                            finished_players = []
+                            for p in lobby.players:
+                                # Handle both dict format {"id": "..."} and direct string format
+                                if isinstance(p, dict):
+                                    p_id = p.get("id") or p.get("player_id") or str(p)
+                                else:
+                                    p_id = str(p)
+                                
+                                # Check if player is dead
+                                if p_id in dead_players_set:
+                                    finished_players.append(p_id)
+                                    print(f"[TECHNICAL_THEORY] Player {p_id} finished (DEAD)")
+                                else:
+                                    # Check if player submitted all questions
+                                    player_submissions = phase_state.player_submissions.get(p_id, set())
+                                    submission_count = len(player_submissions)
+                                    if submission_count >= question_count:
+                                        finished_players.append(p_id)
+                                        print(f"[TECHNICAL_THEORY] Player {p_id} finished ({submission_count}/{question_count})")
+                                    else:
+                                        print(f"[TECHNICAL_THEORY] Player {p_id} not finished yet ({submission_count}/{question_count})")
+                            
+                            print(f"[TECHNICAL_THEORY] Player {player_id} sent finished message. Finished players: {len(finished_players)}/{total_players}")
+                            print(f"[TECHNICAL_THEORY] Player {player_id} submissions: {len(phase_state.player_submissions.get(player_id, set()))}/{question_count}")
+                            
+                            # Always broadcast the current finished status, even if this player isn't counted yet
+                            # This ensures all clients get updated counts
                             await lobby_manager.broadcast_game_message(
                                 lobby_id,
                                 {
@@ -669,7 +953,41 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             
                             # Check if all players finished
                             if len(finished_players) >= total_players:
-                                print(f"[TECHNICAL_THEORY] All players finished! Phase complete.")
+                                print(f"[TECHNICAL_THEORY] All players finished! Getting pre-calculated scores.")
+                                
+                                # Get pre-calculated scores (scored incrementally as answers were submitted)
+                                try:
+                                    from game.technical_theory_scoring import get_technical_theory_total_score
+                                    player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
+                                    scores = {}
+                                    for pid in player_ids:
+                                        score = await get_technical_theory_total_score(match_id, pid)
+                                        scores[pid] = score
+                                        print(f"[TECHNICAL_THEORY] Player {pid} total score: {score}")
+                                    
+                                    # Store scores in database for consistency
+                                    await calculate_and_store_scores(match_id, "technical_theory", player_ids)
+                                    print(f"[TECHNICAL_THEORY] Scores retrieved: {scores}")
+                                except Exception as e:
+                                    print(f"[TECHNICAL_THEORY] Error getting scores: {e}")
+                                    import traceback
+                                    traceback.print_exc()
+                                    # Fallback: use RNG scores
+                                    import random
+                                    player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
+                                    scores = {pid: random.randint(50, 100) for pid in player_ids}
+                                
+                                # Broadcast scores and phase completion
+                                await lobby_manager.broadcast_game_message(
+                                    lobby_id,
+                                    {
+                                        "type": "scores_ready",
+                                        "phase": "technical_theory",
+                                        "scores": scores,
+                                        "serverTime": datetime.utcnow().timestamp() * 1000
+                                    }
+                                )
+                                
                                 await lobby_manager.broadcast_game_message(
                                     lobby_id,
                                     {
@@ -677,9 +995,15 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                         "phase": "technical_theory",
                                         "reason": "phase_complete",
                                         "phaseComplete": True,
-                                        "forceShow": True
+                                        "forceShow": True,
+                                        "total_finished": len(finished_players),
+                                        "total_players": total_players
                                     }
                                 )
+                            else:
+                                # Not all players finished yet - broadcast updated count anyway
+                                # This ensures the waiting screen shows correct progress
+                                print(f"[TECHNICAL_THEORY] Not all players finished yet ({len(finished_players)}/{total_players}), but broadcasting update")
                 elif message.get("type") == "timer_expired":
                     # Timer expired for a player - check if all timers expired
                     player_id = message.get("player_id")
@@ -1436,6 +1760,186 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                             })
                                         continue
                                     
+                                    # For technical_theory, handle question requests
+                                    if phase == "technical_theory":
+                                        # Check if questions are already cached
+                                        game_state_check = match_record.game_state or {}
+                                        questions_cache_check = game_state_check.get("questions", {})
+                                        
+                                        # Find how many questions are cached (check up to 10)
+                                        cached_count = 0
+                                        for i in range(10):
+                                            if f"{phase}_{i}" in questions_cache_check:
+                                                cached_count += 1
+                                            else:
+                                                break  # Stop at first missing question
+                                        
+                                        # If we have cached questions, return the requested one
+                                        if cached_count > 0:
+                                            cached_question = questions_cache_check.get(f"{phase}_{question_index}")
+                                            if cached_question:
+                                                print(f"[QUESTION] Returning cached technical theory question {question_index}")
+                                                await lobby_manager.broadcast_game_message(
+                                                    lobby_id,
+                                                    {
+                                                        "type": "question_received",
+                                                        "phase": phase,
+                                                        "question_index": question_index,
+                                                        "question": cached_question.get("question"),
+                                                        "question_id": cached_question.get("question_id"),
+                                                        "correct_answer": cached_question.get("correct_answer"),
+                                                        "incorrect_answers": cached_question.get("incorrect_answers"),
+                                                        "role": cached_question.get("role"),
+                                                        "level": cached_question.get("level")
+                                                    }
+                                                )
+                                                continue
+                                            else:
+                                                print(f"[QUESTION] ERROR: Question {question_index} not found in cache")
+                                                await safe_send_json(websocket, {
+                                                    "type": "question_error",
+                                                    "phase": phase,
+                                                    "message": f"Question {question_index} not found"
+                                                })
+                                                continue
+                                        
+                                        # If this is the first request (index 0), fetch maximum available questions (up to 10)
+                                        if question_index == 0:
+                                            print(f"[QUESTION] Technical theory phase - fetching maximum available questions (up to 10)")
+                                        
+                                        # Fetch maximum available questions (up to 10) using deterministic seed (match_id)
+                                        role = match_config.get("role", "").lower().strip()
+                                        level = match_config.get("level", "").lower().strip().replace("-", "").replace("_", "").replace(" ", "")
+                                        
+                                        all_questions = question_manager.get_technical_theory_questions(
+                                            role=role,
+                                            level=level,
+                                            count=10,  # Request up to 10, but will return whatever is available
+                                            seed=match_id  # Use match_id as seed for deterministic selection
+                                        )
+                                        
+                                        if not all_questions or len(all_questions) == 0:
+                                            print(f"[QUESTION] ERROR: Failed to fetch any technical theory questions")
+                                            await safe_send_json(websocket, {
+                                                "type": "question_error",
+                                                "phase": phase,
+                                                "message": "Failed to load questions. Please try again."
+                                            })
+                                            continue
+                                        
+                                        question_count = len(all_questions)
+                                        print(f"[QUESTION] Fetched {question_count} technical theory questions (requested up to 10), storing in cache")
+                                        
+                                        # Store all questions in game_state with deterministic option mapping
+                                        import random
+                                        import hashlib
+                                        for q_data in all_questions:
+                                            q_data["generated_at"] = datetime.utcnow().isoformat()
+                                            q_idx = q_data.get("question_index", 0)
+                                            
+                                            # Create deterministic shuffle for answer options (same for all clients)
+                                            # Use match_id + question_index as seed
+                                            shuffle_seed = f"{match_id}_{q_idx}"
+                                            seed_hash = int(hashlib.md5(shuffle_seed.encode()).hexdigest()[:8], 16)
+                                            rng = random.Random(seed_hash)
+                                            
+                                            # Shuffle answers deterministically
+                                            correct_answer = q_data.get("correct_answer", "")
+                                            incorrect_answers = q_data.get("incorrect_answers", [])
+                                            all_answers = [correct_answer] + incorrect_answers
+                                            shuffled_answers = all_answers.copy()
+                                            rng.shuffle(shuffled_answers)
+                                            
+                                            # Create option mapping: A=0, B=1, C=2, D=3
+                                            option_mapping = {}
+                                            for idx, ans in enumerate(shuffled_answers):
+                                                option_id = chr(65 + idx)  # A, B, C, D
+                                                option_mapping[option_id] = ans
+                                            
+                                            # Find which option ID corresponds to the correct answer
+                                            correct_option_id = None
+                                            for opt_id, ans_text in option_mapping.items():
+                                                if ans_text == correct_answer:
+                                                    correct_option_id = opt_id
+                                                    break
+                                            
+                                            # Store option mapping and shuffled answers in question data
+                                            q_data["option_mapping"] = option_mapping
+                                            q_data["shuffled_answers"] = shuffled_answers
+                                            q_data["correct_option_id"] = correct_option_id
+                                            
+                                            question_stored = store_question(
+                                                match_id=match_id,
+                                                phase=phase,
+                                                question_index=q_idx,
+                                                question_data=q_data,
+                                                is_followup=False,
+                                                parent_question_index=None,
+                                                player_id=None  # Shared questions
+                                            )
+                                            
+                                            if question_stored:
+                                                print(f"[QUESTION] ✓ Stored technical theory question {q_idx}")
+                                            else:
+                                                print(f"[QUESTION] ✗ WARNING: Failed to store question {q_idx}")
+                                        
+                                        # Store question count in game_state for phase completion checks
+                                        db.refresh(match_record)
+                                        game_state_for_count = match_record.game_state or {}
+                                        if not isinstance(game_state_for_count, dict):
+                                            game_state_for_count = {}
+                                        
+                                        if "phase_metadata" not in game_state_for_count:
+                                            game_state_for_count["phase_metadata"] = {}
+                                        if phase not in game_state_for_count["phase_metadata"]:
+                                            game_state_for_count["phase_metadata"][phase] = {}
+                                        
+                                        game_state_for_count["phase_metadata"][phase]["question_count"] = question_count
+                                        match_record.game_state = game_state_for_count
+                                        db.commit()
+                                        
+                                        print(f"[QUESTION] Stored question_count={question_count} in phase_metadata['{phase}']")
+                                        print(f"[QUESTION] Verifying storage - phase_metadata keys: {list(game_state_for_count.get('phase_metadata', {}).keys())}")
+                                        if phase in game_state_for_count.get("phase_metadata", {}):
+                                            print(f"[QUESTION] Verified: phase_metadata['{phase}']['question_count'] = {game_state_for_count['phase_metadata'][phase].get('question_count')}")
+                                        
+                                        # Refresh to get latest state
+                                        db.refresh(match_record)
+                                        
+                                        # Broadcast ALL questions to ALL clients immediately
+                                        # This ensures all clients see the same questions at the same time
+                                        # Include shuffled answers and option mapping so frontend uses deterministic order
+                                        print(f"[QUESTION] Broadcasting all {question_count} questions to all clients")
+                                        
+                                        # Prepare questions for broadcast with shuffled answers
+                                        broadcast_questions = []
+                                        for q_data in all_questions:
+                                            broadcast_q = {
+                                                "question": q_data.get("question"),
+                                                "question_id": q_data.get("question_id"),
+                                                "correct_answer": q_data.get("correct_answer"),
+                                                "incorrect_answers": q_data.get("incorrect_answers"),
+                                                "question_index": q_data.get("question_index"),
+                                                "role": q_data.get("role"),
+                                                "level": q_data.get("level"),
+                                                # Include shuffled answers and option mapping for frontend
+                                                "shuffled_answers": q_data.get("shuffled_answers"),
+                                                "option_mapping": q_data.get("option_mapping"),
+                                                "correct_option_id": q_data.get("correct_option_id")
+                                            }
+                                            broadcast_questions.append(broadcast_q)
+                                        
+                                        await lobby_manager.broadcast_game_message(
+                                            lobby_id,
+                                            {
+                                                "type": "technical_theory_questions_loaded",
+                                                "phase": phase,
+                                                "question_count": question_count,
+                                                "questions": broadcast_questions  # Send full question objects with shuffled_answers and option_mapping
+                                            }
+                                        )
+                                        continue
+                                    
                                     # For non-Q1 questions (Q0, technical, etc.), select from database
                                     print(f"[QUESTION] Calling question_manager.get_question_for_phase for {phase} (index={question_index})")
                                     print(f"[QUESTION] Match type: {match_type}, Match config: {match_config}")
@@ -1494,17 +1998,24 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                             # Still broadcast, but log the error
                                         
                                         # Broadcast question to all players
+                                        broadcast_data = {
+                                            "type": "question_received",
+                                            "phase": phase,
+                                            "question_index": question_index,
+                                            "question": question_data.get("question"),
+                                            "question_id": question_data.get("question_id"),
+                                            "role": question_data.get("role"),
+                                            "level": question_data.get("level")
+                                        }
+                                        
+                                        # Add correct_answer and incorrect_answers for technical_theory
+                                        if phase == "technical_theory":
+                                            broadcast_data["correct_answer"] = question_data.get("correct_answer")
+                                            broadcast_data["incorrect_answers"] = question_data.get("incorrect_answers")
+                                        
                                         await lobby_manager.broadcast_game_message(
                                             lobby_id,
-                                            {
-                                                "type": "question_received",
-                                                "phase": phase,
-                                                "question_index": question_index,
-                                                "question": question_data.get("question"),
-                                                "question_id": question_data.get("question_id"),
-                                                "role": question_data.get("role"),
-                                                "level": question_data.get("level")
-                                            }
+                                            broadcast_data
                                         )
                                         print(f"[QUESTION] Broadcast {phase} question to all players")
                                     else:

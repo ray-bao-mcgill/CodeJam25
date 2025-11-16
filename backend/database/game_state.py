@@ -318,6 +318,7 @@ def store_question(
             print(f"[QUESTION_STORE] 'questions' key already exists with {len(current_state['questions'])} entries")
         
         # Prepare question record with metadata
+        # Preserve ALL fields from question_data, especially for technical theory (correct_answer, incorrect_answers, option_mapping, etc.)
         question_record = {
             "question": question_data.get("question"),
             "question_id": question_data.get("question_id"),
@@ -330,6 +331,11 @@ def store_question(
             "stored_at": datetime.utcnow().isoformat(),
             "generated_at": question_data.get("generated_at", datetime.utcnow().isoformat())
         }
+        
+        # Preserve all additional fields from question_data (for technical theory: correct_answer, incorrect_answers, option_mapping, etc.)
+        for key, value in question_data.items():
+            if key not in question_record:
+                question_record[key] = value
         
         # If player_id is provided, store per-player (for personalized questions)
         if player_id:
@@ -763,6 +769,55 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
                     traceback.print_exc()
                     # Fallback to 0 if scoring fails
                     phase_scores[player_id] = 0
+        elif answer_phase == "technical_theory":
+            # For technical_theory, use pre-calculated scores (scored incrementally as answers were submitted)
+            # Read directly from the locked database session to ensure we get the latest data
+            phase_scores = {}
+            
+            # Get technical_theory_scores from the current game_state (already locked)
+            technical_theory_scores = game_state.get("technical_theory_scores", {}) if isinstance(game_state, dict) else {}
+            
+            if not isinstance(technical_theory_scores, dict):
+                print(f"[SCORES] WARNING: technical_theory_scores is not a dict: {type(technical_theory_scores)}")
+                technical_theory_scores = {}
+            
+            for player_id in player_ids:
+                try:
+                    player_scores = technical_theory_scores.get(player_id, {})
+                    
+                    if isinstance(player_scores, dict):
+                        # Get pre-calculated total if available
+                        if "_total" in player_scores:
+                            total_value = player_scores["_total"]
+                            if isinstance(total_value, (int, float)):
+                                phase_scores[player_id] = int(total_value)
+                            else:
+                                # Calculate from individual scores
+                                total = sum(
+                                    s.get("score", 0)
+                                    for s in player_scores.values()
+                                    if isinstance(s, dict) and "score" in s
+                                )
+                                phase_scores[player_id] = total
+                        else:
+                            # Calculate from individual scores
+                            total = sum(
+                                s.get("score", 0)
+                                for s in player_scores.values()
+                                if isinstance(s, dict) and "score" in s
+                            )
+                            phase_scores[player_id] = total
+                    else:
+                        print(f"[SCORES] WARNING: player_scores for {player_id} is not a dict: {type(player_scores)}")
+                        phase_scores[player_id] = 0
+                    
+                    print(f"[SCORES] Retrieved pre-calculated technical theory score for player {player_id}: {phase_scores[player_id]}")
+                except Exception as e:
+                    print(f"[SCORES] Error getting technical theory score for player {player_id}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # Fallback to 0 if scoring fails
+                    phase_scores[player_id] = 0
         else:
             # For other phases, use standard scoring module
             from game.scoring import calculate_phase_scores
@@ -783,7 +838,7 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
         
         # Store cumulative scores (this updates the main "scores" field)
         # Phase-specific scores are stored separately for reference
-        # Use the locked database session
+        # Use the locked database session - modify game_state in place to preserve all nested structures
         current_state = match_record.game_state or {}
         if not isinstance(current_state, dict):
             current_state = {}
@@ -794,11 +849,13 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
             existing_score = merged_scores.get(player_id, 0)
             merged_scores[player_id] = max(existing_score, new_score)
         
+        # Update scores in the existing game_state dict (preserve all other structures like technical_theory_scores)
         current_state["scores"] = merged_scores
         current_state[phase_scores_key] = scores.copy()
         current_state["scores_updated_at"] = datetime.utcnow().isoformat()
         
         # CRITICAL: Create a new dict to ensure SQLAlchemy detects the change
+        # But preserve all nested structures by doing a deep copy of the entire game_state
         import copy
         match_record.game_state = copy.deepcopy(current_state)
         
