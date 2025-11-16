@@ -101,20 +101,26 @@ const LobbyJoin: React.FC = () => {
       {/* Back Button - Fixed to top left of screen */}
       <button
         onClick={() => navigate('/lobby-creation')}
-        className="fixed top-4 left-4 z-50 game-sharp game-paper px-4 py-2 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover"
+        className="fixed top-4 left-4 z-50 game-sharp px-4 py-2 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover"
         style={{
+          background: '#ff6600',
           border: '3px solid var(--game-text-primary)',
-          color: 'var(--game-text-primary)',
-          transform: 'rotate(-1deg)'
+          color: '#fff'
         }}
       >
-        ← BACK
+        BACK
       </button>
 
       <div className="w-full max-w-3xl space-y-16 relative">
         {/* Title */}
         <div className="text-center">
-          <div className="game-paper px-12 py-8 game-shadow-hard-lg game-hand-drawn inline-block">
+          <div className="px-12 py-8 game-shadow-hard-lg game-hand-drawn inline-block"
+            style={{
+              backgroundColor: '#ffe63b',
+              border: '6px solid var(--game-text-primary)',
+              transform: 'rotate(-2deg)'
+            }}
+          >
             <h1 className="game-title text-4xl">
               JOIN LOBBY
             </h1>
@@ -124,7 +130,7 @@ const LobbyJoin: React.FC = () => {
         <div className="space-y-12">
           {/* Name Input - Label maker style */}
           <div className="space-y-4 flex flex-col items-center">
-            <div className="game-label-text text-lg">YOUR NAME</div>
+            <div className="text-lg font-bold" style={{ color: 'var(--game-text-primary)' }}>YOUR NAME</div>
             <input
               type="text"
               placeholder="ENTER YOUR NAME"
@@ -137,7 +143,8 @@ const LobbyJoin: React.FC = () => {
               style={{
                 border: '6px solid var(--game-text-primary)',
                 color: 'var(--game-text-primary)',
-                letterSpacing: '0.15em'
+                letterSpacing: '0.15em',
+                fontFamily: 'Impact, sans-serif'
               }}
             />
           </div>
@@ -145,23 +152,21 @@ const LobbyJoin: React.FC = () => {
           {/* Lobby Code Input - Only show if not coming from invite link */}
           {!urlLobbyId && (
             <div className="space-y-4">
-              <div className="game-label-text text-lg text-center">LOBBY CODE</div>
               <div className="flex items-center justify-center gap-6 flex-wrap">
                 <button
                   onClick={() => setLobbyCode('')}
-                  className={`game-sharp px-6 py-3 text-base font-black uppercase tracking-widest game-shadow-hard-sm game-button-hover ${
+                  className={`game-sharp px-8 py-4 text-xl font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover ${
                     !lobbyCode.trim() ? 'game-block-blue' : 'game-paper'
                   }`}
                   style={{
-                    border: '4px solid var(--game-text-primary)',
-                    color: !lobbyCode.trim() ? 'var(--game-text-white)' : 'var(--game-text-primary)',
-                    transform: 'rotate(-1deg)'
+                    border: '6px solid var(--game-text-primary)',
+                    color: !lobbyCode.trim() ? 'var(--game-text-white)' : 'var(--game-text-primary)'
                   }}
                 >
                   RANDOM
                 </button>
                 
-                <div className="game-label-text text-xl">OR</div>
+                <div className="text-3xl font-black self-center" style={{ color: 'var(--game-text-primary)', fontFamily: 'Impact, sans-serif' }}>OR</div>
                 
                 <input
                   type="text"
@@ -172,17 +177,15 @@ const LobbyJoin: React.FC = () => {
                     setError('')
                   }}
                   onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleJoin()}
-                  className={`game-sharp text-center text-lg py-4 px-6 font-black uppercase tracking-widest game-shadow-hard game-button-hover ${
+                  className={`game-sharp text-center text-xl px-6 py-4 font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover ${
                     lobbyCode.trim() ? 'game-block-red' : 'game-paper'
                   }`}
                   style={{
                     border: '6px solid var(--game-text-primary)',
                     color: lobbyCode.trim() ? 'var(--game-text-white)' : 'var(--game-text-primary)',
-                    letterSpacing: '0.2em',
-                    fontFamily: 'Courier New, monospace',
-                    minWidth: '200px',
-                    maxWidth: '280px',
-                    flex: '0 1 auto'
+                    letterSpacing: '0.15em',
+                    fontFamily: 'Impact, sans-serif',
+                    width: '220px'
                   }}
                 />
               </div>
@@ -192,7 +195,7 @@ const LobbyJoin: React.FC = () => {
           {error && (
             <div className="game-sticky-note px-6 py-4 game-shadow-hard-sm">
               <div className="text-lg font-black uppercase text-red-600">
-                ⚠️ {error}
+                {error}
               </div>
             </div>
           )}
@@ -202,28 +205,26 @@ const LobbyJoin: React.FC = () => {
             <button
               onClick={handleJoin}
               disabled={!name.trim() || (!urlLobbyId && !lobbyCode.trim()) || isLoading}
-              className={`game-sharp px-12 py-6 text-xl font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover ${
-                (name.trim() && (urlLobbyId || lobbyCode.trim()) && !isLoading) ? 'game-block-green' : 'game-paper'
+              className={`game-sharp px-12 py-6 text-xl font-black uppercase tracking-widest game-shadow-hard-lg ${
+                (name.trim() && (urlLobbyId || lobbyCode.trim()) && !isLoading) 
+                  ? 'game-block-green game-button-hover' 
+                  : ''
               }`}
               style={{
                 border: '8px solid var(--game-text-primary)',
-                color: (name.trim() && (urlLobbyId || lobbyCode.trim()) && !isLoading) ? 'var(--game-text-white)' : 'var(--game-text-dim)',
+                backgroundColor: (name.trim() && (urlLobbyId || lobbyCode.trim()) && !isLoading) 
+                  ? 'var(--game-green)' 
+                  : '#9ca3af',
+                color: (name.trim() && (urlLobbyId || lobbyCode.trim()) && !isLoading) 
+                  ? 'var(--game-text-white)' 
+                  : '#6b7280',
                 letterSpacing: '0.15em',
-                cursor: (name.trim() && (urlLobbyId || lobbyCode.trim()) && !isLoading) ? 'pointer' : 'not-allowed',
-                opacity: (!name.trim() || (!urlLobbyId && !lobbyCode.trim()) || isLoading) ? 0.5 : 1
+                cursor: (name.trim() && (urlLobbyId || lobbyCode.trim()) && !isLoading) ? 'pointer' : 'not-allowed'
               }}
             >
               {isLoading ? 'JOINING...' : 'JOIN'}
             </button>
           </div>
-        </div>
-
-        {/* Decorative sticky notes */}
-        <div className="absolute top-24 left-4 game-sticky-note px-4 py-3 game-shadow-hard-sm opacity-85">
-          <div className="text-xs font-bold uppercase">Tip</div>
-        </div>
-        <div className="absolute bottom-24 right-4 game-sticky-note-alt px-4 py-3 game-shadow-hard-sm opacity-85">
-          <div className="text-xs font-bold uppercase">Note</div>
         </div>
       </div>
     </div>

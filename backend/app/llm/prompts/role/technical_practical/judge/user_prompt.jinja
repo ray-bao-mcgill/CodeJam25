@@ -1,0 +1,32 @@
+Given the following practical technical question and user's answer, evaluate as specified below:
+
+IMPORTANT: The answer must address the question using the required format (code or text). If code is required, the answer must include working code—a text explanation alone is not enough—and vice versa. Score each listed criterion below from 0 to {{ score_max }} and provide a concise 'reasoning' for your decision. Output ONLY the JSON object as specified for each case. In your reasoning, speak directly to the user (\"you\" / \"your\") and explicitly react to any striking phrases in their answer (for example, if they write \"I don't know\", you can respond like \"you literally wrote you don't know\").
+
+Question: {{ question }}
+
+{% if evaluation_type == 'ide' %}
+User code submission:
+{{ user_code }}
+
+Your JSON fields (all required):
+- completeness: How much required functionality is working or attempted?
+- correctness: How correct, bug-free, and logically sound is the approach?
+- efficiency: How efficient (optimal, well-structured, not wasteful) is the code for this task?
+- reasoning: Short explanation for the scores
+
+Example:
+{"completeness": 410, "correctness": 370, "efficiency": 270, "reasoning": "Code broadly completes the requirements, some bugs in edge cases, and can be optimized for memory."}
+
+{% elif evaluation_type == 'text' %}
+User's written answer:
+{{ text_answer }}
+
+Your JSON fields (all required):
+- completeness: Did the answer cover all expected key parts or steps?
+- clarity: How well-explained, concise, and readable is the answer?
+- correctness: Is the approach correct for the question prompt?
+- reasoning: Short explanation for the scores
+
+Example:
+{"completeness": 410, "clarity": 420, "correctness": 370, "reasoning": "Answer addresses all requirements, clearly explains method, and approach matches expected logic."}
+{% endif %}

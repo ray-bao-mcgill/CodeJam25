@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import styles from './TechnicalPractical.module.css';
 import { useGameSync } from '@/hooks/useGameSync';
 import { useGameFlow } from '@/hooks/useGameFlow';
+import { useLobby } from '@/hooks/useLobby';
+import { useLobbyWebSocket } from '@/hooks/useLobbyWebSocket';
 import { API_URL } from '@/config';
 
 const TAB_IDE = 'IDE' as const;
@@ -110,7 +112,27 @@ const initialFile: CodeFile = {
 const TechnicalPractical: React.FC = () => {
   const navigate = useNavigate();
   const { submitTechnicalAnswer } = useGameFlow();
-  const { gameState, submitAnswer: syncSubmitAnswer, showResults } = useGameSync();
+  const { gameState, submitAnswer: syncSubmitAnswer, showResults, isWaitingForOthers, allPlayersSubmitted } = useGameSync();
+  const { lobbyId, playerId, lobby } = useLobby();
+  
+  // Get WebSocket ref for requesting questions (reuse connection from useGameSync)
+  // Note: useGameSync already has a WebSocket connection, but we need direct access to send messages
+  // So we create our own connection just for sending request_question messages
+  const wsRef = useLobbyWebSocket({
+    lobbyId: lobbyId || null,
+    enabled: !!lobbyId,
+    onLobbyUpdate: () => {},
+    onGameStarted: () => {},
+    onDisconnect: () => {},
+    onKicked: () => {},
+    currentPlayerId: playerId || null,
+    onGameMessage: (message: any) => {
+      // Handle question_received messages (also handled by useGameSync, but we can update local state here if needed)
+      if (message.type === 'question_received' && message.phase === 'technical_practical') {
+        console.log('[TECHNICAL_PRACTICAL] Received question from database:', message.question);
+      }
+    },
+  });
   const [activeTab, setActiveTab] = useState<TabType>(TAB_IDE);
   const [files, setFiles] = useState<CodeFile[]>([initialFile]);
   const [currentFileIdx, setCurrentFileIdx] = useState(0);
@@ -152,14 +174,75 @@ const TechnicalPractical: React.FC = () => {
   const cursorOverlayRef = useRef<HTMLCanvasElement | null>(null);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
   
+  // Track if question has been requested
+  const hasRequestedQuestionRef = useRef(false);
+  
   // Get question text
   const question = gameState?.question || 'Outline a production ML architecture including data ingestion, training, inference, and monitoring, with example configs.';
+  
+  // Request question from database when component mounts (same pattern as BehaviouralQuestion)
+  useEffect(() => {
+    // Don't request if phase is complete or question already received
+    if (showResults || gameState?.phaseComplete || gameState?.question || hasRequestedQuestionRef.current) {
+      return;
+    }
+    
+    hasRequestedQuestionRef.current = true;
+    
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let checkTimer: ReturnType<typeof setInterval> | null = null;
+    
+    const requestQuestion = () => {
+      const wsConnection = wsRef.current;
+      if (wsConnection && wsConnection.readyState === WebSocket.OPEN && lobbyId && playerId) {
+        console.log('[TECHNICAL_PRACTICAL] Requesting question from database');
+        wsConnection.send(JSON.stringify({
+          type: 'request_question',
+          player_id: playerId,
+          lobby_id: lobbyId,
+          phase: 'technical_practical',
+          question_index: 0
+        }));
+        return true;
+      }
+      return false;
+    };
+    
+    // Try to request immediately
+    if (requestQuestion()) {
+      // Set a timeout to retry if no response after 2 seconds
+      retryTimer = setTimeout(() => {
+        if (!gameState?.question) {
+          console.warn('[TECHNICAL_PRACTICAL] No question received after 2s, retrying...');
+          hasRequestedQuestionRef.current = false;
+          requestQuestion();
+        }
+      }, 2000);
+    } else {
+      // WebSocket not ready yet - wait for it
+      console.log('[TECHNICAL_PRACTICAL] WebSocket not ready, waiting...');
+      checkTimer = setInterval(() => {
+        if (requestQuestion()) {
+          if (checkTimer) clearInterval(checkTimer);
+        }
+      }, 500);
+      
+      // Stop checking after 10 seconds
+      setTimeout(() => {
+        if (checkTimer) clearInterval(checkTimer);
+      }, 10000);
+    }
+    
+    return () => {
+      if (retryTimer) clearTimeout(retryTimer);
+      if (checkTimer) clearInterval(checkTimer);
+    };
+  }, [lobbyId, playerId, wsRef, showResults, gameState?.phaseComplete, gameState?.question]);
 
   // Navigate when phase is complete (both players submitted practical answers)
   useEffect(() => {
     if (showResults && gameState?.showResults && gameState?.phaseComplete) {
       // Phase complete, navigate to score display
-      sessionStorage.setItem('currentRound', 'technical')
       setTimeout(() => {
         navigate('/current-score')
       }, 1000)
@@ -858,21 +941,35 @@ const TechnicalPractical: React.FC = () => {
         {/* Submit Button - Top Right */}
         <button
           type="button"
+          disabled={isWaitingForOthers}
           onClick={() => {
+            // Collect IDE code and text answer (ignore drawing)
+            const ideFiles = files.map(f => ({ name: f.name, code: f.code, language: f.language }));
+            const hasIdeCode = ideFiles.some(f => f.code.trim() !== '');
+            const textAnswer = textEditorRef.current?.innerHTML || textValue || '';
+            const hasTextAnswer = textAnswer.trim() !== '';
+            
+            // Build submission: prefer JSON format with both IDE and text if available
+            // Otherwise send whichever is available
             let answer = '';
-            if (activeTab === TAB_IDE) {
-              // Submit all files as JSON or concatenated code
-              answer = JSON.stringify(files.map(f => ({ name: f.name, code: f.code, language: f.language })));
-            } else if (activeTab === TAB_TEXT) {
-              // Submit rich text content
-              answer = textEditorRef.current?.innerHTML || textValue || '';
-            } else if (activeTab === TAB_DRAW) {
-              // Submit canvas as data URL
-              const canvas = canvasRef.current;
-              if (canvas) {
-                answer = canvas.toDataURL('image/png');
-              }
+            if (hasIdeCode && hasTextAnswer) {
+              // Both available - send as JSON with both fields
+              answer = JSON.stringify({
+                ide_files: ideFiles,
+                text_answer: textAnswer
+              });
+            } else if (hasIdeCode) {
+              // Only IDE code - send as JSON array (backward compatible)
+              answer = JSON.stringify(ideFiles);
+            } else if (hasTextAnswer) {
+              // Only text answer - send as HTML string
+              answer = textAnswer;
+            } else {
+              // No content - don't submit
+              alert('Please provide either code or a text answer before submitting.');
+              return;
             }
+            
             if (answer) {
               handleSubmit(answer);
             }
@@ -882,12 +979,37 @@ const TechnicalPractical: React.FC = () => {
             border: '4px solid var(--game-text-primary)', 
             color: 'var(--game-text-white)',
             transform: 'rotate(1deg)',
-            flexShrink: 0
+            flexShrink: 0,
+            opacity: isWaitingForOthers ? 0.5 : 1,
+            cursor: isWaitingForOthers ? 'not-allowed' : 'pointer'
           }}
         >
-          Submit
+          {isWaitingForOthers ? 'Submitted' : 'Submit'}
         </button>
       </div>
+
+      {/* Waiting for Others Indicator */}
+      {isWaitingForOthers && (
+        <div className="mb-4" style={{ padding: '0 2rem' }}>
+          <div className="game-paper px-6 py-4 game-shadow-hard-lg">
+            <div className="text-center">
+              <div className="game-label-text text-sm mb-2">
+                WAITING FOR OTHER PLAYERS...
+              </div>
+              <div className="text-lg font-bold text-gray-800">
+                {gameState?.submittedPlayers?.length || 0} / {lobby?.players.length || 0} players submitted
+              </div>
+              {lobby?.players && gameState?.submittedPlayers && (
+                <div className="text-sm text-gray-600 mt-2">
+                  {lobby.players.length - gameState.submittedPlayers.length > 0
+                    ? `Waiting for ${lobby.players.length - gameState.submittedPlayers.length} more player${lobby.players.length - gameState.submittedPlayers.length === 1 ? '' : 's'}...`
+                    : 'All players submitted!'}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TABS */}
       <nav className={`${styles.tabs} flex justify-center gap-2 mb-4`} role="tablist" style={{ flexShrink: 0 }}>

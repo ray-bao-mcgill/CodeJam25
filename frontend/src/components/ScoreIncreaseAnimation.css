@@ -1,0 +1,178 @@
+.score-increase-animation {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10000;
+  animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.score-increase-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  padding: 0.75rem 1.25rem;
+  border-radius: 1rem;
+  border: 4px solid #065f46;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3), 0 0 20px rgba(16, 185, 129, 0.5);
+  font-family: 'Impact', 'Arial Black', sans-serif;
+  position: relative;
+  overflow: visible;
+}
+
+.score-plus {
+  font-size: 2rem;
+  font-weight: 900;
+  color: white;
+  animation: bouncePlus 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.score-text {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  animation: slideInText 0.7s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.2s both;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.score-amount {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #fef3c7;
+  animation: slideInText 0.7s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.3s both;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Pop-in animation */
+@keyframes popIn {
+  0% {
+    transform: scale(0) rotate(-10deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1) rotate(5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Bounce animation for plus sign */
+@keyframes bouncePlus {
+  0% {
+    transform: scale(0) rotate(-180deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.3) rotate(10deg);
+  }
+  80% {
+    transform: scale(0.9) rotate(-5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Slide in text animation */
+@keyframes slideInText {
+  0% {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Shatter effect */
+.score-increase-animation.shattering .score-increase-content {
+  animation: zoomToTarget 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards,
+             shatter 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.4s forwards;
+}
+
+@keyframes zoomToTarget {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.5) translateY(-50px);
+    opacity: 0.8;
+  }
+}
+
+@keyframes shatter {
+  0% {
+    transform: scale(1.5) translateY(-50px);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Particle system for shatter effect */
+.shatter-particles {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100px;
+  height: 100px;
+  pointer-events: none;
+}
+
+.particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(135deg, #10b981 0%, #fef3c7 100%);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  animation: particleBurst 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+}
+
+@keyframes particleBurst {
+  0% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translateX(calc(var(--particle-x) * 150px)) translateY(calc(var(--particle-y) * 150px)) scale(0) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+/* Sparkle effect */
+.score-increase-animation.shattering::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(254, 243, 199, 0.8) 0%, transparent 70%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  animation: sparkleBurst 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.4s forwards;
+  pointer-events: none;
+}
+
+@keyframes sparkleBurst {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 0;
+  }
+}
+

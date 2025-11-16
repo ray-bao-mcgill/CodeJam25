@@ -1,18 +1,76 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLobbyWebSocket } from '@/hooks/useLobbyWebSocket'
+import { useLobby } from '@/hooks/useLobby'
 import hiredSound from '@/assets/sounds/hired.mp3'
 import firedSound from '@/assets/sounds/fired.mp3'
 
 const Winner: React.FC = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const totalScore = parseInt(searchParams.get('score') || '0')
-  const rank = parseInt(searchParams.get('rank') || '1')
+  const { lobbyId, playerId } = useLobby()
+  const [totalScore, setTotalScore] = useState(parseInt(searchParams.get('score') || '0'))
+  const [rank, setRank] = useState(parseInt(searchParams.get('rank') || '1'))
   const [showConfetti, setShowConfetti] = useState(false)
+  
+  // Load rankings from localStorage or URL params
+  useEffect(() => {
+    // Try to get from localStorage first (most accurate)
+    const storedRankings = localStorage.getItem('gameRankings')
+    if (storedRankings && playerId) {
+      try {
+        const rankings = JSON.parse(storedRankings)
+        const playerRanking = rankings.find((r: any) => r.player_id === playerId)
+        if (playerRanking) {
+          console.log(`[WINNER] Found player ranking from localStorage: rank=${playerRanking.rank}, score=${playerRanking.score}`)
+          setTotalScore(playerRanking.score)
+          setRank(playerRanking.rank)
+        }
+      } catch (e) {
+        console.error('Error parsing stored rankings:', e)
+      }
+    }
+    
+    // Fallback to URL params if localStorage doesn't have it
+    const urlScore = parseInt(searchParams.get('score') || '0')
+    const urlRank = parseInt(searchParams.get('rank') || '1')
+    if (urlScore > 0 || urlRank > 0) {
+      console.log(`[WINNER] Using URL params: rank=${urlRank}, score=${urlScore}`)
+      if (urlScore > 0) setTotalScore(urlScore)
+      if (urlRank > 0) setRank(urlRank)
+    }
+  }, [playerId, searchParams])
+  
+  // Listen for game_end message to get actual scores (in case it arrives late)
+  useLobbyWebSocket({
+    lobbyId: lobbyId || null,
+    enabled: !!lobbyId,
+    onLobbyUpdate: () => {},
+    onGameStarted: () => {},
+    onDisconnect: () => {},
+    onKicked: () => {},
+    currentPlayerId: playerId || null,
+    onGameMessage: (message: any) => {
+      if (message.type === 'game_end' && message.rankings && playerId) {
+        // Store in localStorage
+        localStorage.setItem('gameRankings', JSON.stringify(message.rankings))
+        localStorage.setItem('gameFinalScores', JSON.stringify(message.final_scores || {}))
+        
+        const playerRanking = message.rankings.find((r: any) => r.player_id === playerId)
+        if (playerRanking) {
+          console.log(`[WINNER] Received game_end message: rank=${playerRanking.rank}, score=${playerRanking.score}`)
+          setTotalScore(playerRanking.score)
+          setRank(playerRanking.rank)
+        }
+      }
+    },
+  })
   
   // You're only hired if you're ranked #1
   const isHired = rank === 1
   const resultText = isHired ? 'HIRED!' : 'FIRED!'
+  
+  console.log(`[WINNER] Rendering with rank=${rank}, score=${totalScore}, isHired=${isHired}`)
 
   useEffect(() => {
     setShowConfetti(true)

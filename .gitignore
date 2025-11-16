@@ -66,5 +66,4 @@ htmlcov/
 .env
 .env.*
 backend/.env
-
 backend/uploads/

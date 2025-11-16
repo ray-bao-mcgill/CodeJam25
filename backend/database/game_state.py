@@ -318,6 +318,7 @@ def store_question(
             print(f"[QUESTION_STORE] 'questions' key already exists with {len(current_state['questions'])} entries")
         
         # Prepare question record with metadata
+        # Preserve ALL fields from question_data, especially for technical theory (correct_answer, incorrect_answers, option_mapping, etc.)
         question_record = {
             "question": question_data.get("question"),
             "question_id": question_data.get("question_id"),
@@ -330,6 +331,11 @@ def store_question(
             "stored_at": datetime.utcnow().isoformat(),
             "generated_at": question_data.get("generated_at", datetime.utcnow().isoformat())
         }
+        
+        # Preserve all additional fields from question_data (for technical theory: correct_answer, incorrect_answers, option_mapping, etc.)
+        for key, value in question_data.items():
+            if key not in question_record:
+                question_record[key] = value
         
         # If player_id is provided, store per-player (for personalized questions)
         if player_id:
@@ -634,6 +640,7 @@ def get_scores_for_phase(match_id: str, phase: str) -> Dict[str, int]:
 def get_player_answers_for_phase(match_id: str, phase: str, player_ids: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
     Get all answers for all players for a specific phase
+    Reads from player_responses structure (primary) and fallback structures
     
     Args:
         match_id: The match ID
@@ -645,6 +652,7 @@ def get_player_answers_for_phase(match_id: str, phase: str, player_ids: List[str
     """
     db: Session = SessionLocal()
     try:
+        # Use a fresh query to ensure we get the latest committed data
         match_record = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
         if not match_record:
             return {pid: [] for pid in player_ids}
@@ -653,21 +661,57 @@ def get_player_answers_for_phase(match_id: str, phase: str, player_ids: List[str
         if not isinstance(game_state, dict):
             return {pid: [] for pid in player_ids}
         
-        # Get answers from game_state
-        answers_dict = game_state.get("answers", {})
+        # Build player answers dict
+        player_answers: Dict[str, List[Dict[str, Any]]] = {pid: [] for pid in player_ids}
+        
+        # PRIMARY: Read from player_responses structure (most reliable)
+        # Structure: {player_id: {phase: {question_index: response_data}}}
+        player_responses = game_state.get("player_responses", {})
+        if isinstance(player_responses, dict):
+            for player_id in player_ids:
+                if player_id in player_responses:
+                    player_data = player_responses[player_id]
+                    if isinstance(player_data, dict) and phase in player_data:
+                        phase_data = player_data[phase]
+                        if isinstance(phase_data, dict):
+                            # Convert question_index keys to sorted list
+                            answer_list = []
+                            for q_idx_str, response_data in phase_data.items():
+                                if isinstance(response_data, dict):
+                                    answer_list.append({
+                                        "question_id": response_data.get("question_id", ""),
+                                        "answer": response_data.get("answer", ""),
+                                        "question_index": response_data.get("question_index"),
+                                        "answered_at": response_data.get("answered_at")
+                                    })
+                            # Sort by question_index to maintain order
+                            answer_list.sort(key=lambda x: x.get("question_index") if x.get("question_index") is not None else -1)
+                            player_answers[player_id] = answer_list
+        
+        # FALLBACK: Also check phase-specific tracking (backward compatibility)
         phase_answers_key = f"{phase}_answers"
         phase_answers = game_state.get(phase_answers_key, {})
-        
-        # Build player answers dict
-        player_answers: Dict[str, List[Dict[str, any]]] = {pid: [] for pid in player_ids}
-        
-        # Collect answers from phase-specific tracking
         if isinstance(phase_answers, dict):
             for player_id, answer_list in phase_answers.items():
                 if player_id in player_ids and isinstance(answer_list, list):
-                    player_answers[player_id] = answer_list
+                    # Merge with existing answers from player_responses
+                    existing_answers = player_answers.get(player_id, [])
+                    existing_q_ids = {a.get("question_id") for a in existing_answers}
+                    # Only add answers not already found in player_responses
+                    for answer_data in answer_list:
+                        if isinstance(answer_data, dict) and answer_data.get("question_id") not in existing_q_ids:
+                            existing_answers.append({
+                                "question_id": answer_data.get("question_id", ""),
+                                "answer": answer_data.get("answer", ""),
+                                "question_index": answer_data.get("question_index"),
+                                "answered_at": answer_data.get("answered_at")
+                            })
+                    if existing_answers:
+                        existing_answers.sort(key=lambda x: x.get("question_index") if x.get("question_index") is not None else -1)
+                        player_answers[player_id] = existing_answers
         
-        # Also check general answers dict
+        # FALLBACK: Also check general answers dict (backward compatibility)
+        answers_dict = game_state.get("answers", {})
         if isinstance(answers_dict, dict):
             for question_id, answer_data in answers_dict.items():
                 if isinstance(answer_data, dict):
@@ -675,14 +719,24 @@ def get_player_answers_for_phase(match_id: str, phase: str, player_ids: List[str
                     answer_player_id = answer_data.get("player_id", "")
                     
                     if answer_phase == phase and answer_player_id in player_ids:
-                        if answer_player_id not in player_answers:
-                            player_answers[answer_player_id] = []
-                        player_answers[answer_player_id].append({
-                            "question_id": question_id,
-                            "answer": answer_data.get("answer", ""),
-                            "question_index": answer_data.get("question_index"),
-                            "answered_at": answer_data.get("answered_at")
-                        })
+                        existing_answers = player_answers.get(answer_player_id, [])
+                        existing_q_ids = {a.get("question_id") for a in existing_answers}
+                        # Only add if not already found
+                        if question_id not in existing_q_ids:
+                            existing_answers.append({
+                                "question_id": question_id,
+                                "answer": answer_data.get("answer", ""),
+                                "question_index": answer_data.get("question_index"),
+                                "answered_at": answer_data.get("answered_at")
+                            })
+                            existing_answers.sort(key=lambda x: x.get("question_index") if x.get("question_index") is not None else -1)
+                            player_answers[answer_player_id] = existing_answers
+        
+        # Debug: Log what we found
+        for player_id in player_ids:
+            answer_count = len(player_answers.get(player_id, []))
+            if answer_count > 0:
+                print(f"[GET_ANSWERS] Found {answer_count} answers for player {player_id} in phase {phase}")
         
         return player_answers
     except Exception as e:
@@ -694,7 +748,7 @@ def get_player_answers_for_phase(match_id: str, phase: str, player_ids: List[str
         db.close()
 
 
-async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List[str]) -> Dict[str, int]:
+async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List[str]) -> tuple[Dict[str, int], Dict[str, int]]:
     """
     Calculate scores for a phase and store them in the database
     For testing: increments owner (first player) score by 1 each round
@@ -706,96 +760,349 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
         player_ids: List of player IDs
     
     Returns:
-        Dictionary mapping player_id to cumulative score
+        Tuple of (cumulative_scores, previous_scores) dictionaries mapping player_id to score
     """
-    db: Session = SessionLocal()
+    # First, quickly check if scores already exist (without holding lock)
+    db_check: Session = SessionLocal()
     try:
-        # Use database-level locking to prevent race conditions
-        # Lock the row for update to ensure we get the latest scores
-        match_record = db.query(OngoingMatch).filter(
+        match_record_check = db_check.query(OngoingMatch).filter(
             OngoingMatch.match_id == match_id
-        ).with_for_update().first()
+        ).first()
         
-        if not match_record:
+        if not match_record_check:
             print(f"Match {match_id} not found for score calculation")
-            return {pid: 0 for pid in player_ids}
+            return {pid: 0 for pid in player_ids}, {pid: 0 for pid in player_ids}
         
-        # Get existing cumulative scores from database (fresh read)
+        # Get existing cumulative scores from database
         existing_scores = {}
-        game_state = match_record.game_state
+        game_state = match_record_check.game_state
         if game_state and isinstance(game_state, dict):
             existing_scores = game_state.get("scores", {}).copy()
+        
+        # Store previous scores for animation purposes
+        previous_scores = existing_scores.copy()
         
         # Check if scores for this phase already exist (prevent double calculation)
         phase_scores_key = f"{phase}_scores"
         if game_state and isinstance(game_state, dict) and phase_scores_key in game_state:
             print(f"[SCORES] Scores for {phase} already calculated, returning existing cumulative scores")
-            # Return existing cumulative scores, not phase-specific
-            return existing_scores
-        
-        # Normalize phase name (remove "_score" suffix if present for answer lookup)
-        answer_phase = phase.replace("_score", "") if phase.endswith("_score") else phase
-        
-        # Get player answers for this phase
+            # Return existing cumulative scores from game_state (should be up to date)
+            # Make sure we return scores for all requested players
+            cumulative_scores = game_state.get("scores", {})
+            if not isinstance(cumulative_scores, dict):
+                cumulative_scores = {}
+            # Ensure all players have scores (even if 0)
+            result_scores = {}
+            for pid in player_ids:
+                result_scores[pid] = cumulative_scores.get(pid, 0)
+            print(f"[SCORES] Returning cumulative scores: {result_scores}")
+            # Also return previous scores for animation
+            return result_scores, previous_scores
+    finally:
+        db_check.close()
+    
+    # Normalize phase name (remove "_score" suffix if present for answer lookup)
+    answer_phase = phase.replace("_score", "") if phase.endswith("_score") else phase
+    
+    # For behavioural phase, answers are read directly by score_behavioural_answers from database
+    # For other phases, we need to get player answers
+    # Get player answers for this phase (read fresh data right before scoring)
+    player_answers = {}
+    if answer_phase != "behavioural":
+        # For non-behavioural phases, get answers now
         player_answers = get_player_answers_for_phase(match_id, answer_phase, player_ids)
+        print(f"[SCORES] Retrieved answers for {answer_phase}: {[(pid, len(answers)) for pid, answers in player_answers.items()]}")
+    
+    # Calculate phase scores (this may involve async LLM calls - do this WITHOUT holding database lock)
+    phase_scores = {}
+    
+    # For behavioural phase, use LLM judge for scoring
+    # score_behavioural_answers reads directly from database, so it gets fresh data
+    if answer_phase == "behavioural":
+        from game.behavioural_scoring import score_behavioural_answers
+        from app.llm.judge import BehaviouralJudge
+        from app.llm.openai import OpenAIClient
+        import os
         
-        # For behavioural phase, use LLM judge for scoring
-        if answer_phase == "behavioural":
-            from game.behavioural_scoring import score_behavioural_answers
-            from app.llm.judge import BehaviouralJudge
-            from app.llm.openai import OpenAIClient
-            import os
-            
-            # Initialize judge
-            llm_client = OpenAIClient(api_key=os.environ.get("OPENAI_API_KEY"))
-            judge = BehaviouralJudge(llm_client)
-            
-            # Calculate scores using LLM judge for each player
-            phase_scores = {}
-            for player_id in player_ids:
-                try:
-                    score = await score_behavioural_answers(match_id, player_id, judge)
-                    phase_scores[player_id] = score
-                    print(f"[SCORES] LLM judge scored player {player_id}: {score}")
-                except Exception as e:
-                    print(f"[SCORES] Error scoring player {player_id} with LLM judge: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    # Fallback to 0 if scoring fails
+        # Initialize judge
+        llm_client = OpenAIClient(api_key=os.environ.get("OPENAI_API_KEY"))
+        judge = BehaviouralJudge(llm_client)
+        
+        # Calculate scores using LLM judge for each player (NO DATABASE LOCK HELD HERE)
+        for player_id in player_ids:
+            try:
+                score = await score_behavioural_answers(match_id, player_id, judge)
+                phase_scores[player_id] = score
+                print(f"[SCORES] LLM judge scored player {player_id}: {score}")
+            except Exception as e:
+                print(f"[SCORES] Error scoring player {player_id} with LLM judge: {e}")
+                import traceback
+                traceback.print_exc()
+                # Fallback to 0 if scoring fails
+                phase_scores[player_id] = 0
+    elif answer_phase == "technical_theory":
+        # For technical_theory, calculate score as: correct_answers * 200 (Python logic only)
+        # Use pre-calculated scores from technical_theory_scores
+        # Read game_state without holding lock
+        db_read: Session = SessionLocal()
+        try:
+            match_record_read = db_read.query(OngoingMatch).filter(
+                OngoingMatch.match_id == match_id
+            ).first()
+            if match_record_read:
+                game_state_read = match_record_read.game_state or {}
+                if isinstance(game_state_read, dict):
+                    technical_theory_scores = game_state_read.get("technical_theory_scores", {})
+                else:
+                    technical_theory_scores = {}
+            else:
+                technical_theory_scores = {}
+        finally:
+            db_read.close()
+        
+        if not isinstance(technical_theory_scores, dict):
+            print(f"[SCORES] WARNING: technical_theory_scores is not a dict: {type(technical_theory_scores)}")
+            technical_theory_scores = {}
+        
+        for player_id in player_ids:
+            try:
+                player_scores = technical_theory_scores.get(player_id, {})
+                
+                if isinstance(player_scores, dict):
+                    # Get question count from phase_metadata to iterate through all questions
+                    # This ensures we count correctly even if some questions aren't answered yet
+                    question_count = 10  # Default fallback
+                    phase_metadata = game_state_read.get("phase_metadata", {})
+                    if "technical_theory" in phase_metadata:
+                        question_count = phase_metadata["technical_theory"].get("question_count", 10)
+                    
+                    # Count correct answers by iterating through all question indices
+                    # This is robust and handles unanswered questions correctly
+                    correct_count = 0
+                    for q_idx in range(question_count):
+                        q_idx_str = str(q_idx)
+                        score_data = player_scores.get(q_idx_str)
+                        # Only count if question was answered AND is correct
+                        if isinstance(score_data, dict) and score_data.get("is_correct", False):
+                            correct_count += 1
+                    
+                    phase_scores[player_id] = correct_count * 200
+                    
+                    print(f"[SCORES] Technical theory for player {player_id}: {correct_count}/{question_count} correct answers = {phase_scores[player_id]} points (correct_count * 200)")
+                else:
+                    print(f"[SCORES] WARNING: player_scores for {player_id} is not a dict: {type(player_scores)}")
                     phase_scores[player_id] = 0
-        else:
-            # For other phases, use standard scoring module
-            from game.scoring import calculate_phase_scores
-            phase_scores = calculate_phase_scores(
-                match_id=match_id,
-                phase=answer_phase,
-                player_ids=player_ids,
-                player_answers=player_answers,
-                correct_answers=None  # TODO: Get correct answers from question data
-            )
+                
+            except Exception as e:
+                print(f"[SCORES] Error getting technical theory score for player {player_id}: {e}")
+                import traceback
+                traceback.print_exc()
+                # Fallback to 0 if scoring fails
+                phase_scores[player_id] = 0
+    elif answer_phase == "technical_practical":
+        # For technical_practical, use pre-calculated scores (scored incrementally as submissions were submitted)
+        # Read game_state without holding lock
+        db_read: Session = SessionLocal()
+        try:
+            match_record_read = db_read.query(OngoingMatch).filter(
+                OngoingMatch.match_id == match_id
+            ).first()
+            if match_record_read:
+                game_state_read = match_record_read.game_state or {}
+                if isinstance(game_state_read, dict):
+                    technical_practical_scores = game_state_read.get("technical_practical_scores", {})
+                else:
+                    technical_practical_scores = {}
+            else:
+                technical_practical_scores = {}
+        finally:
+            db_read.close()
+        
+        if not isinstance(technical_practical_scores, dict):
+            print(f"[SCORES] WARNING: technical_practical_scores is not a dict: {type(technical_practical_scores)}")
+            technical_practical_scores = {}
+        
+        for player_id in player_ids:
+            try:
+                player_scores = technical_practical_scores.get(player_id, {})
+                
+                if isinstance(player_scores, dict):
+                    # Get pre-calculated total if available
+                    if "_total" in player_scores:
+                        total_value = player_scores["_total"]
+                        if isinstance(total_value, (int, float)):
+                            phase_scores[player_id] = int(total_value)
+                            print(f"[SCORES] Using _total for player {player_id}: {phase_scores[player_id]}")
+                        else:
+                            # Calculate from individual scores (exclude "_total" key)
+                            total = 0
+                            for key, score_data in player_scores.items():
+                                if key == "_total":
+                                    continue  # Skip _total key
+                                if isinstance(score_data, dict) and "score" in score_data:
+                                    total += int(score_data.get("score", 0))
+                            phase_scores[player_id] = total
+                            print(f"[SCORES] Calculated from individual scores for player {player_id}: {total}")
+                    else:
+                        # Calculate from individual scores (exclude "_total" key)
+                        total = 0
+                        for key, score_data in player_scores.items():
+                            if key == "_total":
+                                continue  # Skip _total key
+                            if isinstance(score_data, dict) and "score" in score_data:
+                                total += int(score_data.get("score", 0))
+                        phase_scores[player_id] = total
+                        print(f"[SCORES] Calculated from individual scores (no _total) for player {player_id}: {total}")
+                else:
+                    print(f"[SCORES] WARNING: player_scores for {player_id} is not a dict: {type(player_scores)}")
+                    phase_scores[player_id] = 0
+                
+                print(f"[SCORES] Retrieved pre-calculated technical practical score for player {player_id}: {phase_scores[player_id]}")
+            except Exception as e:
+                print(f"[SCORES] Error getting technical practical score for player {player_id}: {e}")
+                import traceback
+                traceback.print_exc()
+                # Fallback to 0 if scoring fails
+                phase_scores[player_id] = 0
+    elif answer_phase == "technical":
+        # For "technical" phase (when phase is "technical_score"), combine technical_theory + technical_practical
+        # Read game_state without holding lock
+        db_read: Session = SessionLocal()
+        try:
+            match_record_read = db_read.query(OngoingMatch).filter(
+                OngoingMatch.match_id == match_id
+            ).first()
+            if match_record_read:
+                game_state_read = match_record_read.game_state or {}
+                if isinstance(game_state_read, dict):
+                    technical_theory_scores = game_state_read.get("technical_theory_scores", {})
+                    technical_practical_scores = game_state_read.get("technical_practical_scores", {})
+                else:
+                    technical_theory_scores = {}
+                    technical_practical_scores = {}
+            else:
+                technical_theory_scores = {}
+                technical_practical_scores = {}
+        finally:
+            db_read.close()
+        
+        if not isinstance(technical_theory_scores, dict):
+            technical_theory_scores = {}
+        if not isinstance(technical_practical_scores, dict):
+            technical_practical_scores = {}
+        
+        for player_id in player_ids:
+            try:
+                # Get technical theory score
+                theory_score = 0
+                player_theory_scores = technical_theory_scores.get(player_id, {})
+                if isinstance(player_theory_scores, dict):
+                    question_count = 10  # Default fallback
+                    phase_metadata = game_state_read.get("phase_metadata", {}) if match_record_read else {}
+                    if "technical_theory" in phase_metadata:
+                        question_count = phase_metadata["technical_theory"].get("question_count", 10)
+                    
+                    correct_count = 0
+                    for q_idx in range(question_count):
+                        q_idx_str = str(q_idx)
+                        score_data = player_theory_scores.get(q_idx_str)
+                        if isinstance(score_data, dict) and score_data.get("is_correct", False):
+                            correct_count += 1
+                    theory_score = correct_count * 200
+                
+                # Get technical practical score
+                practical_score = 0
+                player_practical_scores = technical_practical_scores.get(player_id, {})
+                if isinstance(player_practical_scores, dict):
+                    if "_total" in player_practical_scores:
+                        total_value = player_practical_scores["_total"]
+                        if isinstance(total_value, (int, float)):
+                            practical_score = int(total_value)
+                    else:
+                        # Calculate from individual scores
+                        for key, score_data in player_practical_scores.items():
+                            if key == "_total":
+                                continue
+                            if isinstance(score_data, dict) and "score" in score_data:
+                                practical_score += int(score_data.get("score", 0))
+                
+                # Combine both scores
+                phase_scores[player_id] = theory_score + practical_score
+                print(f"[SCORES] Technical (combined) for player {player_id}: theory={theory_score} + practical={practical_score} = {phase_scores[player_id]}")
+            except Exception as e:
+                print(f"[SCORES] Error getting combined technical score for player {player_id}: {e}")
+                import traceback
+                traceback.print_exc()
+                phase_scores[player_id] = 0
+    else:
+        # For other phases, use standard scoring module
+        from game.scoring import calculate_phase_scores
+        phase_scores = calculate_phase_scores(
+            match_id=match_id,
+            phase=answer_phase,
+            player_ids=player_ids,
+            player_answers=player_answers,
+            correct_answers=None  # TODO: Get correct answers from question data
+        )
+    
+    # Now that we have phase_scores calculated, acquire lock ONLY to update database
+    # This minimizes the time we hold the lock
+    db: Session = SessionLocal()
+    try:
+        # Use database-level locking to prevent race conditions when updating
+        match_record = db.query(OngoingMatch).filter(
+            OngoingMatch.match_id == match_id
+        ).with_for_update().first()
+        
+        if not match_record:
+            print(f"Match {match_id} not found for score update")
+            return {pid: 0 for pid in player_ids}, {pid: 0 for pid in player_ids}
+        
+        # Re-read existing scores (they may have changed since we last read)
+        current_game_state = match_record.game_state or {}
+        if not isinstance(current_game_state, dict):
+            current_game_state = {}
+        
+        # Get latest existing scores
+        latest_existing_scores = current_game_state.get("scores", {}).copy()
+        if not isinstance(latest_existing_scores, dict):
+            latest_existing_scores = {}
         
         # Calculate cumulative scores (add phase score to existing)
+        # SPECIAL CASE: If phase is "technical_score", we need to subtract previous technical_theory
+        # because base_score already includes it, and phase_score includes theory + practical
         scores: Dict[str, int] = {}
         for player_id in player_ids:
-            base_score = existing_scores.get(player_id, 0)
+            base_score = latest_existing_scores.get(player_id, 0)
             phase_score = phase_scores.get(player_id, 0)
+            
+            if phase == "technical_score":
+                # Subtract previous technical_theory score from base_score to avoid double-counting
+                # Get previous technical_theory score from phase-specific scores
+                previous_technical_theory = current_game_state.get("technical_theory_scores", {})
+                if isinstance(previous_technical_theory, dict):
+                    player_theory_data = previous_technical_theory.get(player_id, {})
+                    if isinstance(player_theory_data, dict) and "_total" in player_theory_data:
+                        theory_total = player_theory_data["_total"]
+                        if isinstance(theory_total, (int, float)):
+                            base_score -= int(theory_total)
+                            print(f"[SCORES] Subtracted previous technical_theory score ({theory_total}) from base_score for player {player_id}")
+            
             scores[player_id] = base_score + phase_score
         
         # Store cumulative scores (this updates the main "scores" field)
         # Phase-specific scores are stored separately for reference
-        # Use the locked database session
-        current_state = match_record.game_state or {}
-        if not isinstance(current_state, dict):
-            current_state = {}
+        current_state = current_game_state.copy()
         
-        # Merge scores properly
-        merged_scores = existing_scores.copy()
-        for player_id, new_score in scores.items():
-            existing_score = merged_scores.get(player_id, 0)
-            merged_scores[player_id] = max(existing_score, new_score)
+        # Use the newly calculated cumulative scores directly
+        merged_scores = scores.copy()
         
+        # Update scores in the existing game_state dict (preserve all other structures)
         current_state["scores"] = merged_scores
-        current_state[phase_scores_key] = scores.copy()
+        # Store phase-specific scores separately (just for this phase, not cumulative)
+        current_state[phase_scores_key] = phase_scores.copy()
+        # Store previous scores for animation purposes (before this phase)
+        current_state["previous_scores"] = previous_scores.copy()
         current_state["scores_updated_at"] = datetime.utcnow().isoformat()
         
         # CRITICAL: Create a new dict to ensure SQLAlchemy detects the change
@@ -809,7 +1116,7 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
         db.commit()
         
         print(f"[SCORES] Calculated and stored scores for {phase}: {merged_scores}")
-        return merged_scores
+        return merged_scores, previous_scores
     except Exception as e:
         db.rollback()
         print(f"Error calculating scores for match {match_id}: {e}")
@@ -817,13 +1124,22 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
         traceback.print_exc()
         # Fallback: try to return existing scores
         try:
-            if match_record and match_record.game_state:
-                game_state = match_record.game_state
-                if isinstance(game_state, dict):
-                    return game_state.get("scores", {})
+            db_fallback: Session = SessionLocal()
+            try:
+                match_record_fallback = db_fallback.query(OngoingMatch).filter(
+                    OngoingMatch.match_id == match_id
+                ).first()
+                if match_record_fallback and match_record_fallback.game_state:
+                    game_state_fallback = match_record_fallback.game_state
+                    if isinstance(game_state_fallback, dict):
+                        fallback_scores = game_state_fallback.get("scores", {})
+                        if isinstance(fallback_scores, dict):
+                            return fallback_scores, previous_scores
+            finally:
+                db_fallback.close()
         except:
             pass
-        return {pid: 0 for pid in player_ids}
+        return {pid: 0 for pid in player_ids}, previous_scores
     finally:
         db.close()
 

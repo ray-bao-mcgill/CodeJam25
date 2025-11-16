@@ -20,7 +20,7 @@ export function useGameSync() {
   const [gameState, setGameState] = useState<GameState | null>(null)
   const [timeRemaining, setTimeRemaining] = useState<number>(180)
   const [hasStartTime, setHasStartTime] = useState<boolean>(false) // Track if we have a startTime
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const timerRef = useRef<number | null>(null)
   const serverTimeOffsetRef = useRef<number>(0) // Offset between server and client time
   const localStartTimeRef = useRef<number | null>(null) // Local fallback start time
   const startTimeRef = useRef<number | null>(null) // Current start time (from server or local)
@@ -146,6 +146,22 @@ export function useGameSync() {
         return {
           ...prev,
           submittedPlayers: newSubmitted
+        }
+      })
+    } else if (message.type === 'question_received') {
+      // Handle question received from database (for technical_practical and other phases)
+      setGameState((prev) => {
+        return {
+          ...(prev || {
+            phase: message.phase || 'unknown',
+            submittedPlayers: [],
+            allPlayersSubmitted: false,
+            showResults: false
+          }),
+          question: message.question,
+          questionId: message.question_id,
+          questionIndex: message.question_index,
+          phase: message.phase || prev?.phase
         }
       })
     }
@@ -274,9 +290,20 @@ export function useGameSync() {
   }, [hasStartTime, gameState?.showResults, playerId, wsRef])
 
   const submitAnswer = useCallback(async (answer: string, questionId?: string, phase?: string, questionIndex?: number) => {
-    if (!playerId) return
+    if (!playerId) {
+      console.error("[useGameSync] Cannot submit - no playerId!");
+      return;
+    }
 
-    console.log('Submitting answer for player:', playerId, 'phase:', phase)
+    console.log("\n" + "=".repeat(80));
+    console.log('[useGameSync] submitAnswer() called');
+    console.log("=".repeat(80));
+    console.log('[useGameSync] Player ID:', playerId);
+    console.log('[useGameSync] Phase:', phase);
+    console.log('[useGameSync] Question ID:', questionId);
+    console.log('[useGameSync] Question Index:', questionIndex);
+    console.log('[useGameSync] Answer length:', answer?.length || 0);
+    console.log('[useGameSync] Answer preview:', answer?.substring(0, 100));
 
     // Determine phase from gameState or current route
     const currentPhase = phase || gameState?.phase || 'unknown'
@@ -328,15 +355,26 @@ export function useGameSync() {
     }
     
     const sendMessage = (websocket: WebSocket) => {
-      websocket.send(JSON.stringify({
+      const message = {
         type: 'submit_answer',
         player_id: playerId,
         answer: answer,
         questionId: questionId || gameState?.questionId,
         phase: dbPhase,
         question_index: questionIndex
-      }))
-    }
+      };
+      
+      console.log("\n" + "=".repeat(80));
+      console.log("[useGameSync] Sending WebSocket message:");
+      console.log("=".repeat(80));
+      console.log(JSON.stringify({
+        ...message,
+        answer: answer.substring(0, 100) + "..." // Truncate for logging
+      }, null, 2));
+      console.log("=".repeat(80) + "\n");
+      
+      websocket.send(JSON.stringify(message));
+    };
     
     if (ws.readyState === WebSocket.OPEN) {
       console.log('Sending submit_answer to server for player:', playerId, 'phase:', dbPhase)
