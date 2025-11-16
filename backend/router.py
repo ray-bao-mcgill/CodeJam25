@@ -17,9 +17,15 @@ from database.game_state import (
     get_scores_for_phase,
     get_player_answers_for_phase,
     store_question,
-    get_question_from_game_state
+    get_question_from_game_state,
 )
-from database import SessionLocal, OngoingMatch
+from database import (
+    SessionLocal,
+    OngoingMatch,
+    BehaviouralPool,
+    TechnicalTheoryPool,
+    TechnicalPracticalPool,
+)
 from game.phase_manager import phase_manager
 from game.scoring import calculate_phase_scores
 try:
@@ -37,7 +43,10 @@ except ImportError as import_error:
         }
 from game.question_manager import question_manager
 from app.llm.openai import OpenAIClient
+from app.llm.client import LLMTextRequest
 from app.llm.followup_generator import FollowUpQuestionGenerator
+from app.llm.prompts.renderer import render as render_prompt
+from app.llm.routes import _parse_technical_theory_questions
 
 # Initialize LLM client and generators
 llm_client = OpenAIClient(api_key=os.environ.get("OPENAI_API_KEY"))
@@ -66,6 +75,162 @@ round_start_completed_tracker: Dict[str, Dict[str, Set[str]]] = {}
 # Lock for question requests to prevent race conditions
 # Structure: {match_id: {phase: {question_index: asyncio.Lock}}}
 question_request_locks: Dict[str, Dict[str, Dict[int, asyncio.Lock]]] = {}
+
+
+async def ensure_questions_for_role_level(role: str, level: str):
+    """
+    Ensure there are enough questions in the DB for a given role/level.
+    - 1 behavioural
+    - 10 technical theory
+    - 1 technical practical
+
+    If questions already exist in sufficient quantity, this is a no-op.
+    Otherwise, generate missing questions via the LLM and insert them into the pools.
+    """
+    # Normalize like QuestionManager does
+    role_norm = (role or "").lower().strip()
+    level_norm = (level or "").lower().strip().replace("-", "").replace("_", "").replace(" ", "")
+
+    db = SessionLocal()
+    try:
+        beh_count = db.query(BehaviouralPool).filter(
+            BehaviouralPool.role == role_norm,
+            BehaviouralPool.level == level_norm,
+        ).count()
+        theory_count = db.query(TechnicalTheoryPool).filter(
+            TechnicalTheoryPool.role == role_norm,
+            TechnicalTheoryPool.level == level_norm,
+        ).count()
+        practical_count = db.query(TechnicalPracticalPool).filter(
+            TechnicalPracticalPool.role == role_norm,
+            TechnicalPracticalPool.level == level_norm,
+        ).count()
+    finally:
+        db.close()
+
+    needs_behavioural = beh_count < 1
+    needs_theory = theory_count < 10
+    needs_practical = practical_count < 1
+
+    if not (needs_behavioural or needs_theory or needs_practical):
+        return
+
+    print(
+        f"[LLM_SETUP] Generating questions for custom role='{role_norm}', level='{level_norm}' "
+        f"(behavioural={beh_count}, theory={theory_count}, practical={practical_count})",
+        flush=True,
+    )
+
+    try:
+        # Generate behavioural question(s) if needed
+        behavioural_questions: list[str] = []
+        if needs_behavioural:
+            system = render_prompt("role/behavioural/question/system_prompt.jinja")
+            prompt = render_prompt(
+                "role/behavioural/question/user_prompt.jinja",
+                role=role_norm,
+                max_questions=1,
+            )
+            resp = await llm_client.generate_text(
+                LLMTextRequest(prompt=prompt, system=system, temperature=0.7, max_tokens=300)
+            )
+            lines = [line.strip() for line in (resp.text or "").splitlines() if line.strip()]
+            if lines:
+                behavioural_questions = lines[:1]
+
+        # Generate technical theory questions if needed
+        technical_theory_questions: list[dict] = []
+        if needs_theory:
+            missing = 10 - theory_count if theory_count < 10 else 0
+            if missing > 0:
+                system = render_prompt("role/technical_theory/system_prompt.jinja")
+                prompt = render_prompt(
+                    "role/technical_theory/user_prompt.jinja",
+                    role=role_norm,
+                    max_questions=missing,
+                )
+                resp = await llm_client.generate_text(
+                    LLMTextRequest(
+                        prompt=prompt,
+                        system=system,
+                        temperature=0.7,
+                        max_tokens=1200,
+                    )
+                )
+                technical_theory_questions = _parse_technical_theory_questions(
+                    resp.text or "", missing
+                )
+
+        # Generate technical practical question(s) if needed
+        technical_practical_questions: list[str] = []
+        if needs_practical:
+            system = render_prompt("role/technical_practical/system_prompt.jinja")
+            prompt = render_prompt(
+                "role/technical_practical/user_prompt.jinja",
+                role=role_norm,
+                max_questions=1,
+            )
+            resp = await llm_client.generate_text(
+                LLMTextRequest(
+                    prompt=prompt,
+                    system=system,
+                    temperature=0.7,
+                    max_tokens=400,
+                )
+            )
+            lines = [line.strip() for line in (resp.text or "").splitlines() if line.strip()]
+            if lines:
+                technical_practical_questions = lines[:1]
+    except Exception as e:
+        # Don't block game start if LLM generation fails; just log and return.
+        print(f"[LLM_SETUP] Error during LLM generation for role='{role_norm}', level='{level_norm}': {e}", flush=True)
+        return
+
+    # Insert new questions into the DB
+    if behavioural_questions or technical_theory_questions or technical_practical_questions:
+        db = SessionLocal()
+        try:
+            if behavioural_questions:
+                for q_text in behavioural_questions:
+                    db.add(
+                        BehaviouralPool(
+                            role=role_norm,
+                            level=level_norm,
+                            question=q_text,
+                        )
+                    )
+
+            if technical_theory_questions:
+                for q in technical_theory_questions:
+                    db.add(
+                        TechnicalTheoryPool(
+                            role=role_norm,
+                            level=level_norm,
+                            question=q["question"],
+                            correct_answer=q["correct"],
+                            incorrect_answers=q["incorrect"],
+                        )
+                    )
+
+            if technical_practical_questions:
+                for q_text in technical_practical_questions:
+                    db.add(
+                        TechnicalPracticalPool(
+                            role=role_norm,
+                            level=level_norm,
+                            question=q_text,
+                        )
+                    )
+
+            db.commit()
+            print(
+                f"[LLM_SETUP] Inserted new questions for role='{role_norm}', level='{level_norm}'"
+            )
+        except Exception as e:
+            db.rollback()
+            print(f"[LLM_SETUP] Error inserting LLM-generated questions: {e}")
+        finally:
+            db.close()
 
 
 class JoinLobbyRequest(BaseModel):
@@ -167,6 +332,15 @@ async def join_lobby(request: JoinLobbyRequest):
 @router.post("/api/lobby/{lobby_id}/start")
 async def start_game(lobby_id: str, request: StartGameRequest):
     """Start the game - requires owner player_id"""
+    # Before starting, ensure we have questions for custom/generalized roles
+    lobby = lobby_manager.get_lobby(lobby_id)
+    if lobby:
+        final_match_type = request.match_type or lobby.match_type or "generalized"
+        final_role = request.role or lobby.role
+        final_level = request.level or lobby.level
+        if final_match_type == "generalized" and final_role and final_level:
+            await ensure_questions_for_role_level(final_role, final_level)
+
     success, message = lobby_manager.start_game(
         lobby_id, 
         request.player_id,
@@ -2132,10 +2306,47 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                         match_type=match_type,
                                         phase=phase,
                                         match_config=match_config,
-                                        question_index=question_index
+                                        question_index=question_index,
                                     )
-                                    
+
                                     print(f"[QUESTION] Question manager returned: {question_data is not None}")
+
+                                    # If no question found (e.g., custom role with empty pools), try to generate via LLM once.
+                                    # If that fails (e.g., no API key / 401), fall back to a generic seeded role so the game stays playable.
+                                    if not question_data and match_type == "generalized":
+                                        role = match_config.get("role")
+                                        level = match_config.get("level")
+                                        print(f"[QUESTION] No question for role={role}, level={level} - attempting LLM-backed generation")
+                                        try:
+                                            await ensure_questions_for_role_level(role, level)
+                                            # Retry after generation
+                                            question_data = question_manager.get_question_for_phase(
+                                                match_type=match_type,
+                                                phase=phase,
+                                                match_config=match_config,
+                                                question_index=question_index,
+                                            )
+                                            print(f"[QUESTION] After LLM generation, question manager returned: {question_data is not None}")
+                                        except Exception as e:
+                                            print(f"[QUESTION] Error during ensure_questions_for_role_level: {e}")
+
+                                        # Still no question? Fall back to a generic built-in role so the game doesn't hang.
+                                        if not question_data:
+                                            fallback_role = "software engineering"
+                                            fallback_config = dict(match_config)
+                                            fallback_config["role"] = fallback_role
+                                            print(
+                                                f"[QUESTION] Falling back to seeded role='{fallback_role}' for level={level} "
+                                                f"for phase={phase}, question_index={question_index}"
+                                            )
+                                            question_data = question_manager.get_question_for_phase(
+                                                match_type=match_type,
+                                                phase=phase,
+                                                match_config=fallback_config,
+                                                question_index=question_index,
+                                            )
+                                            print(f"[QUESTION] After fallback, question manager returned: {question_data is not None}")
+
                                     if question_data:
                                         print(f"[QUESTION] Question data received: {question_data}")
                                         # Add timestamp for when question was generated/selected
