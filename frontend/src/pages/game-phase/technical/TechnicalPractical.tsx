@@ -300,24 +300,30 @@ const TechnicalPractical: React.FC = () => {
     let mouseUpListener: (e: MouseEvent) => void;
     let mouseLeaveListener: (e: MouseEvent) => void;
     
-    mouseDownListener = (e) => {
+    // Helper function to convert mouse coordinates to canvas coordinates
+    // Canvas fills container (100% width/height), so we just need to scale from displayed size to internal size
+    const getCanvasCoordinates = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
+      // Calculate scale factors for X and Y
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      lastPoint.current = {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY,
-      };
+      
+      // Convert mouse position relative to canvas element to canvas internal coordinates
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      
+      return { x, y };
+    };
+    
+    mouseDownListener = (e) => {
+      const coords = getCanvasCoordinates(e);
+      lastPoint.current = coords;
       drawing.current = true;
     };
     
     mouseMoveListener = (e) => {
       if (!drawing.current) return;
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
+      const coords = getCanvasCoordinates(e);
       
       if (lastPoint.current && ctx) {
         if (isEraserMode) {
@@ -331,9 +337,9 @@ const TechnicalPractical: React.FC = () => {
         
         ctx.beginPath();
         ctx.moveTo(lastPoint.current.x, lastPoint.current.y);
-        ctx.lineTo(x, y);
+        ctx.lineTo(coords.x, coords.y);
         ctx.stroke();
-        lastPoint.current = { x, y };
+        lastPoint.current = coords;
       }
     };
     
@@ -355,18 +361,18 @@ const TechnicalPractical: React.FC = () => {
       }
     };
     
-    canvas.addEventListener('mousedown', mouseDownListener);
-    canvas.addEventListener('mousemove', mouseMoveListener);
-    window.addEventListener('mouseup', mouseUpListener);
-    canvas.addEventListener('mouseleave', mouseLeaveListener);
-    
-    return () => {
-      canvas.removeEventListener('mousedown', mouseDownListener);
-      canvas.removeEventListener('mousemove', mouseMoveListener);
-      window.removeEventListener('mouseup', mouseUpListener);
-      canvas.removeEventListener('mouseleave', mouseLeaveListener);
-    };
-  }, [activeTab, selectedColor, isEraserMode]);
+     canvas.addEventListener('mousedown', mouseDownListener);
+     canvas.addEventListener('mousemove', mouseMoveListener);
+     window.addEventListener('mouseup', mouseUpListener);
+     canvas.addEventListener('mouseleave', mouseLeaveListener);
+     
+     return () => {
+       canvas.removeEventListener('mousedown', mouseDownListener);
+       canvas.removeEventListener('mousemove', mouseMoveListener);
+       window.removeEventListener('mouseup', mouseUpListener);
+       canvas.removeEventListener('mouseleave', mouseLeaveListener);
+     };
+   }, [activeTab, selectedColor, isEraserMode, leftPanelWidth, isResizing]);
   
   // Function to clear the canvas
   const handleClearCanvas = () => {
@@ -419,31 +425,40 @@ const TechnicalPractical: React.FC = () => {
       return cachedCanvasRect;
     };
     
-    const handleMouseMove = (e: MouseEvent) => {
-      const canvasRect = getCanvasRect();
-      const x = e.clientX - canvasRect.left;
-      const y = e.clientY - canvasRect.top;
-      
-      setMousePosition({ x: e.clientX, y: e.clientY });
-      
-      // Scale the radius based on canvas scaling
-      const scaleX = canvasRect.width / canvas.width;
-      const scaleY = canvasRect.height / canvas.height;
-      const scale = Math.min(scaleX, scaleY);
-      const radius = 15 * scale; // 15px radius scaled
-      
-      const ctx = overlay.getContext('2d');
-      if (ctx) {
-        // Use clearRect with the exact bounds we need to clear
-        ctx.clearRect(0, 0, overlay.width, overlay.height);
-        ctx.strokeStyle = '#666';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    };
+     const handleMouseMove = (e: MouseEvent) => {
+       const canvasRect = getCanvasRect();
+       
+       // Calculate position relative to canvas (not container) so cursor matches drawing position
+       const x = e.clientX - canvasRect.left;
+       const y = e.clientY - canvasRect.top;
+       
+       setMousePosition({ x: e.clientX, y: e.clientY });
+       
+       // Scale the radius based on canvas scaling (same as eraser size)
+       // Eraser is 30px diameter (15px radius) in canvas coordinates
+       // Scale it to match the displayed size - use average scale to maintain circular shape
+       const scaleX = canvasRect.width / canvas.width;
+       const scaleY = canvasRect.height / canvas.height;
+       const avgScale = (scaleX + scaleY) / 2; // Average scale for circular cursor
+       const radius = 15 * avgScale; // 15px radius scaled
+       
+       const ctx = overlay.getContext('2d');
+       if (ctx) {
+         ctx.clearRect(0, 0, overlay.width, overlay.height);
+         
+         // Convert canvas position to overlay position
+         const overlayRect = container.getBoundingClientRect();
+         const overlayX = x + (canvasRect.left - overlayRect.left);
+         const overlayY = y + (canvasRect.top - overlayRect.top);
+         
+         ctx.strokeStyle = '#666';
+         ctx.lineWidth = 2;
+         ctx.setLineDash([5, 5]);
+         ctx.beginPath();
+         ctx.arc(overlayX, overlayY, radius, 0, Math.PI * 2);
+         ctx.stroke();
+       }
+     };
     
     const handleMouseLeave = () => {
       cachedCanvasRect = null;
@@ -454,16 +469,16 @@ const TechnicalPractical: React.FC = () => {
       }
     };
     
-    container.addEventListener('mousemove', handleMouseMove, { passive: true });
-    container.addEventListener('mouseleave', handleMouseLeave);
-    window.addEventListener('resize', updateOverlaySize);
-    
-    return () => {
-      container.removeEventListener('mousemove', handleMouseMove);
-      container.removeEventListener('mouseleave', handleMouseLeave);
-      window.removeEventListener('resize', updateOverlaySize);
-    };
-  }, [activeTab, isEraserMode]);
+     container.addEventListener('mousemove', handleMouseMove, { passive: true });
+     container.addEventListener('mouseleave', handleMouseLeave);
+     window.addEventListener('resize', updateOverlaySize);
+     
+     return () => {
+       container.removeEventListener('mousemove', handleMouseMove);
+       container.removeEventListener('mouseleave', handleMouseLeave);
+       window.removeEventListener('resize', updateOverlaySize);
+     };
+   }, [activeTab, isEraserMode, leftPanelWidth, isResizing]);
   
   // Initialize canvas size
   useEffect(() => {
@@ -1385,11 +1400,8 @@ const TechnicalPractical: React.FC = () => {
                       background: '#fff', 
                       borderRadius: 8, 
                       boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                      maxWidth: '100%',
-                      maxHeight: '100%',
                       width: '100%',
                       height: '100%',
-                      objectFit: 'contain',
                       cursor: isEraserMode ? 'none' : 'crosshair'
                     }}
                   />
