@@ -11,11 +11,11 @@ Scores:
 {% endif %}
 - Total practical score (0-3000): {{ total_score }}
 
-Now write a single short reasoning string for the whole practical round in a cartoony hire-or-fire tone based on the total score:
-- 2001–3000: very positive, excited, like "hire them now / ship this".
-- 1001–2000: calm, balanced, pointing out both strengths and gaps.
--    0–1000: clearly roasting the solution for what it misses or breaks ("do not deploy this"), but no slurs or hateful language.
+Now write a single short reasoning string for the whole practical round in a cartoony hire-or-fire tone based on the total score. Speak directly to the user using "you" / "your":
+- 2001–3000: extremely positive and hyped-up, like "you nailed this, instant hire, ship your code straight to production".
+- 1001–2000: calm, balanced, technical feedback on what you did well and what you missed.
+-    0–1000: brutally roasting what you submitted, calling out what you broke or forgot ("please never let this near production" vibe), but no slurs or hateful language.
 
-Output ONLY the reasoning text, no JSON, no extra commentary.
+Output ONLY the reasoning text addressed to the user, no JSON, no extra commentary.
 
 
