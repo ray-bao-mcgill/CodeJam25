@@ -139,6 +139,8 @@ const LobbyJoin: React.FC = () => {
                 setName(e.target.value)
                 setError('')
               }}
+              autoComplete="name"
+              data-form-type="other"
               className="game-sharp game-paper max-w-xs w-full text-center text-xl py-4 px-4 font-black uppercase tracking-widest game-shadow-hard"
               style={{
                 border: '6px solid var(--game-text-primary)',
@@ -177,6 +179,9 @@ const LobbyJoin: React.FC = () => {
                     setError('')
                   }}
                   onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleJoin()}
+                  autoComplete="off"
+                  data-form-type="other"
+                  data-lpignore="true"
                   className={`game-sharp text-center text-xl px-6 py-4 font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover ${
                     lobbyCode.trim() ? 'game-block-red' : 'game-paper'
                   }`}
