@@ -123,9 +123,9 @@ class PracticalJudge:
             results["text"] = await self.judge_text(question, text_ans, score_max)
         total_score = self._calculate_total_score(results)
         results["total_score"] = total_score
-        # Generate one overall reasoning string for the whole practical round (0-3000 scale)
+        # Build one overall reasoning string for the whole practical round (0-3000 scale)
         if results.get("ide") or results.get("text"):
-            results["reasoning"] = await self._generate_overall_reasoning(question, results, total_score)
+            results["reasoning"] = self._build_overall_reasoning(results, total_score)
         return results
 
     async def judge_ide(self, question: dict, ide_code: str, score_max: int) -> IDEJudgeResult:
@@ -246,28 +246,32 @@ class PracticalJudge:
             total += text.completeness + text.clarity + text.correctness
         return total
 
-    async def _generate_overall_reasoning(self, question: dict, results: dict, total_score: int) -> str:
-        """Ask the LLM for a single overall reasoning string based on the 0-3000 total score."""
-        system = render_prompt("role/technical_practical/judge/system_prompt.jinja")
+    def _build_overall_reasoning(self, results: dict, total_score: int) -> str:
+        """Compose a single game-style reasoning string from per-tab reasonings and total score.
+
+        Tone bands (0-3000):
+        - 2001–3000: very positive / \"instant hire\"
+        - 1001–2000: neutral / balanced
+        -    0–1000: roasting / \"do not deploy\"
+        """
         ide = results.get("ide")
         text = results.get("text")
-        # Convert Pydantic models to plain dicts for the template
-        ide_dict = ide.dict() if isinstance(ide, IDEJudgeResult) else None
-        text_dict = text.dict() if isinstance(text, TextJudgeResult) else None
-        prompt = render_prompt(
-            "role/technical_practical/judge/summary_user_prompt.jinja",
-            question=question,
-            ide=ide_dict,
-            text=text_dict,
-            total_score=total_score,
-        )
-        llm_resp = await self.client.generate_text(
-            LLMTextRequest(
-                prompt=prompt,
-                system=system,
-                temperature=0.4,
-                max_tokens=200,
-            )
-        )
-        # We expect a plain text reasoning string, no JSON
-        return (llm_resp.text or "").strip()
+
+        # Start with a tone prefix based on total_score
+        if total_score >= 2001:
+            prefix = "You absolutely crushed this practical round. "
+        elif total_score >= 1001:
+            prefix = "You did okay overall in this practical round. "
+        else:
+            prefix = "This practical round was rough for you. "
+
+        parts = []
+        if isinstance(ide, IDEJudgeResult) and ide.reasoning:
+            parts.append(f"For your code: {ide.reasoning}")
+        if isinstance(text, TextJudgeResult) and text.reasoning:
+            parts.append(f"For your written answer: {text.reasoning}")
+
+        detail = " ".join(parts).strip()
+        if detail:
+            return prefix + detail
+        return prefix.strip()
