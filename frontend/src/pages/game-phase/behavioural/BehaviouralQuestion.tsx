@@ -534,13 +534,7 @@ const BehaviouralQuestion: React.FC = () => {
           )}
         </div>
 
-        {/* Decorative sticky notes */}
-        <div
-          className="absolute -top-4 left-0 game-sticky-note px-4 py-2 game-shadow-hard-sm"
-          style={{ transform: "rotate(-3deg)" }}
-        >
-          <div className="text-xs font-bold uppercase">Round 1</div>
-        </div>
+       
         <div
           className="absolute -bottom-4 right-0 game-sticky-note-alt px-4 py-2 game-shadow-hard-sm"
           style={{ transform: "rotate(2deg)" }}
