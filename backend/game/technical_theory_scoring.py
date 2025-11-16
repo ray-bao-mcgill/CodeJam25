@@ -34,6 +34,8 @@ async def score_technical_theory_answer(
             print(f"[TECHNICAL_THEORY_SCORING] Match {match_id} not found")
             return None
         
+        # Refresh to get latest game_state (including phase_metadata that might have been added)
+        db.refresh(match_record)
         game_state = match_record.game_state or {}
         if not isinstance(game_state, dict):
             print(f"[TECHNICAL_THEORY_SCORING] game_state is not a dict")
@@ -153,10 +155,50 @@ async def score_technical_theory_answer(
         
         # Get question count from phase_metadata to iterate through all questions
         # This ensures we count correctly even if some questions aren't answered yet
+        # Refresh game_state again right before counting to ensure we have latest phase_metadata
+        db.refresh(match_record)
+        game_state_for_count = match_record.game_state or {}
+        if not isinstance(game_state_for_count, dict):
+            game_state_for_count = game_state
+        
         question_count = 10  # Default fallback
-        phase_metadata = game_state.get("phase_metadata", {})
+        phase_metadata = game_state_for_count.get("phase_metadata", {})
         if "technical_theory" in phase_metadata:
             question_count = phase_metadata["technical_theory"].get("question_count", 10)
+            print(f"[TECHNICAL_THEORY_SCORING] DEBUG: Found question_count={question_count} in phase_metadata")
+        else:
+            # Fallback: count questions from cache
+            questions_cache = game_state_for_count.get("questions", {})
+            # Find all technical_theory questions (format: technical_theory_0, technical_theory_1, etc.)
+            # Exclude personalized questions (technical_theory_1_playerid format)
+            tech_questions = []
+            for k in questions_cache.keys():
+                if k.startswith("technical_theory_"):
+                    # Check if it's a shared question (not personalized)
+                    # Shared format: technical_theory_0, technical_theory_1
+                    # Personalized format: technical_theory_1_playerid (has more underscores)
+                    parts = k.split("_")
+                    if len(parts) == 3:  # technical_theory_0 format
+                        tech_questions.append(k)
+            
+            if tech_questions:
+                # Get max index + 1
+                max_idx = -1
+                for q_key in tech_questions:
+                    try:
+                        parts = q_key.split("_")
+                        if len(parts) >= 3:
+                            idx = int(parts[-1])
+                            max_idx = max(max_idx, idx)
+                    except:
+                        pass
+                if max_idx >= 0:
+                    question_count = max_idx + 1
+                    print(f"[TECHNICAL_THEORY_SCORING] DEBUG: Calculated question_count={question_count} from questions cache (max_idx={max_idx})")
+                else:
+                    print(f"[TECHNICAL_THEORY_SCORING] DEBUG: Could not determine question_count from cache, using default 10")
+            else:
+                print(f"[TECHNICAL_THEORY_SCORING] DEBUG: No phase_metadata or questions cache found, using default question_count=10")
         
         # Count correct answers by iterating through all question indices
         # This is robust and handles unanswered questions correctly
