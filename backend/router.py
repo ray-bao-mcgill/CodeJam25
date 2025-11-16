@@ -477,7 +477,23 @@ async def start_game(lobby_id: str, request: StartGameRequest, background_tasks:
 
 @router.post("/api/lobby/{lobby_id}/transfer-ownership")
 async def transfer_ownership(lobby_id: str, request: TransferOwnershipRequest):
-    """Transfer ownership to another player"""
+    """Transfer ownership to another player. Case-insensitive lobby ID matching."""
+    # Find the actual lobby ID (case-correct) for case-insensitive lookup
+    lobby_id_stripped = lobby_id.strip()
+    actual_lobby_id = None
+    lobby_id_lower = lobby_id_stripped.lower()
+    for key in lobby_manager.lobbies.keys():
+        if key.lower() == lobby_id_lower:
+            actual_lobby_id = key
+            break
+    
+    if not actual_lobby_id:
+        print(f"[TRANSFER] Lobby '{lobby_id_stripped}' not found. Available: {list(lobby_manager.lobbies.keys())}")
+        return {"success": False, "message": f"Lobby not found. Available lobbies: {list(lobby_manager.lobbies.keys())}"}
+    
+    # Use the actual lobby ID (correct case) for all operations
+    lobby_id = actual_lobby_id
+    
     success, message = lobby_manager.transfer_ownership(
         lobby_id, 
         request.new_owner_id, 
