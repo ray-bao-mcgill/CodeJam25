@@ -17,6 +17,7 @@ export interface MultipleChoiceProps {
   isWaitingForOthers?: boolean
   submittedPlayersCount?: number
   totalPlayersCount?: number
+  correctAnswerId?: string  // Option ID of the correct answer (e.g., "A", "B", "C", "D")
 }
 
 const MultipleChoice: React.FC<MultipleChoiceProps> = ({
@@ -28,20 +29,37 @@ const MultipleChoice: React.FC<MultipleChoiceProps> = ({
   disabled = false,
   isWaitingForOthers = false,
   submittedPlayersCount = 0,
-  totalPlayersCount = 0
+  totalPlayersCount = 0,
+  correctAnswerId
 }) => {
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
+  const [isCorrect, setIsCorrect] = useState(false)
 
-  const handleSubmit = async () => {
-    if (!selectedOption || isSubmitting || disabled) return
+  const handleOptionClick = async (optionId: string) => {
+    if (isSubmitting || disabled || isWaitingForOthers || selectedOption !== null) return
     
+    // Check if answer is correct
+    const correct = correctAnswerId === optionId
+    setIsCorrect(correct)
+    setSelectedOption(optionId)
+    setShowFeedback(true)
     setIsSubmitting(true)
-    try {
-      await onSubmit(selectedOption)
-    } finally {
-      setIsSubmitting(false)
-    }
+    
+    // Show feedback for 1.5 seconds before submitting
+    setTimeout(async () => {
+      try {
+        await onSubmit(optionId)
+      } finally {
+        setIsSubmitting(false)
+        // Reset feedback after a brief delay
+        setTimeout(() => {
+          setShowFeedback(false)
+          setSelectedOption(null)
+        }, 300)
+      }
+    }, 1500)
   }
 
   // Define colors and shapes for each option - TechnicalTheoryRound style
@@ -101,6 +119,12 @@ const MultipleChoice: React.FC<MultipleChoiceProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg">
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { transform: scale(1.05); }
+          50% { transform: scale(1.1); }
+        }
+      `}</style>
       <div className="w-full max-w-7xl space-y-6">
         {/* Title */}
         {title && (
@@ -115,7 +139,13 @@ const MultipleChoice: React.FC<MultipleChoiceProps> = ({
 
         {/* Question */}
         <div className="text-center py-8 px-8 game-paper game-sharp game-shadow-hard border-4 border-[var(--game-text-primary)]">
-          <h2 className="text-3xl font-black text-[var(--game-text-primary)] leading-[1.4]" style={{ fontFamily: 'Arial, sans-serif' }}>
+          <h2 
+            className="font-black text-[var(--game-text-primary)] leading-[1.4] break-words overflow-wrap-anywhere" 
+            style={{ 
+              fontFamily: 'Arial, sans-serif',
+              fontSize: 'clamp(1rem, 4vw, 1.875rem)' // Responsive font size: min 1rem, max 1.875rem (30px)
+            }}
+          >
             {question}
           </h2>
         </div>
@@ -124,47 +154,97 @@ const MultipleChoice: React.FC<MultipleChoiceProps> = ({
         <div className="grid grid-cols-2 gap-6">
           {options.map((option, index) => {
             const isSelected = selectedOption === option.id
+            const isCorrect = correctAnswerId === option.id
             const style = optionStyles[index] || optionStyles[0]
             
-            let buttonClasses = `py-8 px-6 text-xl font-bold game-sharp game-shadow-hard transition-all duration-200 relative overflow-visible border-8`
+            const isOptionSelected = selectedOption === option.id
+            const isCorrectOption = correctAnswerId === option.id
+            const isDisabled = disabled || isSubmitting || isWaitingForOthers || (selectedOption !== null && !isOptionSelected)
+            // Always show correct answer in green when feedback is active
+            const showCorrectHighlight = showFeedback && isCorrectOption
+            const showIncorrectHighlight = showFeedback && isOptionSelected && !isCorrect
+            
+            let buttonClasses = `text-base font-bold game-sharp game-shadow-hard transition-all duration-200 relative overflow-hidden border-8`
             let buttonStyle: React.CSSProperties = {
               fontFamily: 'Arial, sans-serif',
-              minHeight: '120px',
-              cursor: (disabled || isSubmitting || isWaitingForOthers) ? 'not-allowed' : 'pointer',
-              opacity: 1 // Force full opacity always
+              height: '140px', // Fixed height
+              width: '100%', // Fixed width within grid
+              cursor: isDisabled ? 'not-allowed' : 'pointer',
+              opacity: isDisabled && !isOptionSelected && !showCorrectHighlight ? 0.6 : 1,
+              wordWrap: 'break-word',
+              overflowWrap: 'break-word',
+              hyphens: 'auto',
+              padding: '16px',
+              transition: 'all 0.3s ease'
             }
 
-            if (disabled || isSubmitting || isWaitingForOthers) {
-              // Grey out when disabled
+            // Apply feedback colors
+            if (showFeedback && isOptionSelected) {
+              if (isCorrect) {
+                // Green glow for correct answer
+                buttonClasses += " bg-green-500 border-green-700 text-white"
+                buttonStyle.boxShadow = '0 0 20px rgba(34, 197, 94, 0.8), 0 0 40px rgba(34, 197, 94, 0.6)'
+                buttonStyle.transform = 'scale(1.05)'
+              } else {
+                // Red glow for incorrect answer
+                buttonClasses += " bg-red-500 border-red-700 text-white"
+                buttonStyle.boxShadow = '0 0 20px rgba(239, 68, 68, 0.8), 0 0 40px rgba(239, 68, 68, 0.6)'
+                buttonStyle.transform = 'scale(1.05)'
+              }
+            } else if (showCorrectHighlight) {
+              // Always highlight correct answer in green when feedback is shown
+              buttonClasses += " bg-green-500 border-green-700 text-white"
+              buttonStyle.boxShadow = '0 0 20px rgba(34, 197, 94, 0.8), 0 0 40px rgba(34, 197, 94, 0.6)'
+              buttonStyle.transform = 'scale(1.05)'
+              buttonStyle.animation = 'pulse 0.5s ease-in-out'
+            } else if (isDisabled && !isOptionSelected && !showCorrectHighlight) {
+              // Grey out when disabled (but keep selected/correct options visible)
               buttonClasses += " bg-gray-400 border-[var(--game-text-primary)] text-white"
             } else {
-              buttonClasses += ` ${style.bgClass} ${style.borderClass} text-white hover:translate-y-[-4px] hover:rotate-[-2deg] hover:shadow-[12px_12px_0px_rgba(0,0,0,0.3)] hover:bg-[var(--game-yellow)] hover:border-[var(--game-text-primary)]`
-              if (isSelected) {
+              buttonClasses += ` ${style.bgClass} ${style.borderClass} text-white`
+              if (!isDisabled) {
+                buttonClasses += " hover:translate-y-[-4px] hover:rotate-[-2deg] hover:shadow-[12px_12px_0px_rgba(0,0,0,0.3)] hover:bg-[var(--game-yellow)] hover:border-[var(--game-text-primary)]"
+              }
+              if (isOptionSelected && !showFeedback) {
                 buttonClasses += " scale-105 ring-4 ring-offset-2 ring-gray-800"
                 buttonStyle.transform = 'scale(1.05)'
               }
             }
 
             return (
-              <Button
-                key={option.id}
-                onClick={() => !disabled && !isSubmitting && !isWaitingForOthers && setSelectedOption(option.id)}
-                disabled={disabled || isSubmitting || isWaitingForOthers}
+              <div key={option.id} className="relative">
+                {isCorrect && (
+                  <span className="absolute -top-2 -right-2 text-4xl font-bold text-yellow-400 z-10 drop-shadow-[2px_2px_0px_rgba(0,0,0,0.8)]" style={{ textShadow: '2px 2px 0px rgba(0,0,0,0.8)' }}>
+                    ★
+                  </span>
+                )}
+                <Button
+                onClick={() => handleOptionClick(option.id)}
+                disabled={isDisabled}
                 className={buttonClasses}
                 style={buttonStyle}
                 variant="ghost"
               >
-                <div className="flex items-center gap-4 w-full">
+                <div className="flex items-center gap-3 w-full h-full">
                   {/* Shape Icon */}
                   <div className="flex-shrink-0">{style.shape}</div>
                   
                   {/* Option Text */}
-                  <span className="flex-1 text-left">{option.label}</span>
+                  <span 
+                    className="flex-1 text-left break-words overflow-wrap-anywhere"
+                    style={{
+                      fontSize: 'clamp(0.75rem, 2.5vw, 1rem)', // Responsive: min 12px, max 16px
+                      lineHeight: '1.3'
+                    }}
+                  >
+                    {option.label}
+                  </span>
                   
                   {/* Letter Label */}
-                  <span className="text-3xl font-black opacity-80">{style.label}</span>
+                  <span className="text-2xl font-black opacity-80 flex-shrink-0">{style.label}</span>
                 </div>
-              </Button>
+                </Button>
+              </div>
             )
           })}
         </div>
@@ -178,30 +258,6 @@ const MultipleChoice: React.FC<MultipleChoiceProps> = ({
           </div>
         )}
 
-        {/* Submit Button */}
-        <div className="flex justify-center">
-          <button
-            onClick={handleSubmit}
-            disabled={!selectedOption || isSubmitting || disabled || isWaitingForOthers}
-            className={`game-sharp px-10 py-5 text-lg font-black uppercase tracking-widest game-shadow-hard-lg transition-all ${
-              selectedOption && !isSubmitting && !disabled && !isWaitingForOthers
-                ? 'game-block-green game-button-hover'
-                : 'game-paper'
-            }`}
-            style={{
-              border: '6px solid var(--game-text-primary)',
-              color: selectedOption && !isSubmitting && !disabled && !isWaitingForOthers
-                ? 'var(--game-text-white)'
-                : 'var(--game-text-dim)',
-              cursor: selectedOption && !isSubmitting && !disabled && !isWaitingForOthers
-                ? 'pointer'
-                : 'not-allowed',
-              opacity: (!selectedOption || isSubmitting || disabled || isWaitingForOthers) ? 0.5 : 1
-            }}
-          >
-            {isSubmitting ? 'SUBMITTING...' : isWaitingForOthers ? 'WAITING...' : submitButtonText}
-          </button>
-        </div>
       </div>
     </div>
   )
