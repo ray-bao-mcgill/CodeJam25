@@ -204,16 +204,7 @@ const CurrentScore: React.FC = () => {
   const totalPlayers = lobby?.players.length || 0
   
   const getPhaseTitle = () => {
-    switch (currentPhase) {
-      case 'behavioural_score':
-        return 'BEHAVIOURAL ROUND SCORES'
-      case 'technical_theory_score':
-        return 'TECHNICAL THEORY ROUND SCORES'
-      case 'technical_score':
-        return 'TECHNICAL ROUND SCORES'
-      default:
-        return 'CURRENT SCORES'
-    }
+    return 'CURRENT LEADERBOARD'
   }
 
   // Render loading state
