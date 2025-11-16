@@ -9,21 +9,24 @@ const TAB_DRAW = 'DRAW' as const;
 type TabType = typeof TAB_IDE | typeof TAB_TEXT | typeof TAB_DRAW;
 const TAB_OPTIONS: TabType[] = [TAB_IDE, TAB_TEXT, TAB_DRAW];
 
+// Ordered by usage frequency: most popular first, validation languages last
 const SUPPORTED_LANGS = [
-  { value: 'javascript', label: 'JavaScript', ext: ['js', 'javascript'] },
-  { value: 'typescript', label: 'TypeScript', ext: ['ts', 'typescript'] },
+  // Most popular executable languages
   { value: 'python', label: 'Python', ext: ['py', 'python'] },
   { value: 'java', label: 'Java', ext: ['java'] },
+  { value: 'javascript', label: 'JavaScript', ext: ['js', 'javascript'] },
+  { value: 'typescript', label: 'TypeScript', ext: ['ts', 'typescript'] },
   { value: 'cpp', label: 'C++', ext: ['cpp', 'cc', 'cxx'] },
   { value: 'c', label: 'C', ext: ['c'] },
   { value: 'shell', label: 'Bash', ext: ['sh', 'bash'] },
-  { value: 'yaml', label: 'YAML', ext: ['yaml', 'yml'] },
   { value: 'sql', label: 'SQL', ext: ['sql'] },
-  { value: 'dockerfile', label: 'Dockerfile', ext: ['dockerfile'] },
+  // Validation-only languages
+  { value: 'yaml', label: 'YAML', ext: ['yaml', 'yml'] },
+  { value: 'json', label: 'JSON', ext: ['json'] },
   { value: 'html', label: 'HTML', ext: ['html', 'htm'] },
   { value: 'css', label: 'CSS', ext: ['css'] },
-  { value: 'json', label: 'JSON', ext: ['json'] },
   { value: 'markdown', label: 'Markdown', ext: ['md', 'markdown'] },
+  { value: 'dockerfile', label: 'Dockerfile', ext: ['dockerfile'] },
 ];
 const getLanguageFromFilename = (filename: string) => {
   const lowerName = filename.toLowerCase();

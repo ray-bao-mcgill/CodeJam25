@@ -5,6 +5,7 @@ Executes code in isolated containers for security
 import asyncio
 import tempfile
 import os
+import sys
 import re
 import shutil
 from typing import Dict
@@ -19,7 +20,9 @@ except Exception as e:
     docker_client = None
 
 # Language configurations
+# Ordered by usage frequency: most popular first, validation languages last
 LANGUAGE_CONFIGS: Dict[str, Dict] = {
+    # Most popular executable languages
     'python': {
         'image': 'python:3.11-slim',
         'command': 'python',
@@ -32,6 +35,13 @@ LANGUAGE_CONFIGS: Dict[str, Dict] = {
         'timeout': 15,
         'memory_limit': '256m',
         'compile_first': True
+    },
+    'typescript': {
+        'image': 'node:18-slim',
+        'command': 'ts-node',
+        'timeout': 10,
+        'memory_limit': '128m',
+        'install_first': ['ts-node', 'typescript']
     },
     'cpp': {
         'image': 'gcc:latest',
@@ -60,27 +70,7 @@ LANGUAGE_CONFIGS: Dict[str, Dict] = {
         'memory_limit': '128m',
         'setup_required': True
     },
-    'typescript': {
-        'image': 'node:18-slim',
-        'command': 'ts-node',
-        'timeout': 10,
-        'memory_limit': '128m',
-        'install_first': ['ts-node', 'typescript']
-    },
-    'html': {
-        'image': 'nginx:alpine',
-        'command': 'echo',
-        'timeout': 5,
-        'memory_limit': '64m',
-        'readonly': True
-    },
-    'css': {
-        'image': 'node:18-slim',
-        'command': 'node',
-        'timeout': 5,
-        'memory_limit': '64m',
-        'readonly': True
-    },
+    # Validation-only languages (readonly)
     'yaml': {
         'image': 'python:3.11-slim',
         'command': 'python',
@@ -96,6 +86,20 @@ LANGUAGE_CONFIGS: Dict[str, Dict] = {
         'memory_limit': '64m',
         'readonly': True,
         'validator_script': 'import json, sys; json.load(sys.stdin)'
+    },
+    'html': {
+        'image': 'nginx:alpine',
+        'command': 'echo',
+        'timeout': 5,
+        'memory_limit': '64m',
+        'readonly': True
+    },
+    'css': {
+        'image': 'node:18-slim',
+        'command': 'node',
+        'timeout': 5,
+        'memory_limit': '64m',
+        'readonly': True
     },
     'markdown': {
         'image': 'node:18-slim',
@@ -252,10 +256,15 @@ async def execute_code(language: str, code: str) -> Dict[str, any]:
         
         elif language == 'typescript':
             start_time = datetime.now()
+            # Find ts-node executable (Windows needs .cmd extension)
+            ts_node_cmd = 'ts-node.cmd' if sys.platform == 'win32' else 'ts-node'
+            if not shutil.which(ts_node_cmd):
+                ts_node_cmd = 'ts-node'
+            
             # Try ts-node first
             try:
                 process = await asyncio.create_subprocess_exec(
-                    'ts-node', '-e', code,
+                    ts_node_cmd, '-e', code,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE
                 )
@@ -281,6 +290,9 @@ async def execute_code(language: str, code: str) -> Dict[str, any]:
                 }
             except FileNotFoundError:
                 # Fallback: tsc + node
+                tsc_cmd = 'tsc.cmd' if sys.platform == 'win32' else 'tsc'
+                node_cmd = 'node.cmd' if sys.platform == 'win32' else 'node'
+                
                 with tempfile.NamedTemporaryFile(mode='w', suffix='.ts', delete=False) as f:
                     f.write(code)
                     ts_path = f.name
@@ -290,7 +302,7 @@ async def execute_code(language: str, code: str) -> Dict[str, any]:
                     
                     # Compile
                     compile_process = await asyncio.create_subprocess_exec(
-                        'tsc', ts_path, '--target', 'ES2020', '--module', 'commonjs',
+                        tsc_cmd, ts_path, '--target', 'ES2020', '--module', 'commonjs',
                         '--esModuleInterop', '--skipLibCheck',
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.PIPE
@@ -317,7 +329,7 @@ async def execute_code(language: str, code: str) -> Dict[str, any]:
                     
                     # Run
                     run_process = await asyncio.create_subprocess_exec(
-                        'node', js_path,
+                        node_cmd, js_path,
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.PIPE
                     )
@@ -613,14 +625,15 @@ def _get_file_extension(language: str) -> str:
     extensions = {
         'python': '.py',
         'java': '.java',
+        'typescript': '.ts',
         'cpp': '.cpp',
         'c': '.c',
         'shell': '.sh',
-        'typescript': '.ts',
-        'html': '.html',
-        'css': '.css',
+        'sql': '.sql',
         'yaml': '.yaml',
         'json': '.json',
+        'html': '.html',
+        'css': '.css',
         'markdown': '.md',
         'dockerfile': 'Dockerfile'
     }
