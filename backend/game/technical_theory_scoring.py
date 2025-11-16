@@ -83,15 +83,38 @@ async def score_technical_theory_answer(
                 print(f"[TECHNICAL_THEORY_SCORING] Invalid option ID: {answer}")
                 return None
         
-        # Score using TheoreticalJudge
+        # Score using TheoreticalJudge (200 points per correct answer, 0 for incorrect)
         judge = TheoreticalJudge()
         question_for_judge = {
             "correct": correct_answer
         }
         result = judge.judge(question_for_judge, player_answer_text)
         
+        # Score is 200 if correct, 0 if incorrect (defined in TheoreticalJudge)
         score = result.score
-        print(f"[TECHNICAL_THEORY_SCORING] Player {player_id}, Q{question_index}: {answer} -> {player_answer_text} | Correct: {correct_answer} | Score: {score}")
+        is_correct = result.is_correct
+        
+        print(f"[TECHNICAL_THEORY_SCORING] Player {player_id}, Q{question_index}: {answer} -> {player_answer_text} | Correct: {correct_answer} | IsCorrect: {is_correct} | Score: {score}")
+        
+        # Track answer with feedback in game_state
+        # Initialize answer_tracking structure: {phase: {player_id: {question_index: {answer, feedback, attempted, ...}}}}
+        if "answer_tracking" not in game_state:
+            game_state["answer_tracking"] = {}
+        if "technical_theory" not in game_state["answer_tracking"]:
+            game_state["answer_tracking"]["technical_theory"] = {}
+        if player_id not in game_state["answer_tracking"]["technical_theory"]:
+            game_state["answer_tracking"]["technical_theory"][player_id] = {}
+        
+        # Store answer with feedback (technical theory has no feedback, but track attempted flag)
+        game_state["answer_tracking"]["technical_theory"][player_id][str(question_index)] = {
+            "answer": answer,
+            "answer_text": player_answer_text,
+            "correct_answer": correct_answer,
+            "is_correct": is_correct,
+            "attempted": True,
+            "answered_at": datetime.utcnow().isoformat(),
+            "feedback": None  # Technical theory has no feedback
+        }
         
         # Store score incrementally in game_state
         # Ensure structure is correct
@@ -106,24 +129,27 @@ async def score_technical_theory_answer(
             print(f"[TECHNICAL_THEORY_SCORING] WARNING: Found corrupted structure for player {player_id}, fixing...")
             game_state["technical_theory_scores"][player_id] = {}
         
-        # Store individual question score
+        # Store individual question score (200 if correct, 0 if incorrect)
         game_state["technical_theory_scores"][player_id][str(question_index)] = {
             "score": score,
-            "is_correct": result.is_correct,
+            "is_correct": is_correct,
             "question_index": question_index,
             "answer": answer,
             "correct_answer": correct_answer,
             "scored_at": datetime.utcnow().isoformat()
         }
         
-        # Update cumulative score for this player
+        # Calculate total score: count correct answers and multiply by 200
+        # This ensures we're using the Python logic: correct_answers * 200
         player_scores = game_state["technical_theory_scores"][player_id]
-        cumulative_score = sum(
-            s.get("score", 0) 
-            for s in player_scores.values() 
-            if isinstance(s, dict) and "score" in s
+        correct_count = sum(
+            1 for s in player_scores.values()
+            if isinstance(s, dict) and s.get("is_correct", False)
         )
+        cumulative_score = correct_count * 200
         game_state["technical_theory_scores"][player_id]["_total"] = cumulative_score
+        
+        print(f"[TECHNICAL_THEORY_SCORING] Player {player_id}: {correct_count} correct answers = {cumulative_score} points (correct_count * 200)")
         
         # Use flag_modified to ensure SQLAlchemy tracks the change
         from sqlalchemy.orm.attributes import flag_modified

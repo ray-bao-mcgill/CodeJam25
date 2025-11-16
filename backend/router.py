@@ -4,7 +4,7 @@ import json
 import asyncio
 import os
 from datetime import datetime
-from typing import Dict, Set, Optional
+from typing import Dict, Set, Optional, Any
 from sqlalchemy.orm import Session
 from lobby.manager import lobby_manager
 from database.game_state import (
@@ -63,6 +63,14 @@ ready_players_tracker: Dict[str, Dict[str, Set[str]]] = {}
 # Track players ready to continue to next phase (from score screen)
 # Structure: {lobby_id: {phase: set(player_ids)}}
 ready_to_continue_tracker: Dict[str, Dict[str, Set[str]]] = {}
+
+# Track if scores are being calculated for a phase (prevent duplicate calculations)
+# Structure: {lobby_id: {phase: bool}}
+scores_calculating: Dict[str, Dict[str, bool]] = {}
+
+# Track scores that have been calculated and are ready to broadcast
+# Structure: {lobby_id: {phase: {scores, phase_scores, previous_scores, timestamp}}}
+calculated_scores_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
 # Track players who confirmed skip for behavioural questions
 # Structure: {lobby_id: {phase: set(player_ids)}}
@@ -556,7 +564,7 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
     lobby_id = actual_lobby_id
     print(f"WebSocket accepted for lobby {lobby_id} (matched from '{lobby_id_stripped}')")
     
-    # Add connection to manager
+    # Add connection to manager (will check for duplicates internally)
     lobby_manager.add_connection(lobby_id, websocket)
     
     try:
@@ -1444,80 +1452,157 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                         
                         # If all players are ready, calculate and broadcast scores
                         if ready_count >= total_players and match_id:
-                            print(f"[SCORES] All players ready! Calculating scores for {phase}")
+                            # Initialize tracking structures
+                            if lobby_id not in scores_calculating:
+                                scores_calculating[lobby_id] = {}
+                            if lobby_id not in calculated_scores_cache:
+                                calculated_scores_cache[lobby_id] = {}
                             
-                            # Get player IDs
-                            player_ids = [p["id"] for p in lobby.players]
+                            # Check if scores are already being calculated or already calculated
+                            if scores_calculating[lobby_id].get(phase, False):
+                                print(f"[SCORES] Scores already being calculated for {phase}, waiting...")
+                                # Scores are being calculated, use cached result if available
+                                if phase in calculated_scores_cache[lobby_id]:
+                                    cached = calculated_scores_cache[lobby_id][phase]
+                                    print(f"[SCORES] Using cached scores for {phase}")
+                                    await lobby_manager.broadcast_game_message(
+                                        lobby_id,
+                                        {
+                                            "type": "scores_ready",
+                                            "phase": phase,
+                                            "scores": cached["scores"],
+                                            "phase_scores": cached["phase_scores"],
+                                            "previous_scores": cached["previous_scores"],
+                                            "serverTime": cached["timestamp"],
+                                            "synchronized": True
+                                        }
+                                    )
+                                return
                             
-                            # Check if scores for this phase already exist (prevent double calculation)
-                            phase_scores_key = f"{phase}_scores"
-                            db_session: Session = SessionLocal()
+                            # Check if scores already calculated and cached
+                            if phase in calculated_scores_cache[lobby_id]:
+                                cached = calculated_scores_cache[lobby_id][phase]
+                                print(f"[SCORES] Scores already calculated for {phase}, broadcasting cached scores")
+                                await lobby_manager.broadcast_game_message(
+                                    lobby_id,
+                                    {
+                                        "type": "scores_ready",
+                                        "phase": phase,
+                                        "scores": cached["scores"],
+                                        "phase_scores": cached["phase_scores"],
+                                        "previous_scores": cached["previous_scores"],
+                                        "serverTime": cached["timestamp"],
+                                        "synchronized": True
+                                    }
+                                )
+                                return
+                            
+                            # Mark as calculating to prevent duplicate calculations
+                            scores_calculating[lobby_id][phase] = True
+                            
                             try:
-                                match_record = db_session.query(OngoingMatch).filter(
-                                    OngoingMatch.match_id == match_id
-                                ).first()
+                                print(f"[SCORES] All players ready! Calculating scores for {phase}")
                                 
-                                if match_record and match_record.game_state:
-                                    game_state = match_record.game_state
-                                    if isinstance(game_state, dict) and phase_scores_key in game_state:
-                                        # Scores already calculated for this phase, use existing cumulative scores
-                                        scores = game_state.get("scores", {})
-                                        # Get previous scores from phase metadata if available
-                                        previous_scores = game_state.get("previous_scores", {})
-                                        if not isinstance(previous_scores, dict):
-                                            previous_scores = {}
-                                        print(f"[SCORES] Using existing cumulative scores for {phase}: {scores}")
+                                # Get player IDs
+                                player_ids = [p["id"] for p in lobby.players]
+                                
+                                # Check if scores for this phase already exist (prevent double calculation)
+                                phase_scores_key = f"{phase}_scores"
+                                db_session: Session = SessionLocal()
+                                try:
+                                    match_record = db_session.query(OngoingMatch).filter(
+                                        OngoingMatch.match_id == match_id
+                                    ).first()
+                                    
+                                    if match_record and match_record.game_state:
+                                        game_state = match_record.game_state
+                                        if isinstance(game_state, dict) and phase_scores_key in game_state:
+                                            # Scores already calculated for this phase, use existing cumulative scores
+                                            scores = game_state.get("scores", {})
+                                            # Get previous scores from phase metadata if available
+                                            previous_scores = game_state.get("previous_scores", {})
+                                            if not isinstance(previous_scores, dict):
+                                                previous_scores = {}
+                                            print(f"[SCORES] Using existing cumulative scores for {phase}: {scores}")
+                                        else:
+                                            # Calculate new scores (this uses database locking to prevent race conditions)
+                                            print(f"[SCORES] Calculating new scores for {phase}")
+                                            
+                                            # Calculate scores using standard scoring (or LLM judge for behavioural)
+                                            scores, previous_scores = await calculate_and_store_scores(match_id, phase, player_ids)
                                     else:
-                                        # Calculate new scores (this uses database locking to prevent race conditions)
-                                        print(f"[SCORES] Calculating new scores for {phase}")
-                                        
-                                        # Calculate scores using standard scoring (or LLM judge for behavioural)
+                                        # No game state yet, calculate scores
+                                        print(f"[SCORES] No game state found, calculating new scores for {phase}")
                                         scores, previous_scores = await calculate_and_store_scores(match_id, phase, player_ids)
-                                else:
-                                    # No game state yet, calculate scores
-                                    print(f"[SCORES] No game state found, calculating new scores for {phase}")
-                                    scores, previous_scores = await calculate_and_store_scores(match_id, phase, player_ids)
-                            finally:
-                                db_session.close()
-                            
-                            # Ensure all players have scores (even if 0)
-                            final_scores = {}
-                            final_previous_scores = {}
-                            for pid in player_ids:
-                                final_scores[pid] = scores.get(pid, 0)
-                                final_previous_scores[pid] = previous_scores.get(pid, 0) if isinstance(previous_scores, dict) else 0
-                            
-                            # Get phase-specific scores from database for round display
-                            phase_scores_for_round = {}
-                            db_phase = SessionLocal()
-                            try:
-                                match_record_phase = db_phase.query(OngoingMatch).filter(
-                                    OngoingMatch.match_id == match_id
-                                ).first()
-                                if match_record_phase and match_record_phase.game_state:
-                                    game_state_phase = match_record_phase.game_state
-                                    if isinstance(game_state_phase, dict):
-                                        phase_scores_data = game_state_phase.get(phase_scores_key, {})
-                                        if isinstance(phase_scores_data, dict):
-                                            for pid in player_ids:
-                                                phase_scores_for_round[pid] = phase_scores_data.get(pid, 0)
-                            finally:
-                                db_phase.close()
-                            
-                            # Broadcast scores to ALL players simultaneously with previous scores for animation
-                            # Include phase_scores for round-specific display
-                            await lobby_manager.broadcast_game_message(
-                                lobby_id,
-                                {
-                                    "type": "scores_ready",
-                                    "phase": phase,
-                                    "scores": final_scores,  # Cumulative scores
-                                    "phase_scores": phase_scores_for_round,  # Round-specific scores from DB
+                                finally:
+                                    db_session.close()
+                                
+                                # Ensure all players have scores (even if 0)
+                                final_scores = {}
+                                final_previous_scores = {}
+                                for pid in player_ids:
+                                    final_scores[pid] = scores.get(pid, 0) if isinstance(scores, dict) else 0
+                                    final_previous_scores[pid] = previous_scores.get(pid, 0) if isinstance(previous_scores, dict) else 0
+                                
+                                # Get phase-specific scores from database for round display
+                                phase_scores_for_round = {}
+                                db_phase = SessionLocal()
+                                try:
+                                    match_record_phase = db_phase.query(OngoingMatch).filter(
+                                        OngoingMatch.match_id == match_id
+                                    ).first()
+                                    if match_record_phase and match_record_phase.game_state:
+                                        game_state_phase = match_record_phase.game_state
+                                        if isinstance(game_state_phase, dict):
+                                            phase_scores_data = game_state_phase.get(phase_scores_key, {})
+                                            if isinstance(phase_scores_data, dict):
+                                                for pid in player_ids:
+                                                    phase_scores_for_round[pid] = phase_scores_data.get(pid, 0)
+                                finally:
+                                    db_phase.close()
+                                
+                                # Store in cache
+                                timestamp = datetime.utcnow().timestamp() * 1000
+                                calculated_scores_cache[lobby_id][phase] = {
+                                    "scores": final_scores,
+                                    "phase_scores": phase_scores_for_round,
                                     "previous_scores": final_previous_scores,
-                                    "serverTime": datetime.utcnow().timestamp() * 1000
+                                    "timestamp": timestamp
                                 }
-                            )
-                            print(f"[SCORES] Broadcast cumulative scores to all players: {final_scores}")
+                                
+                                # First, send a "prepare_for_scores" message to synchronize all clients
+                                print(f"[SCORES] Sending prepare_for_scores to synchronize all clients")
+                                await lobby_manager.broadcast_game_message(
+                                    lobby_id,
+                                    {
+                                        "type": "prepare_for_scores",
+                                        "phase": phase,
+                                        "serverTime": timestamp
+                                    }
+                                )
+                                
+                                # Small delay to ensure all clients receive prepare message
+                                await asyncio.sleep(0.1)
+                                
+                                # Now broadcast scores to ALL players simultaneously
+                                # Include synchronized flag to indicate all clients should display together
+                                print(f"[SCORES] Broadcasting synchronized scores to all players")
+                                await lobby_manager.broadcast_game_message(
+                                    lobby_id,
+                                    {
+                                        "type": "scores_ready",
+                                        "phase": phase,
+                                        "scores": final_scores,  # Cumulative scores
+                                        "phase_scores": phase_scores_for_round,  # Round-specific scores from DB
+                                        "previous_scores": final_previous_scores,
+                                        "serverTime": timestamp,
+                                        "synchronized": True  # Flag indicating synchronized broadcast
+                                    }
+                                )
+                                print(f"[SCORES] Broadcast cumulative scores to all players: {final_scores}")
+                            finally:
+                                # Mark as no longer calculating
+                                scores_calculating[lobby_id][phase] = False
                 elif message.get("type") == "ready_to_continue":
                     # Player clicked continue button - track and check if all ready
                     player_id = message.get("player_id")
@@ -2242,6 +2327,48 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                             else:
                                                 print(f"[QUESTION] ✗ WARNING: Failed to store question {q_idx}")
                                         
+                                        # Initialize answer tracking for all players for all technical theory questions
+                                        # Track all questions even if not attempted (for stats later)
+                                        db.refresh(match_record)
+                                        game_state_for_count = match_record.game_state or {}
+                                        if not isinstance(game_state_for_count, dict):
+                                            game_state_for_count = {}
+                                        
+                                        # Initialize answer_tracking structure for technical_theory
+                                        if "answer_tracking" not in game_state_for_count:
+                                            game_state_for_count["answer_tracking"] = {}
+                                        if "technical_theory" not in game_state_for_count["answer_tracking"]:
+                                            game_state_for_count["answer_tracking"]["technical_theory"] = {}
+                                        
+                                        # Get all player IDs
+                                        player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
+                                        
+                                        # Initialize tracking for all players for all questions
+                                        for pid in player_ids:
+                                            if pid not in game_state_for_count["answer_tracking"]["technical_theory"]:
+                                                game_state_for_count["answer_tracking"]["technical_theory"][pid] = {}
+                                            
+                                            # Initialize all questions as not attempted
+                                            for q_idx in range(len(all_questions)):
+                                                q_idx_str = str(q_idx)
+                                                if q_idx_str not in game_state_for_count["answer_tracking"]["technical_theory"][pid]:
+                                                    game_state_for_count["answer_tracking"]["technical_theory"][pid][q_idx_str] = {
+                                                        "attempted": False,
+                                                        "answer": None,
+                                                        "answer_text": None,
+                                                        "correct_answer": all_questions[q_idx].get("correct_answer") if q_idx < len(all_questions) else None,
+                                                        "is_correct": None,
+                                                        "feedback": None
+                                                    }
+                                        
+                                        # Store updated game_state
+                                        import copy
+                                        from sqlalchemy.orm.attributes import flag_modified
+                                        match_record.game_state = copy.deepcopy(game_state_for_count)
+                                        flag_modified(match_record, "game_state")
+                                        db.commit()
+                                        print(f"[QUESTION] Initialized answer tracking for {len(player_ids)} players across {len(all_questions)} technical theory questions")
+                                        
                                         # Store question count in game_state for phase completion checks
                                         db.refresh(match_record)
                                         game_state_for_count = match_record.game_state or {}
@@ -2466,11 +2593,19 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                 break
     
     except WebSocketDisconnect:
-        print(f"WebSocket disconnected")
+        print(f"WebSocket disconnected normally for lobby {lobby_id}")
+    except Exception as e:
+        print(f"WebSocket error in lobby {lobby_id}: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
+        # Always remove connection on exit
         lobby_manager.remove_connection(lobby_id, websocket)
         # Broadcast updated state after disconnection
-        await lobby_manager.broadcast_lobby_update(lobby_id)
+        try:
+            await lobby_manager.broadcast_lobby_update(lobby_id)
+        except Exception as e:
+            print(f"Error broadcasting lobby update after disconnect: {e}")
 
 
 class CodeRunRequest(BaseModel):

@@ -44,6 +44,7 @@ export function useLobbyWebSocket({
     // If disabled or no lobbyId, close connection
     if (!enabled || !lobbyId) {
       if (wsRef.current && connectedLobbyIdRef.current) {
+        console.log(`[WS] Closing connection - disabled or no lobbyId`)
         isUserInitiatedCloseRef.current = true;
         wsRef.current.close(1000);
         wsRef.current = null;
@@ -59,16 +60,19 @@ export function useLobbyWebSocket({
       wsRef.current.readyState === WebSocket.OPEN &&
       connectedLobbyIdRef.current === lobbyId
     ) {
+      console.log(`[WS] Already connected to lobby ${lobbyId}, skipping reconnect`)
       return;
     }
 
     // If already connecting to this lobby, don't start another connection
     if (isConnectingRef.current && connectedLobbyIdRef.current === lobbyId) {
+      console.log(`[WS] Already connecting to lobby ${lobbyId}, skipping duplicate connection attempt`)
       return;
     }
 
     // Close existing connection if connecting to a different lobby
     if (wsRef.current && connectedLobbyIdRef.current && connectedLobbyIdRef.current !== lobbyId) {
+      console.log(`[WS] Closing existing connection to ${connectedLobbyIdRef.current} before connecting to ${lobbyId}`)
       const oldWs = wsRef.current;
       isUserInitiatedCloseRef.current = true;
       oldWs.close(1000);
@@ -79,12 +83,13 @@ export function useLobbyWebSocket({
 
     // Prevent duplicate connections
     if (isConnectingRef.current) {
+      console.log(`[WS] Connection already in progress, skipping`)
       return;
     }
 
     isConnectingRef.current = true;
     connectedLobbyIdRef.current = lobbyId;
-    console.log(`Connecting WebSocket to lobby ${lobbyId}`);
+    console.log(`[WS] Connecting WebSocket to lobby ${lobbyId}`);
 
     const ws: WebSocketWithInterval = new WebSocket(
       `${WS_URL}/ws/lobby/${lobbyId}`
@@ -92,7 +97,7 @@ export function useLobbyWebSocket({
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log("✓ WebSocket connected");
+      console.log(`[WS] ✓ WebSocket connected to lobby ${lobbyId}`);
       isConnectingRef.current = false;
       isUserInitiatedCloseRef.current = false;
       // Send ping every 20 seconds
@@ -145,7 +150,7 @@ export function useLobbyWebSocket({
     };
 
     ws.onclose = (event) => {
-      console.log("WebSocket closed", event.code);
+      console.log(`[WS] WebSocket closed for lobby ${lobbyId}, code: ${event.code}`);
       if (ws._pingInterval) {
         clearInterval(ws._pingInterval);
       }
@@ -162,18 +167,23 @@ export function useLobbyWebSocket({
       
       // Only clear if this was the current connection
       if (wsRef.current === ws) {
+        console.log(`[WS] Clearing connection ref for lobby ${lobbyId}`)
         wsRef.current = null;
         if (connectedLobbyIdRef.current === lobbyId) {
           connectedLobbyIdRef.current = null;
         }
+      } else {
+        console.log(`[WS] Connection closed but ref doesn't match (stale connection)`)
       }
     };
 
     // Cleanup on unmount or when lobbyId/enabled changes
     return () => {
+      console.log(`[WS] Cleanup effect running for lobby ${lobbyId}, ws state: ${ws.readyState}, ref matches: ${wsRef.current === ws}`)
       // Only cleanup if this is still the current connection AND it's for the same lobby
       // This prevents cleanup from running when React StrictMode causes double renders
       if (wsRef.current === ws && connectedLobbyIdRef.current === lobbyId) {
+        console.log(`[WS] Cleaning up connection to lobby ${lobbyId}`)
         if (ws._pingInterval) {
           clearInterval(ws._pingInterval);
         }
@@ -187,6 +197,8 @@ export function useLobbyWebSocket({
           connectedLobbyIdRef.current = null;
           isConnectingRef.current = false;
         }
+      } else {
+        console.log(`[WS] Skipping cleanup - connection ref doesn't match or wrong lobby`)
       }
     };
   }, [lobbyId, enabled]); // Only depend on lobbyId and enabled, not callbacks

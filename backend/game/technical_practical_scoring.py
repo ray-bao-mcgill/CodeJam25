@@ -154,6 +154,35 @@ async def score_technical_practical_submission(
             print(f"  Text Reasoning: {text_result.reasoning}")
         print(f"  Total score: {total_score}")
         
+        # Track answer with feedback in game_state
+        # Initialize answer_tracking structure
+        if "answer_tracking" not in game_state:
+            game_state["answer_tracking"] = {}
+        if "technical_practical" not in game_state["answer_tracking"]:
+            game_state["answer_tracking"]["technical_practical"] = {}
+        if player_id not in game_state["answer_tracking"]["technical_practical"]:
+            game_state["answer_tracking"]["technical_practical"][player_id] = {}
+        
+        # Combine feedback from IDE and text
+        feedback_parts = []
+        if ide_result and ide_result.reasoning:
+            feedback_parts.append(f"IDE: {ide_result.reasoning}")
+        if text_result and text_result.reasoning:
+            feedback_parts.append(f"Text: {text_result.reasoning}")
+        combined_feedback = " | ".join(feedback_parts) if feedback_parts else None
+        
+        # Store answer with feedback
+        game_state["answer_tracking"]["technical_practical"][player_id][str(question_index)] = {
+            "ide_code": ide_code if ide_code else None,
+            "text_answer": text_answer if text_answer else None,
+            "score": total_score,
+            "feedback": combined_feedback,
+            "attempted": True,
+            "answered_at": datetime.utcnow().isoformat(),
+            "ide_feedback": ide_result.reasoning if ide_result else None,
+            "text_feedback": text_result.reasoning if text_result else None
+        }
+        
         # Store score incrementally in game_state
         if "technical_practical_scores" not in game_state:
             game_state["technical_practical_scores"] = {}
