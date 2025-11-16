@@ -17,6 +17,7 @@ import TechnicalTheory from "./pages/game-phase/technical/TechnicalTheory";
 import TechnicalPractical from "./pages/game-phase/technical/TechnicalPractical";
 import RapidFireQuiz from "./pages/game-phase/RapidFireQuiz";
 import Winner from "./pages/game-phase/Winner";
+import Podium from "./pages/game-phase/Podium";
 import WinLose from "./pages/WinLose";
 import Analytics from "./pages/Analytics";
 import DevTools from "./pages/DevTools";
@@ -47,6 +48,7 @@ const App: React.FC = () => {
         <Route path="/technical-practical" element={<TechnicalPractical />} />
         <Route path="/rapid-fire-quiz" element={<RapidFireQuiz />} />
         <Route path="/winner" element={<Winner />} />
+        <Route path="/podium" element={<Podium />} />
         <Route path="/win-lose" element={<WinLose />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/dev" element={<DevTools />} />

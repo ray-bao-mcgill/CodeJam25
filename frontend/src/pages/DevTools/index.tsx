@@ -14,10 +14,16 @@ const DevTools: React.FC = () => {
     { to: "/round-start-counter/technical-practical", label: "Round Start (Practical)", description: "Countdown before practical round" },
     { to: "/behavioural-question", label: "Behavioural Question", description: "Initial behavioural interview question" },
     { to: "/behavioural-answer", label: "Behavioural Answer", description: "Follow-up behavioural question" },
-    { to: "/quickfire-round", label: "Quick Fire Round", description: "10 rapid-fire multiple choice questions" },
+    { to: "/technical-theory", label: "⚡ Technical Theory (Rapid Fire)", description: "10 rapid-fire multiple choice questions" },
     { to: "/technical-practical", label: "Technical Practical", description: "Practical coding question" },
     { to: "/current-score", label: "Current Score", description: "View current round scores" },
-    { to: "/win-lose", label: "Win/Lose", description: "Final game result screen" },
+  ];
+
+  const resultScreens = [
+    { to: "/winner?score=3500&rank=1", label: "🎉 Winner - HIRED", description: "1st place result (hired)" },
+    { to: "/winner?score=1500&rank=2", label: "💔 Winner - FIRED", description: "2nd place result (fired)" },
+    { to: "/podium?score=3500&rank=1", label: "🏆 Podium", description: "Final rankings leaderboard" },
+    { to: "/win-lose", label: "Win/Lose (Legacy)", description: "Old final game result screen" },
   ];
 
   return (
@@ -31,7 +37,7 @@ const DevTools: React.FC = () => {
             Quick access to development pages and admin tools
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="border-2 border-purple-200 rounded-lg p-6 hover:border-purple-400 transition-colors">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">
                 Quick Links
@@ -52,7 +58,7 @@ const DevTools: React.FC = () => {
 
             <div className="border-2 border-green-200 rounded-lg p-6 hover:border-green-400 transition-colors">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                Question Sections
+                Game Phases
               </h2>
               <div className="space-y-3">
                 {questionSections.map((section) => (
@@ -63,6 +69,24 @@ const DevTools: React.FC = () => {
                   >
                     <div className="font-medium text-green-900">{section.label}</div>
                     <div className="text-sm text-green-700 mt-1">{section.description}</div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-2 border-orange-200 rounded-lg p-6 hover:border-orange-400 transition-colors">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">
+                Result Screens
+              </h2>
+              <div className="space-y-3">
+                {resultScreens.map((screen) => (
+                  <Link
+                    key={screen.to}
+                    to={screen.to}
+                    className="block p-4 bg-orange-50 hover:bg-orange-100 rounded-md transition-colors border border-orange-200"
+                  >
+                    <div className="font-medium text-orange-900">{screen.label}</div>
+                    <div className="text-sm text-orange-700 mt-1">{screen.description}</div>
                   </Link>
                 ))}
               </div>
