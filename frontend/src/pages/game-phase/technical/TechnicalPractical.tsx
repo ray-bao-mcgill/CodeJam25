@@ -135,7 +135,10 @@ const TechnicalPractical: React.FC = () => {
   
   // Drawing color state
   const [selectedColor, setSelectedColor] = useState(DRAWING_COLORS[0]); // Default to black
+  const [isEraserMode, setIsEraserMode] = useState(false);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
+  const cursorOverlayRef = useRef<HTMLCanvasElement | null>(null);
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
   
   // Get question text
   const question = gameState?.question || 'Outline a production ML architecture including data ingestion, training, inference, and monitoring, with example configs.';
@@ -281,7 +284,7 @@ const TechnicalPractical: React.FC = () => {
   }
   // -- END sidebar logic --
 
-  // Draw tab logic with color support
+  // Draw tab logic with color support and eraser
   useEffect(() => {
     if (activeTab !== TAB_DRAW) return;
     const canvas = canvasRef.current;
@@ -290,12 +293,13 @@ const TechnicalPractical: React.FC = () => {
     if (!ctx) return;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = selectedColor;
+    ctx.lineWidth = isEraserMode ? 30 : 3; // Larger eraser for better usability
+    
     let mouseDownListener: (e: MouseEvent) => void;
     let mouseMoveListener: (e: MouseEvent) => void;
     let mouseUpListener: (e: MouseEvent) => void;
     let mouseLeaveListener: (e: MouseEvent) => void;
+    
     mouseDownListener = (e) => {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
@@ -306,6 +310,7 @@ const TechnicalPractical: React.FC = () => {
       };
       drawing.current = true;
     };
+    
     mouseMoveListener = (e) => {
       if (!drawing.current) return;
       const rect = canvas.getBoundingClientRect();
@@ -313,8 +318,17 @@ const TechnicalPractical: React.FC = () => {
       const scaleY = canvas.height / rect.height;
       const x = (e.clientX - rect.left) * scaleX;
       const y = (e.clientY - rect.top) * scaleY;
+      
       if (lastPoint.current && ctx) {
-        ctx.strokeStyle = selectedColor; // Update color on each stroke
+        if (isEraserMode) {
+          // Eraser mode: use destination-out to erase
+          ctx.globalCompositeOperation = 'destination-out';
+        } else {
+          // Drawing mode: use normal composite operation
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = selectedColor;
+        }
+        
         ctx.beginPath();
         ctx.moveTo(lastPoint.current.x, lastPoint.current.y);
         ctx.lineTo(x, y);
@@ -322,25 +336,122 @@ const TechnicalPractical: React.FC = () => {
         lastPoint.current = { x, y };
       }
     };
+    
     mouseUpListener = () => {
       drawing.current = false;
       lastPoint.current = null;
+      // Reset composite operation after drawing
+      if (ctx) {
+        ctx.globalCompositeOperation = 'source-over';
+      }
     };
+    
     mouseLeaveListener = () => {
       drawing.current = false;
       lastPoint.current = null;
+      // Reset composite operation after drawing
+      if (ctx) {
+        ctx.globalCompositeOperation = 'source-over';
+      }
     };
+    
     canvas.addEventListener('mousedown', mouseDownListener);
     canvas.addEventListener('mousemove', mouseMoveListener);
     window.addEventListener('mouseup', mouseUpListener);
     canvas.addEventListener('mouseleave', mouseLeaveListener);
+    
     return () => {
       canvas.removeEventListener('mousedown', mouseDownListener);
       canvas.removeEventListener('mousemove', mouseMoveListener);
       window.removeEventListener('mouseup', mouseUpListener);
       canvas.removeEventListener('mouseleave', mouseLeaveListener);
     };
-  }, [activeTab, selectedColor]);
+  }, [activeTab, selectedColor, isEraserMode]);
+  
+  // Function to clear the canvas
+  const handleClearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+  
+  // Eraser cursor overlay effect
+  useEffect(() => {
+    if (activeTab !== TAB_DRAW || !isEraserMode) {
+      setMousePosition(null);
+      const overlay = cursorOverlayRef.current;
+      if (overlay) {
+        const ctx = overlay.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, overlay.width, overlay.height);
+        }
+      }
+      return;
+    }
+    
+    const canvas = canvasRef.current;
+    const overlay = cursorOverlayRef.current;
+    const container = canvasContainerRef.current;
+    if (!canvas || !overlay || !container) return;
+    
+    // Set overlay size to match container
+    const updateOverlaySize = () => {
+      const rect = container.getBoundingClientRect();
+      overlay.width = rect.width;
+      overlay.height = rect.height;
+    };
+    updateOverlaySize();
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      const containerRect = container.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      
+      // Calculate position relative to the canvas (accounting for scaling)
+      const x = e.clientX - canvasRect.left;
+      const y = e.clientY - canvasRect.top;
+      
+      setMousePosition({ x, y });
+      
+      // Draw cursor circle - radius matches eraser size (30px = 15px radius)
+      // Scale the radius based on canvas scaling
+      const scaleX = canvasRect.width / canvas.width;
+      const scaleY = canvasRect.height / canvas.height;
+      const scale = Math.min(scaleX, scaleY);
+      const radius = 15 * scale; // 15px radius scaled
+      
+      const ctx = overlay.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    };
+    
+    const handleMouseLeave = () => {
+      setMousePosition(null);
+      const ctx = overlay.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+      }
+    };
+    
+    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('mouseleave', handleMouseLeave);
+    window.addEventListener('resize', updateOverlaySize);
+    
+    return () => {
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseleave', handleMouseLeave);
+      window.removeEventListener('resize', updateOverlaySize);
+    };
+  }, [activeTab, isEraserMode]);
   
   // Initialize canvas size
   useEffect(() => {
@@ -1036,43 +1147,114 @@ const TechnicalPractical: React.FC = () => {
               }}
             >
               <div style={{flex:1, minWidth:0, width:'auto', display:'flex', flexDirection:'column', minHeight:0, padding: '1rem'}}>
-                {/* Color Picker */}
-                <div style={{ flexShrink: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <label className="block font-bold text-gray-700" style={{ fontSize: '1rem' }}>Colour:</label>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {DRAWING_COLORS.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setSelectedColor(color)}
-                        style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '50%',
-                          backgroundColor: color,
-                          border: selectedColor === color ? '3px solid #222' : '2px solid #ccc',
-                          cursor: 'pointer',
-                          boxShadow: selectedColor === color ? '0 2px 8px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.2)',
-                          transition: 'all 0.2s',
-                          padding: 0,
-                          outline: 'none'
-                        }}
-                        onMouseEnter={(e) => {
-                          if (selectedColor !== color) {
-                            e.currentTarget.style.transform = 'scale(1.1)';
-                            e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.25)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (selectedColor !== color) {
-                            e.currentTarget.style.transform = 'scale(1)';
-                            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
-                          }
-                        }}
-                        aria-label={`Select colour ${color}`}
-                      />
-                    ))}
+                {/* Toolbar: Color Picker, Eraser, and Clear */}
+                <div style={{ flexShrink: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  {/* Color Picker */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <label className="block font-bold text-gray-700" style={{ fontSize: '1rem' }}>Colour:</label>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {DRAWING_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => {
+                            setSelectedColor(color);
+                            setIsEraserMode(false); // Disable eraser when selecting a color
+                          }}
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            backgroundColor: color,
+                            border: (selectedColor === color && !isEraserMode) ? '3px solid #222' : '2px solid #ccc',
+                            cursor: 'pointer',
+                            boxShadow: (selectedColor === color && !isEraserMode) ? '0 2px 8px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.2)',
+                            transition: 'all 0.2s',
+                            padding: 0,
+                            outline: 'none',
+                            opacity: isEraserMode ? 0.5 : 1
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isEraserMode && selectedColor !== color) {
+                              e.currentTarget.style.transform = 'scale(1.1)';
+                              e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.25)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isEraserMode && selectedColor !== color) {
+                              e.currentTarget.style.transform = 'scale(1)';
+                              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
+                            }
+                          }}
+                          aria-label={`Select colour ${color}`}
+                        />
+                      ))}
+                    </div>
                   </div>
+                  
+                  {/* Eraser Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsEraserMode(!isEraserMode)}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.95rem',
+                      fontWeight: 700,
+                      background: isEraserMode ? '#ffe838' : '#f5f5f5',
+                      color: isEraserMode ? '#222' : '#666',
+                      border: isEraserMode ? '3px solid #222' : '2px solid #ccc',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      boxShadow: isEraserMode ? '0 2px 8px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.1)',
+                      transition: 'all 0.2s',
+                      outline: 'none'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isEraserMode) {
+                        e.currentTarget.style.background = '#e8e8e8';
+                        e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isEraserMode) {
+                        e.currentTarget.style.background = '#f5f5f5';
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                      }
+                    }}
+                    aria-label="Toggle eraser"
+                  >
+                    Eraser
+                  </button>
+                  
+                  {/* Clear Button */}
+                  <button
+                    type="button"
+                    onClick={handleClearCanvas}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.95rem',
+                      fontWeight: 700,
+                      background: '#fff',
+                      color: '#cc3300',
+                      border: '2px solid #cc3300',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                      transition: 'all 0.2s',
+                      outline: 'none'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#ffe8e8';
+                      e.currentTarget.style.boxShadow = '0 2px 6px rgba(204,51,0,0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#fff';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                    }}
+                    aria-label="Clear drawing"
+                  >
+                    🗑️ Clear
+                  </button>
                 </div>
                 
                 {/* Canvas Container */}
@@ -1085,7 +1267,8 @@ const TechnicalPractical: React.FC = () => {
                     justifyContent: 'center',
                     alignItems: 'center',
                     overflow: 'hidden',
-                    width: '100%'
+                    width: '100%',
+                    position: 'relative'
                   }}
                 >
                   <canvas
@@ -1102,9 +1285,25 @@ const TechnicalPractical: React.FC = () => {
                       maxHeight: '100%',
                       width: '100%',
                       height: '100%',
-                      objectFit: 'contain'
+                      objectFit: 'contain',
+                      cursor: isEraserMode ? 'none' : 'crosshair'
                     }}
                   />
+                  {/* Eraser cursor overlay */}
+                  {isEraserMode && (
+                    <canvas
+                      ref={cursorOverlayRef}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        pointerEvents: 'none',
+                        zIndex: 10
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             </div>
