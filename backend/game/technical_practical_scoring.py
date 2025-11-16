@@ -152,7 +152,9 @@ async def score_technical_practical_submission(
         if text_result:
             print(f"  Text: completeness={text_result.completeness}, clarity={text_result.clarity}, correctness={text_result.correctness}")
             print(f"  Text Reasoning: {text_result.reasoning}")
-        print(f"  Total score: {total_score}")
+        print(f"[TECHNICAL_PRACTICAL_SCORING] JUDGE RETURNED total_score: {total_score} (type: {type(total_score)})")
+        print(f"[TECHNICAL_PRACTICAL_SCORING] Full result dict keys: {list(result.keys())}")
+        print(f"[TECHNICAL_PRACTICAL_SCORING] Full result dict: {result}")
         
         # Track answer with feedback in game_state
         # Initialize answer_tracking structure
@@ -219,8 +221,25 @@ async def score_technical_practical_submission(
                 "reasoning": text_result.reasoning
             }
         
+        print(f"[TECHNICAL_PRACTICAL_SCORING] DEBUG: About to store score_record with score={total_score} (type: {type(total_score)})")
+        print(f"[TECHNICAL_PRACTICAL_SCORING] DEBUG: score_record = {score_record}")
         game_state["technical_practical_scores"][player_id][str(question_index)] = score_record
-        game_state["technical_practical_scores"][player_id]["_total"] = total_score
+        
+        # Calculate cumulative total from all individual scores (don't just overwrite with current score!)
+        cumulative_total = 0
+        print(f"[TECHNICAL_PRACTICAL_SCORING] DEBUG: Calculating cumulative total from player_scores:")
+        for key, score_data in game_state["technical_practical_scores"][player_id].items():
+            if key == "_total":
+                continue  # Skip _total key itself
+            print(f"[TECHNICAL_PRACTICAL_SCORING] DEBUG:   Key '{key}': {score_data}")
+            if isinstance(score_data, dict) and "score" in score_data:
+                score_value = score_data.get("score", 0)
+                print(f"[TECHNICAL_PRACTICAL_SCORING] DEBUG:     Found score={score_value} (type: {type(score_value)})")
+                if isinstance(score_value, (int, float)):
+                    cumulative_total += int(score_value)
+                    print(f"[TECHNICAL_PRACTICAL_SCORING] DEBUG:     Added to cumulative_total, now = {cumulative_total}")
+        
+        game_state["technical_practical_scores"][player_id]["_total"] = cumulative_total
         
         # Use flag_modified to ensure SQLAlchemy tracks the change
         from sqlalchemy.orm.attributes import flag_modified
@@ -228,7 +247,14 @@ async def score_technical_practical_submission(
         flag_modified(match_record, "game_state")
         db.commit()
         
-        print(f"[TECHNICAL_PRACTICAL_SCORING] Stored score. Player {player_id} total: {total_score}")
+        print(f"[TECHNICAL_PRACTICAL_SCORING] Stored score Q{question_index}: {total_score} points. Player {player_id} cumulative total: {cumulative_total}")
+        print(f"[TECHNICAL_PRACTICAL_SCORING] DEBUG: After commit, verifying stored score...")
+        db.refresh(match_record)
+        verify_state = match_record.game_state or {}
+        verify_scores = verify_state.get("technical_practical_scores", {}).get(player_id, {})
+        verify_stored = verify_scores.get(str(question_index), {})
+        print(f"[TECHNICAL_PRACTICAL_SCORING] DEBUG: Verified stored score for Q{question_index}: {verify_stored.get('score')}")
+        print(f"[TECHNICAL_PRACTICAL_SCORING] DEBUG: Verified _total: {verify_scores.get('_total')}")
         
         return total_score
         

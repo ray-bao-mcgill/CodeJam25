@@ -1,4 +1,4 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, BackgroundTasks
 from pydantic import BaseModel
 import json
 import asyncio
@@ -83,6 +83,9 @@ round_start_completed_tracker: Dict[str, Dict[str, Set[str]]] = {}
 # Lock for question requests to prevent race conditions
 # Structure: {match_id: {phase: {question_index: asyncio.Lock}}}
 question_request_locks: Dict[str, Dict[str, Dict[int, asyncio.Lock]]] = {}
+
+# Default roles that have pre-seeded questions - don't need LLM generation
+DEFAULT_ROLES = {'frontend', 'backend', 'full stack', 'devops', 'mobile'}
 
 
 async def ensure_questions_for_role_level(role: str, level: str):
@@ -338,17 +341,9 @@ async def join_lobby(request: JoinLobbyRequest):
 
 
 @router.post("/api/lobby/{lobby_id}/start")
-async def start_game(lobby_id: str, request: StartGameRequest):
+async def start_game(lobby_id: str, request: StartGameRequest, background_tasks: BackgroundTasks):
     """Start the game - requires owner player_id"""
-    # Before starting, ensure we have questions for custom/generalized roles
-    lobby = lobby_manager.get_lobby(lobby_id)
-    if lobby:
-        final_match_type = request.match_type or lobby.match_type or "generalized"
-        final_role = request.role or lobby.role
-        final_level = request.level or lobby.level
-        if final_match_type == "generalized" and final_role and final_level:
-            await ensure_questions_for_role_level(final_role, final_level)
-
+    # Start the game immediately - don't wait for LLM generation
     success, message = lobby_manager.start_game(
         lobby_id, 
         request.player_id,
@@ -358,7 +353,27 @@ async def start_game(lobby_id: str, request: StartGameRequest):
         level=request.level,
         match_config=request.match_config
     )
+    
     if success:
+        # Generate questions in the background (non-blocking) only for custom roles
+        # Default roles (Frontend, Backend, Full Stack, DevOps, Mobile) have pre-seeded questions
+        lobby = lobby_manager.get_lobby(lobby_id)
+        if lobby:
+            final_match_type = request.match_type or lobby.match_type or "generalized"
+            final_role = request.role or lobby.role
+            final_level = request.level or lobby.level
+            if final_match_type == "generalized" and final_role and final_level:
+                # Normalize role to check if it's a default role
+                role_normalized = (final_role or "").lower().strip()
+                is_custom_role = role_normalized not in DEFAULT_ROLES
+                
+                if is_custom_role:
+                    # Only generate for custom roles - default roles already have questions
+                    background_tasks.add_task(ensure_questions_for_role_level, final_role, final_level)
+                    print(f"[START_GAME] Starting game immediately, generating questions in background for custom role='{final_role}', level='{final_level}'", flush=True)
+                else:
+                    print(f"[START_GAME] Starting game immediately, using pre-seeded questions for default role='{final_role}', level='{final_level}'", flush=True)
+        
         await lobby_manager.broadcast_lobby_update(lobby_id)
         return {"success": True, "message": message}
     return {"success": False, "message": message}
@@ -897,17 +912,71 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                 print(f"[SUBMIT] Technical practical completion status: {phase_complete} ({len(phase_state.player_submissions)}/{total_players} players)")
                                 
                                 if phase_complete:
-                                    print(f"[SUBMIT] Technical practical COMPLETE! All players submitted. Getting pre-calculated scores.")
+                                    print(f"[SUBMIT] Technical practical COMPLETE! All players submitted. Ensuring all scores are generated before broadcasting.")
                                     
                                     # Get pre-calculated scores (scored incrementally as submissions were submitted)
                                     try:
                                         from game.technical_practical_scoring import get_technical_practical_total_score
                                         player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
                                         scores = {}
-                                        for pid in player_ids:
-                                            score = await get_technical_practical_total_score(match_id, pid)
-                                            scores[pid] = score
-                                            print(f"[TECHNICAL_PRACTICAL] Player {pid} total score: {score}")
+                                        
+                                        # Ensure all scores are generated: Poll until all players have score records
+                                        # This handles race conditions when both players submit simultaneously
+                                        max_attempts = 10  # Maximum attempts (safety limit)
+                                        attempt = 0
+                                        
+                                        while attempt < max_attempts:
+                                            attempt += 1
+                                            all_scores_ready = True
+                                            scores = {}
+                                            
+                                            # Use fresh database session to see latest commits
+                                            db_scores = SessionLocal()
+                                            try:
+                                                match_record_scores = db_scores.query(OngoingMatch).filter(
+                                                    OngoingMatch.match_id == match_id
+                                                ).first()
+                                                
+                                                if not match_record_scores:
+                                                    print(f"[TECHNICAL_PRACTICAL] Match not found, retrying...")
+                                                    all_scores_ready = False
+                                                else:
+                                                    game_state_scores = match_record_scores.game_state or {}
+                                                    if not isinstance(game_state_scores, dict):
+                                                        print(f"[TECHNICAL_PRACTICAL] Invalid game_state, retrying...")
+                                                        all_scores_ready = False
+                                                    else:
+                                                        practical_scores = game_state_scores.get("technical_practical_scores", {})
+                                                        
+                                                        # Check each player has a score record
+                                                        for pid in player_ids:
+                                                            player_scores = practical_scores.get(pid, {})
+                                                            if not isinstance(player_scores, dict) or "_total" not in player_scores:
+                                                                all_scores_ready = False
+                                                                print(f"[TECHNICAL_PRACTICAL] Player {pid} score not ready yet (attempt {attempt})")
+                                                                break
+                                                            else:
+                                                                total_score = player_scores.get("_total", 0)
+                                                                scores[pid] = int(total_score) if isinstance(total_score, (int, float)) else 0
+                                                                print(f"[TECHNICAL_PRACTICAL] Player {pid} score ready: {scores[pid]}")
+                                            finally:
+                                                db_scores.close()
+                                            
+                                            if all_scores_ready:
+                                                print(f"[TECHNICAL_PRACTICAL] ✓ All scores generated and ready after {attempt} attempt(s)")
+                                                break
+                                            
+                                            # Wait briefly before retrying (only if not all scores ready)
+                                            if attempt < max_attempts:
+                                                await asyncio.sleep(0.2)  # Short poll interval
+                                        
+                                        if not all_scores_ready:
+                                            print(f"[TECHNICAL_PRACTICAL] WARNING: Not all scores ready after {max_attempts} attempts, using available scores")
+                                            # Fill in missing scores with 0
+                                            for pid in player_ids:
+                                                if pid not in scores:
+                                                    scores[pid] = 0
+                                                    print(f"[TECHNICAL_PRACTICAL] Using fallback score 0 for player {pid}")
                                         
                                         # Store scores in database for consistency
                                         final_scores, previous_scores = await calculate_and_store_scores(match_id, "technical_practical", player_ids)
@@ -1023,10 +1092,49 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                         print(f"[TECHNICAL_PRACTICAL] Error getting scores: {e}")
                                         import traceback
                                         traceback.print_exc()
-                                        # Fallback: use RNG scores
-                                        import random
+                                        
+                                        # Fallback: Try to get pre-calculated scores from database, or use 0
                                         player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
-                                        scores = {pid: random.randint(50, 100) for pid in player_ids}
+                                        scores = {}
+                                        phase_scores_for_round = {}
+                                        
+                                        # Try to read scores directly from database as last resort
+                                        db_fallback = SessionLocal()
+                                        try:
+                                            match_record_fallback = db_fallback.query(OngoingMatch).filter(
+                                                OngoingMatch.match_id == match_id
+                                            ).first()
+                                            if match_record_fallback and match_record_fallback.game_state:
+                                                game_state_fallback = match_record_fallback.game_state
+                                                if isinstance(game_state_fallback, dict):
+                                                    # Try to get technical_practical_scores
+                                                    practical_scores = game_state_fallback.get("technical_practical_scores", {})
+                                                    if isinstance(practical_scores, dict):
+                                                        for pid in player_ids:
+                                                            player_scores = practical_scores.get(pid, {})
+                                                            if isinstance(player_scores, dict):
+                                                                total = player_scores.get("_total", 0)
+                                                                scores[pid] = int(total) if isinstance(total, (int, float)) else 0
+                                                                phase_scores_for_round[pid] = int(total) if isinstance(total, (int, float)) else 0
+                                                    
+                                                    # If still no scores, try cumulative scores
+                                                    if not scores:
+                                                        cumulative_scores = game_state_fallback.get("scores", {})
+                                                        if isinstance(cumulative_scores, dict):
+                                                            for pid in player_ids:
+                                                                scores[pid] = int(cumulative_scores.get(pid, 0))
+                                        except Exception as fallback_error:
+                                            print(f"[TECHNICAL_PRACTICAL] Fallback score retrieval also failed: {fallback_error}")
+                                        finally:
+                                            db_fallback.close()
+                                        
+                                        # If we still don't have scores, use 0 (deterministic, not random)
+                                        for pid in player_ids:
+                                            if pid not in scores:
+                                                scores[pid] = 0
+                                                phase_scores_for_round[pid] = 0
+                                        
+                                        print(f"[TECHNICAL_PRACTICAL] Using fallback scores (0 or from database): {scores}")
                                         
                                         # Broadcast scores even on error
                                         await lobby_manager.broadcast_game_message(
@@ -1035,6 +1143,8 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                                 "type": "scores_ready",
                                                 "phase": "technical_practical",
                                                 "scores": scores,
+                                                "phase_scores": phase_scores_for_round,
+                                                "previous_scores": {},
                                                 "serverTime": datetime.utcnow().timestamp() * 1000
                                             }
                                         )
@@ -1603,6 +1713,164 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             finally:
                                 # Mark as no longer calculating
                                 scores_calculating[lobby_id][phase] = False
+                elif message.get("type") == "ready_for_scores":
+                    # Player is ready to receive scores - track readiness and send scores when all ready
+                    player_id = message.get("player_id")
+                    phase = message.get("phase", "unknown")
+                    print(f"[SCORES_READY] Player {player_id} ready for scores in lobby {lobby_id} (phase: {phase})")
+                    
+                    # Initialize tracking for this lobby/phase if needed
+                    if lobby_id not in ready_players_tracker:
+                        ready_players_tracker[lobby_id] = {}
+                    if phase not in ready_players_tracker[lobby_id]:
+                        ready_players_tracker[lobby_id][phase] = set()
+                    
+                    # Add player to ready set
+                    ready_players_tracker[lobby_id][phase].add(player_id)
+                    
+                    # Get lobby and check if all players are ready
+                    lobby = lobby_manager.get_lobby(lobby_id)
+                    if lobby:
+                        total_players = len(lobby.players)
+                        ready_count = len(ready_players_tracker[lobby_id][phase])
+                        
+                        print(f"[SCORES_READY] {ready_count}/{total_players} players ready for scores (phase: {phase})")
+                        
+                        # Broadcast player ready status to all connections
+                        await lobby_manager.broadcast_game_message(
+                            lobby_id,
+                            {
+                                "type": "player_ready_for_scores",
+                                "player_id": player_id,
+                                "ready_count": ready_count,
+                                "total_players": total_players,
+                                "phase": phase
+                            }
+                        )
+                        
+                        # If all players are ready, trigger score calculation and broadcast
+                        if ready_count >= total_players:
+                            print(f"[SCORES_READY] All players ready for scores (phase: {phase}), calculating and broadcasting...")
+                            
+                            # Get match_id for score calculation
+                            match_id = None
+                            if lobby.match:
+                                match_id = lobby.match.match_id
+                            else:
+                                match_record = get_match_by_lobby_id(lobby_id)
+                                if match_record:
+                                    match_id = match_record.match_id
+                            
+                            if match_id:
+                                # Check if we're already calculating scores for this phase
+                                if lobby_id not in scores_calculating:
+                                    scores_calculating[lobby_id] = {}
+                                if scores_calculating[lobby_id].get(phase, False):
+                                    print(f"[SCORES_READY] Scores already being calculated for {phase}, skipping")
+                                else:
+                                    scores_calculating[lobby_id][phase] = True
+                                    
+                                    try:
+                                        # Calculate scores for this phase
+                                        player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
+                                        
+                                        # Calculate phase scores
+                                        scores = await calculate_and_store_scores(match_id, phase, player_ids)
+                                        
+                                        # Get previous cumulative scores
+                                        db = SessionLocal()
+                                        try:
+                                            match_record = db.query(OngoingMatch).filter(
+                                                OngoingMatch.match_id == match_id
+                                            ).first()
+                                            previous_scores = {}
+                                            if match_record and match_record.game_state:
+                                                game_state = match_record.game_state
+                                                if isinstance(game_state, dict):
+                                                    cumulative_scores = game_state.get("cumulative_scores", {})
+                                                    if isinstance(cumulative_scores, dict):
+                                                        previous_scores = cumulative_scores
+                                        finally:
+                                            db.close()
+                                        
+                                        # Calculate final cumulative scores
+                                        final_scores = {}
+                                        final_previous_scores = {}
+                                        for pid in player_ids:
+                                            phase_score = scores.get(pid, 0)
+                                            prev_score = previous_scores.get(pid, 0) if isinstance(previous_scores, dict) else 0
+                                            final_scores[pid] = prev_score + phase_score
+                                            final_previous_scores[pid] = prev_score
+                                        
+                                        # Get phase-specific scores from database
+                                        phase_scores_for_round = {}
+                                        db_phase = SessionLocal()
+                                        try:
+                                            match_record_phase = db_phase.query(OngoingMatch).filter(
+                                                OngoingMatch.match_id == match_id
+                                            ).first()
+                                            if match_record_phase and match_record_phase.game_state:
+                                                game_state_phase = match_record_phase.game_state
+                                                if isinstance(game_state_phase, dict):
+                                                    phase_scores_key = f"{phase}_scores"
+                                                    phase_scores_data = game_state_phase.get(phase_scores_key, {})
+                                                    if isinstance(phase_scores_data, dict):
+                                                        for pid in player_ids:
+                                                            phase_scores_for_round[pid] = phase_scores_data.get(pid, 0)
+                                        finally:
+                                            db_phase.close()
+                                        
+                                        # Store in cache
+                                        timestamp = datetime.utcnow().timestamp() * 1000
+                                        if lobby_id not in calculated_scores_cache:
+                                            calculated_scores_cache[lobby_id] = {}
+                                        calculated_scores_cache[lobby_id][phase] = {
+                                            "scores": final_scores,
+                                            "phase_scores": phase_scores_for_round,
+                                            "previous_scores": final_previous_scores,
+                                            "timestamp": timestamp
+                                        }
+                                        
+                                        # Send prepare message first to synchronize all clients
+                                        print(f"[SCORES_READY] Sending prepare_for_scores to synchronize all clients")
+                                        await lobby_manager.broadcast_game_message(
+                                            lobby_id,
+                                            {
+                                                "type": "prepare_for_scores",
+                                                "phase": phase,
+                                                "serverTime": timestamp
+                                            }
+                                        )
+                                        
+                                        # Small delay to ensure all clients receive prepare message
+                                        await asyncio.sleep(0.1)
+                                        
+                                        # Broadcast synchronized scores to all players
+                                        print(f"[SCORES_READY] Broadcasting synchronized scores to all players")
+                                        await lobby_manager.broadcast_game_message(
+                                            lobby_id,
+                                            {
+                                                "type": "scores_ready",
+                                                "phase": phase,
+                                                "scores": final_scores,
+                                                "phase_scores": phase_scores_for_round,
+                                                "previous_scores": final_previous_scores,
+                                                "serverTime": timestamp,
+                                                "synchronized": True
+                                            }
+                                        )
+                                        
+                                        # Clear ready tracker for this phase after broadcasting
+                                        ready_players_tracker[lobby_id][phase] = set()
+                                        print(f"[SCORES_READY] Scores broadcast complete, cleared ready tracker for {phase}")
+                                    except Exception as e:
+                                        print(f"[SCORES_READY] Error calculating/broadcasting scores: {e}")
+                                        import traceback
+                                        traceback.print_exc()
+                                    finally:
+                                        scores_calculating[lobby_id][phase] = False
+                            else:
+                                print(f"[SCORES_READY] No match_id found for lobby {lobby_id}, cannot calculate scores")
                 elif message.get("type") == "ready_to_continue":
                     # Player clicked continue button - track and check if all ready
                     player_id = message.get("player_id")
@@ -1896,21 +2164,27 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                     cached_question = questions_cache_check.get(question_key_check)
                                     
                                     if cached_question:
-                                        # Question already selected and stored - send cached question
-                                        print(f"[QUESTION] Using cached question for {phase}_{question_index} (after lock)")
-                                        await lobby_manager.broadcast_game_message(
-                                            lobby_id,
-                                            {
-                                                "type": "question_received",
-                                                "phase": phase,
-                                                "question_index": question_index,
-                                                "question": cached_question.get("question"),
-                                                "question_id": cached_question.get("question_id"),
-                                                "role": cached_question.get("role"),
-                                                "level": cached_question.get("level")
-                                            }
-                                        )
-                                        continue
+                                        # For technical_theory, skip generic handler - let technical_theory handler process it
+                                        # This ensures technical_theory gets proper answer fields and broadcasts all questions
+                                        if phase == "technical_theory":
+                                            print(f"[QUESTION] Cached technical_theory question found, skipping generic handler to use technical_theory-specific handler")
+                                            # Don't continue here - let it fall through to technical_theory handler
+                                        else:
+                                            # Question already selected and stored - send cached question
+                                            print(f"[QUESTION] Using cached question for {phase}_{question_index} (after lock)")
+                                            await lobby_manager.broadcast_game_message(
+                                                lobby_id,
+                                                {
+                                                    "type": "question_received",
+                                                    "phase": phase,
+                                                    "question_index": question_index,
+                                                    "question": cached_question.get("question"),
+                                                    "question_id": cached_question.get("question_id"),
+                                                    "role": cached_question.get("role"),
+                                                    "level": cached_question.get("level")
+                                                }
+                                            )
+                                            continue
                                     
                                     # No cached question - proceed to select/generate
                                     print(f"[QUESTION] No cached question found, selecting/generating for {phase}_{question_index}")
@@ -2223,20 +2497,59 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                             cached_question = questions_cache_check.get(f"{phase}_{question_index}")
                                             if cached_question:
                                                 print(f"[QUESTION] Returning cached technical theory question {question_index}")
-                                                await lobby_manager.broadcast_game_message(
-                                                    lobby_id,
-                                                    {
-                                                        "type": "question_received",
-                                                        "phase": phase,
-                                                        "question_index": question_index,
-                                                        "question": cached_question.get("question"),
-                                                        "question_id": cached_question.get("question_id"),
-                                                        "correct_answer": cached_question.get("correct_answer"),
-                                                        "incorrect_answers": cached_question.get("incorrect_answers"),
-                                                        "role": cached_question.get("role"),
-                                                        "level": cached_question.get("level")
-                                                    }
-                                                )
+                                                
+                                                # If this is question_index 0, also broadcast all questions loaded
+                                                # This ensures late-joining clients get all questions at once
+                                                if question_index == 0:
+                                                    print(f"[QUESTION] Question index 0 requested with cached questions, broadcasting all {cached_count} questions")
+                                                    
+                                                    # Collect all cached questions
+                                                    broadcast_questions = []
+                                                    for i in range(cached_count):
+                                                        cached_q = questions_cache_check.get(f"{phase}_{i}")
+                                                        if cached_q:
+                                                            broadcast_questions.append({
+                                                                "question": cached_q.get("question"),
+                                                                "question_id": cached_q.get("question_id"),
+                                                                "correct_answer": cached_q.get("correct_answer"),
+                                                                "incorrect_answers": cached_q.get("incorrect_answers"),
+                                                                "question_index": cached_q.get("question_index", i),
+                                                                "role": cached_q.get("role"),
+                                                                "level": cached_q.get("level"),
+                                                                "shuffled_answers": cached_q.get("shuffled_answers"),
+                                                                "option_mapping": cached_q.get("option_mapping"),
+                                                                "correct_option_id": cached_q.get("correct_option_id")
+                                                            })
+                                                    
+                                                    # Broadcast all questions loaded message
+                                                    await lobby_manager.broadcast_game_message(
+                                                        lobby_id,
+                                                        {
+                                                            "type": "technical_theory_questions_loaded",
+                                                            "phase": phase,
+                                                            "question_count": cached_count,
+                                                            "questions": broadcast_questions
+                                                        }
+                                                    )
+                                                else:
+                                                    # For non-zero indices, just send the individual question
+                                                    await lobby_manager.broadcast_game_message(
+                                                        lobby_id,
+                                                        {
+                                                            "type": "question_received",
+                                                            "phase": phase,
+                                                            "question_index": question_index,
+                                                            "question": cached_question.get("question"),
+                                                            "question_id": cached_question.get("question_id"),
+                                                            "correct_answer": cached_question.get("correct_answer"),
+                                                            "incorrect_answers": cached_question.get("incorrect_answers"),
+                                                            "role": cached_question.get("role"),
+                                                            "level": cached_question.get("level"),
+                                                            "shuffled_answers": cached_question.get("shuffled_answers"),
+                                                            "option_mapping": cached_question.get("option_mapping"),
+                                                            "correct_option_id": cached_question.get("correct_option_id")
+                                                        }
+                                                    )
                                                 continue
                                             else:
                                                 print(f"[QUESTION] ERROR: Question {question_index} not found in cache")
@@ -2443,19 +2756,27 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                     if not question_data and match_type == "generalized":
                                         role = match_config.get("role")
                                         level = match_config.get("level")
-                                        print(f"[QUESTION] No question for role={role}, level={level} - attempting LLM-backed generation")
-                                        try:
-                                            await ensure_questions_for_role_level(role, level)
-                                            # Retry after generation
-                                            question_data = question_manager.get_question_for_phase(
-                                                match_type=match_type,
-                                                phase=phase,
-                                                match_config=match_config,
-                                                question_index=question_index,
-                                            )
-                                            print(f"[QUESTION] After LLM generation, question manager returned: {question_data is not None}")
-                                        except Exception as e:
-                                            print(f"[QUESTION] Error during ensure_questions_for_role_level: {e}")
+                                        # Only generate for custom roles - default roles should have questions
+                                        role_normalized = (role or "").lower().strip()
+                                        is_custom_role = role_normalized not in DEFAULT_ROLES
+                                        
+                                        if is_custom_role:
+                                            print(f"[QUESTION] No question for custom role={role}, level={level} - attempting LLM-backed generation")
+                                            try:
+                                                await ensure_questions_for_role_level(role, level)
+                                                # Retry after generation
+                                                question_data = question_manager.get_question_for_phase(
+                                                    match_type=match_type,
+                                                    phase=phase,
+                                                    match_config=match_config,
+                                                    question_index=question_index,
+                                                )
+                                                print(f"[QUESTION] After LLM generation, question manager returned: {question_data is not None}")
+                                            except Exception as e:
+                                                print(f"[QUESTION] Error during ensure_questions_for_role_level: {e}")
+                                        else:
+                                            # Default role missing questions - this shouldn't happen, but log a warning
+                                            print(f"[QUESTION] WARNING: Default role '{role}' missing questions for level={level}, phase={phase}. This should not happen - questions should be pre-seeded.")
 
                                         # Still no question? Fall back to a generic built-in role so the game doesn't hang.
                                         if not question_data:
@@ -2601,6 +2922,25 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
     finally:
         # Always remove connection on exit
         lobby_manager.remove_connection(lobby_id, websocket)
+        
+        # Clean up readiness trackers for disconnected player
+        # Get player_id from lobby if possible
+        lobby = lobby_manager.get_lobby(lobby_id)
+        if lobby:
+            # Find which player disconnected by checking connections
+            # Note: This is approximate - we clean up all phases for safety
+            if lobby_id in ready_players_tracker:
+                for phase in list(ready_players_tracker[lobby_id].keys()):
+                    # Reset tracker for this phase (players will re-send ready_for_scores on reconnect)
+                    ready_players_tracker[lobby_id][phase] = set()
+                    print(f"[CLEANUP] Cleared ready_players_tracker for lobby {lobby_id}, phase {phase}")
+            
+            if lobby_id in ready_to_continue_tracker:
+                for phase in list(ready_to_continue_tracker[lobby_id].keys()):
+                    # Reset tracker for this phase
+                    ready_to_continue_tracker[lobby_id][phase] = set()
+                    print(f"[CLEANUP] Cleared ready_to_continue_tracker for lobby {lobby_id}, phase {phase}")
+        
         # Broadcast updated state after disconnection
         try:
             await lobby_manager.broadcast_lobby_update(lobby_id)
