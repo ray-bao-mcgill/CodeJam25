@@ -5,6 +5,7 @@ import { useGameSync } from "@/hooks/useGameSync";
 import { useLobby } from "@/hooks/useLobby";
 import { useLobbyWebSocket } from "@/hooks/useLobbyWebSocket";
 import { API_URL } from "@/config";
+import VideoRecorder from "@/components/VideoRecorder";
 
 const ANSWER_SECONDS = 60;
 
@@ -296,55 +297,14 @@ const BehaviouralAnswer: React.FC = () => {
     }
 
     console.log("✅ [BEHAVIOURAL_A] Submitting answer text...");
-    console.log(`� [BEHAVIOURAL_A] Answer length: ${answer.length} characters`);
-    console.log(`� [BEHAVIOURAL_A] Answer preview: ${answer.substring(0, 100)}...`);
+    console.log(`📊 [BEHAVIOURAL_A] Answer length: ${answer.length} characters`);
+    console.log(`📊 [BEHAVIOURAL_A] Answer preview: ${answer.substring(0, 100)}...`);
 
     try {
-      // Create FormData with video file and metadata
-      const formData = new FormData();
+      // Video was already uploaded and transcribed in handleVideoRecorded
+      // The transcription text is stored in the answer state
       const questionId = questionIndex === 0 ? "behavioural_q0" : "behavioural_q1";
-      const videoFilename = `${playerId || 'unknown'}_${questionId}_${Date.now()}.webm`;
-      
-      // This old code should be deleted
-      // formData.append('video', videoBlob, videoFilename);
-      formData.append('player_id', playerId || 'unknown');
-      formData.append('question_id', questionId);
-      
-      console.log("\n" + "=".repeat(80));
-      console.log("📤 [BEHAVIOURAL_A] Uploading to /api/video/upload");
-      console.log("=".repeat(80));
-      console.log(`📄 Filename: ${videoFilename}`);
-      console.log(`👤 Player ID: ${playerId || 'unknown'}`);
-      console.log(`❓ Question ID: ${questionId}`);
-      console.log("=".repeat(80) + "\n");
-      
-      // Upload video to backend endpoint
-      const response = await fetch(`${API_URL}/api/video/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-      
-      const result = await response.json();
-      
-      console.log("\n" + "=".repeat(80));
-      console.log("✅ [BEHAVIOURAL_A] Server response received!");
-      console.log("=".repeat(80));
-      console.log(`� Success: ${result.success}`);
-      console.log(`� Message: ${result.message}`);
-      console.log(`� Video saved to: ${result.video_path || 'N/A'}`);
-      console.log(`📝 Transcription saved to: ${result.transcription_path || 'N/A'}`);
-      console.log(`📊 Transcription length: ${result.transcription_text?.length || 0} characters`);
-      console.log(`📊 Word count: ${result.word_count || 0}`);
-      console.log(`📄 Transcription preview: ${result.transcription_text?.substring(0, 100) || 'N/A'}...`);
-      console.log("=".repeat(80) + "\n");
-      
-      if (!result.success) {
-        console.error("❌ [BEHAVIOURAL_A] Upload failed:", result.message);
-        return;
-      }
-      
-      // Now submit the transcription text through the game flow
-      const transcriptionText = result.transcription_text || '';
+      const transcriptionText = answer.trim();
       
       if (questionIndex === 0) {
         // Submit Q0 answer
@@ -375,7 +335,7 @@ const BehaviouralAnswer: React.FC = () => {
       
     } catch (error) {
       console.error("\n" + "=".repeat(80));
-      console.error("❌ [BEHAVIOURAL_A] Error during video upload:");
+      console.error("❌ [BEHAVIOURAL_A] Error during answer submission:");
       console.error("=".repeat(80));
       console.error(error);
       console.error("=".repeat(80) + "\n");
