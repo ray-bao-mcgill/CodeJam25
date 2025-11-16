@@ -183,27 +183,49 @@ const TechnicalTheoryRound: React.FC = () => {
   const convertQuestionToFrontendFormat = (
     question: string,
     correctAnswer: string,
-    incorrectAnswers: string[]
+    incorrectAnswers: string[],
+    shuffledAnswers?: string[],
+    optionMapping?: Record<string, string>,
+    correctOptionId?: string
   ): TechnicalTheoryQuestion => {
-    // Combine correct and incorrect answers, then shuffle
-    const allAnswers = [correctAnswer, ...incorrectAnswers]
-    const shuffled = [...allAnswers].sort(() => Math.random() - 0.5)
+    const colors: Array<'red' | 'blue' | 'yellow' | 'green'> = ['red', 'blue', 'yellow', 'green']
+    
+    // Use backend's deterministic shuffle if available, otherwise fall back to random shuffle
+    let shuffled: string[]
+    let mapping: Record<string, string>
+    let correctId: string
+    
+    if (shuffledAnswers && optionMapping && correctOptionId) {
+      // Use backend's deterministic shuffle (same for all clients)
+      shuffled = shuffledAnswers
+      mapping = optionMapping
+      correctId = correctOptionId
+      console.log('[TECHNICAL_THEORY] Using backend deterministic shuffle and option mapping')
+    } else {
+      // Fallback: Combine correct and incorrect answers, then shuffle (non-deterministic)
+      console.warn('[TECHNICAL_THEORY] WARNING: Using fallback random shuffle (not deterministic!)')
+      const allAnswers = [correctAnswer, ...incorrectAnswers]
+      shuffled = [...allAnswers].sort(() => Math.random() - 0.5)
+      mapping = {}
+      for (let idx = 0; idx < shuffled.length; idx++) {
+        const optionId = String.fromCharCode(65 + idx) // A, B, C, D
+        mapping[optionId] = shuffled[idx]
+      }
+      // Find which option ID corresponds to the correct answer
+      correctId = Object.keys(mapping).find(key => mapping[key] === correctAnswer) || 'A'
+    }
     
     // Map to options with IDs A, B, C, D
-    const colors: Array<'red' | 'blue' | 'yellow' | 'green'> = ['red', 'blue', 'yellow', 'green']
     const options: MultipleChoiceOption[] = shuffled.map((answer, idx) => ({
       id: String.fromCharCode(65 + idx), // A, B, C, D
       label: answer,
       color: colors[idx]
     }))
     
-    // Find which option ID corresponds to the correct answer
-    const correctOptionId = options.find(opt => opt.label === correctAnswer)?.id || 'A'
-    
     return {
       question,
       options,
-      correctAnswer: correctOptionId
+      correctAnswer: correctId
     }
   }
   
@@ -233,7 +255,10 @@ const TechnicalTheoryRound: React.FC = () => {
           convertQuestionToFrontendFormat(
             q.question,
             q.correct_answer,
-            q.incorrect_answers || []
+            q.incorrect_answers || [],
+            q.shuffled_answers,  // Use backend's deterministic shuffle
+            q.option_mapping,     // Use backend's option mapping
+            q.correct_option_id   // Use backend's correct option ID
           )
         )
         setQuestions(convertedQuestions)
@@ -274,7 +299,10 @@ const TechnicalTheoryRound: React.FC = () => {
           const converted = convertQuestionToFrontendFormat(
             message.question,
             message.correct_answer,
-            message.incorrect_answers
+            message.incorrect_answers,
+            message.shuffled_answers,  // Use backend's deterministic shuffle if available
+            message.option_mapping,     // Use backend's option mapping if available
+            message.correct_option_id  // Use backend's correct option ID if available
           )
           // If we don't have all questions yet, add this one
           setQuestions(prev => {
