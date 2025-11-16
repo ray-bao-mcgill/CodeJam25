@@ -411,34 +411,36 @@ const TechnicalPractical: React.FC = () => {
       // If clicking the same color and highlight is active, turn it off
       if (isHighlightActive && highlightColor === color) {
         setIsHighlightActive(false);
-        // Remove highlight by setting transparent background
-        document.execCommand('backColor', false, 'transparent');
-        // Also try removing background color style directly
+        setHighlightColor('#FFFF00'); // Reset to default
+        
+        // Clear formatting state for future typing by inserting and clearing a temporary element
         const selection = window.getSelection();
         if (selection && selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
-          if (!selection.isCollapsed) {
-            // Remove background from selected text
-            const span = document.createElement('span');
-            span.style.backgroundColor = 'transparent';
-            try {
-              range.surroundContents(span);
-            } catch (e) {
-              // If that fails, try removing background styles from elements
-              const walker = document.createTreeWalker(
-                range.commonAncestorContainer,
-                NodeFilter.SHOW_ELEMENT,
-                null
-              );
-              let node;
-              while (node = walker.nextNode()) {
-                const elem = node as HTMLElement;
-                if (elem.style.backgroundColor) {
-                  elem.style.backgroundColor = 'transparent';
-                }
-              }
-            }
+          
+          // Insert a temporary text node at cursor position
+          const tempText = document.createTextNode('\u200B');
+          range.insertNode(tempText);
+          
+          // Select the temporary text node
+          const tempRange = document.createRange();
+          tempRange.selectNodeContents(tempText);
+          selection.removeAllRanges();
+          selection.addRange(tempRange);
+          
+          // Clear formatting on the selected text node to reset browser's formatting state
+          document.execCommand('removeFormat', false);
+          document.execCommand('backColor', false, 'transparent');
+          
+          // Move cursor to after the temp node and remove it
+          const finalRange = document.createRange();
+          if (tempText.parentNode) {
+            finalRange.setStartAfter(tempText);
+            finalRange.collapse(true);
+            tempText.parentNode.removeChild(tempText);
           }
+          selection.removeAllRanges();
+          selection.addRange(finalRange);
         }
       } else {
         // Turn on or change highlight color
