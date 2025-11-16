@@ -18,10 +18,13 @@ async def startup_event():
 
 # CORS for React frontend
 cors_origins = os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173,https://codejam25-production.up.railway.app").split(",")
+# In development, allow all origins
+if os.environ.get("ENVIRONMENT") != "production":
+    cors_origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_credentials=cors_origins != ["*"],  # Can't use credentials with wildcard
     allow_methods=["*"],
     allow_headers=["*"],
 )
