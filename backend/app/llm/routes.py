@@ -86,7 +86,14 @@ def _parse_technical_theory_questions(text: str, max_questions: int):
         line = line.strip()
         if not line:
             if current_q and current_q.get("question"):
-                questions.append(current_q)
+                current_q.setdefault("difficulty", 50)
+                ordered_q = {
+                    "question": current_q.get("question", ""),
+                    "difficulty": current_q.get("difficulty", 50),
+                    "correct": current_q.get("correct", ""),
+                    "incorrect": current_q.get("incorrect", []),
+                }
+                questions.append(ordered_q)
                 current_q = None
                 if len(questions) >= max_questions:
                     break
@@ -94,17 +101,43 @@ def _parse_technical_theory_questions(text: str, max_questions: int):
         
         if line.startswith("Q:"):
             if current_q and current_q.get("question"):
-                questions.append(current_q)
+                # Ensure a default difficulty if it wasn't parsed
+                current_q.setdefault("difficulty", 50)
+                ordered_q = {
+                    "question": current_q.get("question", ""),
+                    "difficulty": current_q.get("difficulty", 50),
+                    "correct": current_q.get("correct", ""),
+                    "incorrect": current_q.get("incorrect", []),
+                }
+                questions.append(ordered_q)
                 if len(questions) >= max_questions:
                     break
-            current_q = {"question": line[2:].strip(), "correct": "", "incorrect": []}
+            current_q = {
+                "question": line[2:].strip(),
+                "correct": "",
+                "incorrect": [],
+            }
+        elif line.startswith("Difficulty:") and current_q:
+            # Parse integer difficulty from 1–100; fall back to 50 on error
+            diff_str = line.split(":", 1)[1].strip()
+            try:
+                current_q["difficulty"] = int(diff_str)
+            except ValueError:
+                current_q["difficulty"] = 50
         elif line.startswith("Correct:") and current_q:
             current_q["correct"] = line[8:].strip()
         elif line.startswith("Incorrect:") and current_q:
             current_q["incorrect"].append(line[10:].strip())
     
     if current_q and current_q.get("question") and len(questions) < max_questions:
-        questions.append(current_q)
+        current_q.setdefault("difficulty", 50)
+        ordered_q = {
+            "question": current_q.get("question", ""),
+            "difficulty": current_q.get("difficulty", 50),
+            "correct": current_q.get("correct", ""),
+            "incorrect": current_q.get("incorrect", []),
+        }
+        questions.append(ordered_q)
     
     return questions[:max_questions]
 
