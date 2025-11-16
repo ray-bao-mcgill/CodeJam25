@@ -152,7 +152,7 @@ const TechnicalPractical: React.FC = () => {
           automaticLayout: true,
           minimap: { enabled: false },
           theme: "vs-dark",
-          fontSize: 14,
+          fontSize: 24,
           roundedSelection: true,
         });
         monacoEditorRef.current = editor;
@@ -701,9 +701,9 @@ const TechnicalPractical: React.FC = () => {
                 />
               </div>
               <div className={styles.outputSection}>
-                <div style={{fontWeight:600,letterSpacing:'.025em',fontSize:'0.96em',color:'#ffe838',marginBottom:2}}>Output</div>
-                <div style={{overflowX:'auto', wordBreak:'break-all'}}>{(outputLog.length > 0)?outputLog.join('\n'):'(No output yet)'}</div>
-                <button type="button" onClick={()=>setOutputLog([])} style={{position:'absolute',top:8,right:15,fontSize:'0.95em',background:'none',border:'none',color:'#ffe838',cursor:'pointer'}}>Clear Output</button>
+                <div style={{fontWeight:600,letterSpacing:'.025em',fontSize:'1.1em',color:'#ffe838',marginBottom:2}}>Output</div>
+                <div style={{overflowX:'auto', wordBreak:'break-all', fontSize:'1.05em'}}>{outputLog.length > 0 ? outputLog.join('\n') : ''}</div>
+                <button type="button" onClick={()=>setOutputLog([])} style={{position:'absolute',top:8,right:15,fontSize:'1.05em',background:'none',border:'none',color:'#ffe838',cursor:'pointer'}}>Clear Output</button>
               </div>
             </div>
           </div>

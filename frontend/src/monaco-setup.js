@@ -44,7 +44,7 @@
           automaticLayout: true,
           minimap: { enabled: false },
           theme: "vs-dark",
-          fontSize: 14,
+          fontSize: 18,
           roundedSelection: true,
         });
         container.__monacoInstance = editor;
