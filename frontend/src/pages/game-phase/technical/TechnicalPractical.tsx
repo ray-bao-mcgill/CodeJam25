@@ -597,11 +597,12 @@ const TechnicalPractical: React.FC = () => {
 
       {/* Split Panel Layout - Only for IDE tab */}
       {activeTab === TAB_IDE ? (
-        <div 
-          ref={splitContainerRef}
-          className={styles.splitContainer}
-          style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', width: '100%', height: '100%' }}
-        >
+        <div className={styles.tabpanel} style={{display:'flex', flexDirection:'row', width:'100%', flex: '1 1 auto', minHeight: 0, height: 'calc(100vh - 180px)'}}>
+          <div 
+            ref={splitContainerRef}
+            className={styles.splitContainer}
+            style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', width: '100%', height: '100%' }}
+          >
           {/* Left Panel - Question */}
           <div 
             className={styles.questionPanel}
@@ -931,6 +932,7 @@ const TechnicalPractical: React.FC = () => {
           </div>
             </div>
           </div>
+        </div>
         </div>
       ) : (
         <div className={styles.tabpanel} style={{display:'flex', flexDirection:'row', width:'100%', flex: '1 1 auto', minHeight: 0, height: 'calc(100vh - 180px)'}}>
