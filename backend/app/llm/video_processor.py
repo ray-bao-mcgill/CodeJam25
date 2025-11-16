@@ -120,7 +120,6 @@ class VideoProcessor:
                     os.remove(tmp_file_path)
         
         except Exception as e:
-            print(f"[VIDEO_PROCESSOR] Error transcribing video: {str(e)}")
             # Return error message as fallback
             return f"[Error transcribing video: {str(e)}]"
     
@@ -135,18 +134,11 @@ class VideoProcessor:
             Transcribed text
         """
         try:
-            print("\n" + "="*80)
-            print("🎤 VIDEO TRANSCRIPTION STARTING")
-            print("="*80)
-            print(f"📁 File: {audio_file_path}")
-            print(f"📊 File size: {os.path.getsize(audio_file_path)} bytes")
-            
             text = ""
             
             # Method 1: If you have an OpenAI client instance
             # Use the existing client to make the Whisper API call
             if hasattr(self.client, 'client') and self.client.client:
-                print("✓ Using existing OpenAI client")
                 # Assuming your OpenAI client wraps the official openai library
                 with open(audio_file_path, "rb") as audio_file:
                     transcription = self.client.client.audio.transcriptions.create(
@@ -160,7 +152,6 @@ class VideoProcessor:
             # Method 2: Direct OpenAI API call (fallback)
             # If the above doesn't work, you can import OpenAI directly
             else:
-                print("✓ Using direct OpenAI API call")
                 
                 # Initialize client with API key from environment
                 api_key = os.getenv("OPENAI_API_KEY")
@@ -180,19 +171,12 @@ class VideoProcessor:
                     )
                     text = transcription
             
-            print("\n" + "="*80)
-            print("📝 TRANSCRIBED TEXT (This will be fed to the LLM):")
-            print("="*80)
-            print(text)
-            print("="*80 + "\n")
-            
             # Save transcription to file for debugging
             self._save_transcription_to_file(text, audio_file_path)
             
             return text
         
         except Exception as e:
-            print(f"\n❌ [VIDEO_PROCESSOR] OpenAI transcription error: {str(e)}\n")
             import traceback
             traceback.print_exc()
             
@@ -241,10 +225,8 @@ class VideoProcessor:
                 f.write(f"Word count: {len(text.split())}\n")
                 f.write("="*80 + "\n")
             
-            print(f"💾 [VIDEO_PROCESSOR] Transcription saved to: {output_file}")
-            
         except Exception as e:
-            print(f"⚠️ [VIDEO_PROCESSOR] Failed to save transcription to file: {str(e)}")
+            pass
     
     def save_video_file(self, answer: str, output_dir: str, filename: str) -> Optional[str]:
         """
@@ -280,9 +262,7 @@ class VideoProcessor:
             with open(output_path, 'wb') as f:
                 f.write(video_bytes)
             
-            print(f"[VIDEO_PROCESSOR] Saved video to {output_path}")
             return output_path
         
         except Exception as e:
-            print(f"[VIDEO_PROCESSOR] Error saving video: {str(e)}")
             return None

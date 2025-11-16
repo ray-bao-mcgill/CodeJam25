@@ -3,12 +3,16 @@ import { Button } from '@/components/ui/button'
 
 interface VideoRecorderProps {
   onRecordingComplete: (videoBlob: Blob) => void
+  onRecordingStart?: () => void
+  onRecordingStop?: () => void
   maxDuration?: number // in seconds
   disabled?: boolean
 }
 
 const VideoRecorder: React.FC<VideoRecorderProps> = ({ 
   onRecordingComplete, 
+  onRecordingStart,
+  onRecordingStop,
   maxDuration = 60,
   disabled = false 
 }) => {
@@ -154,6 +158,11 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({
       setIsRecording(true)
       setRecordingTime(0)
       setError('')
+      
+      // Notify parent that recording started
+      if (onRecordingStart) {
+        onRecordingStart()
+      }
     } catch (err) {
       console.error('Error starting recording:', err)
       setError(`Unable to start recording: ${err instanceof Error ? err.message : 'Unknown error'}. Browser: ${navigator.userAgent}`)
@@ -180,6 +189,11 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({
       setIsRecording(false)
       setIsPaused(false)
       setIsPreview(true)
+      
+      // Notify parent that recording stopped
+      if (onRecordingStop) {
+        onRecordingStop()
+      }
     }
   }
 
@@ -314,18 +328,6 @@ const VideoRecorder: React.FC<VideoRecorderProps> = ({
               ■ STOP
             </Button>
           </>
-        )}
-
-        {hasRecording && isPreview && (
-          <Button
-            onClick={retake}
-            disabled={disabled}
-            className="game-sharp bg-[var(--game-orange)] px-8 py-6 text-xl font-black uppercase tracking-widest game-shadow-hard-lg hover:translate-y-[-4px] hover:rotate-[-2deg] hover:shadow-[12px_12px_0px_rgba(0,0,0,0.3)] hover:bg-[var(--game-yellow)] transition-all border-8 border-[var(--game-text-primary)] text-white"
-            style={{ fontFamily: 'Arial Black, sans-serif' }}
-            variant="ghost"
-          >
-            🔄 RETAKE
-          </Button>
         )}
       </div>
     </div>

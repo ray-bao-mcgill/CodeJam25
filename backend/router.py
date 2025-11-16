@@ -83,10 +83,7 @@ async def create_lobby():
     # Verify lobby was created and still exists
     lobby = lobby_manager.get_lobby(lobby_id)
     if not lobby:
-        print(f"ERROR: Lobby {lobby_id} was created but immediately disappeared!")
         return {"lobby_id": None, "message": "Failed to create lobby", "error": True}
-    print(f"Verified lobby creation: {lobby_id}, players: {len(lobby.players)}, connections: {len(lobby.connections)}")
-    print(f"All lobbies after create: {list(lobby_manager.lobbies.keys())}")
     return {"lobby_id": lobby_id, "message": "Lobby created"}
 
 
@@ -103,14 +100,6 @@ async def upload_video(
     # Load environment variables
     load_dotenv()
     
-    print(f"\n{'='*80}")
-    print(f"🎥 [VIDEO_UPLOAD] Received video upload")
-    print(f"{'='*80}")
-    print(f"📁 Filename: {video.filename}")
-    print(f"📦 Content-Type: {video.content_type}")
-    print(f"👤 Player ID: {player_id}")
-    print(f"❓ Question ID: {question_id}")
-    
     try:
         # Create directories
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -125,18 +114,14 @@ async def upload_video(
         video_filename = f"player{player_id[:8]}_q{question_id}_{timestamp}{file_extension}"
         video_path = os.path.join(videos_dir, video_filename)
         
-        print(f"💾 [VIDEO_UPLOAD] Saving video to: {video_path}")
-        
         # Save video file
         content = await video.read()
         with open(video_path, "wb") as f:
             f.write(content)
         
         file_size = os.path.getsize(video_path)
-        print(f"✅ [VIDEO_UPLOAD] Video saved! Size: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)")
         
         # Transcribe with OpenAI Whisper
-        print(f"\n🎤 [VIDEO_UPLOAD] Starting Whisper transcription...")
         
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
@@ -153,11 +138,6 @@ async def upload_video(
             )
         
         transcription_text = transcription if isinstance(transcription, str) else transcription.text
-        
-        print(f"✅ [VIDEO_UPLOAD] Transcription complete!")
-        print(f"📝 [VIDEO_UPLOAD] Transcribed text: {transcription_text[:100]}...")
-        print(f"📊 [VIDEO_UPLOAD] Character count: {len(transcription_text)}")
-        print(f"📊 [VIDEO_UPLOAD] Word count: {len(transcription_text.split())}")
         
         # Save transcription to file (just the text, no metadata)
         transcription_filename = f"transcription_{timestamp}_player{player_id[:8]}_q{question_id}.txt"
@@ -184,13 +164,8 @@ async def upload_video(
         }
             
     except Exception as e:
-        print(f"\n{'='*80}")
-        print(f"❌ [VIDEO_UPLOAD] Error:")
-        print(f"{'='*80}")
-        print(f"Error: {str(e)}")
         import traceback
         traceback.print_exc()
-        print(f"{'='*80}\n")
         
         return {
             "success": False,
