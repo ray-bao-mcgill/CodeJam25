@@ -23,7 +23,8 @@ const WinLose: React.FC = () => {
         const urlParams = new URLSearchParams(window.location.search)
         const urlScore = parseInt(urlParams.get('score') || '0')
         const urlRank = parseInt(urlParams.get('rank') || '1')
-        if (urlScore > 0 || urlRank > 0) {
+        // Always set score and rank from URL params if available (even if 0)
+        if (!isNaN(urlScore)) {
           console.log(`[WINLOSE] Using URL params: rank=${urlRank}, score=${urlScore}`)
           setTotalScore(urlScore)
           setRank(urlRank)
@@ -56,7 +57,8 @@ const WinLose: React.FC = () => {
       const urlParams = new URLSearchParams(window.location.search)
       const urlScore = parseInt(urlParams.get('score') || '0')
       const urlRank = parseInt(urlParams.get('rank') || '1')
-      if (urlScore > 0 || urlRank > 0) {
+      // Always set score and rank from URL params if available (even if 0)
+      if (!isNaN(urlScore)) {
         console.log(`[WINLOSE] Using URL params fallback: rank=${urlRank}, score=${urlScore}`)
         setTotalScore(urlScore)
         setRank(urlRank)
@@ -257,7 +259,7 @@ const WinLose: React.FC = () => {
               textTransform: 'uppercase'
             }}
           >
-            {totalScore || 3000}
+            {totalScore ?? 0}
           </div>
           <div className="game-label-text text-xl game-shadow-hard-sm inline-block">
             {isHired ? 'WELCOME TO THE TEAM!' : 'BETTER LUCK NEXT TIME'}

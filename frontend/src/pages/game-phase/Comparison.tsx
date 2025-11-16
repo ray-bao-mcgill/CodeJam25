@@ -1,26 +1,34 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLobby } from '@/hooks/useLobby'
 import { useLobbyWebSocket } from '@/hooks/useLobbyWebSocket'
 
+interface PlayerAnswer {
+  playerId: string
+  playerName: string
+  answer: string
+  score: number
+  feedback: string
+}
+
 interface QuestionComparison {
+  questionType: 'shared' | 'followup' | 'best_worst' | 'shared_final'
   question: string
   phase: string
   questionId: string
-  bestAnswer: {
-    playerId: string
-    playerName: string
-    answer: string
-    score: number
-    compliment: string
-  }
-  worstAnswer: {
-    playerId: string
-    playerName: string
-    answer: string
-    score: number
-    roast: string
-  }
+  // For shared questions (Q1, Q4)
+  leftAnswer?: PlayerAnswer
+  rightAnswer?: PlayerAnswer
+  // For follow-up questions (Q2)
+  leftFollowUp?: string
+  rightFollowUp?: string
+  // For best/worst (Q3)
+  wrongAnswer?: PlayerAnswer
+  bestAnswer?: PlayerAnswer  // Renamed from rightAnswer to avoid duplicate
+  wrongQuestion?: string  // Question for wrong answer side
+  rightQuestion?: string  // Question for right answer side
+  wrongQuip?: string
+  rightQuip?: string
 }
 
 const Comparison: React.FC = () => {
@@ -29,19 +37,29 @@ const Comparison: React.FC = () => {
   const [comparisons, setComparisons] = useState<QuestionComparison[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
-  const [showConfetti, setShowConfetti] = useState(false)
-  const [typingBest, setTypingBest] = useState(true)
-  const [typingWorst, setTypingWorst] = useState(false)
-  const [displayedBestText, setDisplayedBestText] = useState('')
-  const [displayedWorstText, setDisplayedWorstText] = useState('')
-  const [typingJudgeBest, setTypingJudgeBest] = useState(false)
-  const [typingJudgeWorst, setTypingJudgeWorst] = useState(false)
-  const [displayedJudgeBestText, setDisplayedJudgeBestText] = useState('')
-  const [displayedJudgeWorstText, setDisplayedJudgeWorstText] = useState('')
+  const [typingLeft, setTypingLeft] = useState(true)
+  const [typingRight, setTypingRight] = useState(false)
+  const [displayedLeftText, setDisplayedLeftText] = useState('')
+  const [displayedRightText, setDisplayedRightText] = useState('')
+  const [typingJudgeLeft, setTypingJudgeLeft] = useState(false)
+  const [typingJudgeRight, setTypingJudgeRight] = useState(false)
+  const [displayedJudgeLeftText, setDisplayedJudgeLeftText] = useState('')
+  const [displayedJudgeRightText, setDisplayedJudgeRightText] = useState('')
+  const [readyToContinueCount, setReadyToContinueCount] = useState(0)
   const hasLoadedRef = useRef(false)
+  const hasSentReadyRef = useRef(false)
+  const hasSentContinueRef = useRef(false)
+
+  // Navigate to podium - synchronized with other players
+  const navigateToPodium = useCallback(() => {
+    console.log('[COMPARISON] Navigating to podium')
+    setTimeout(() => {
+      navigate('/podium')
+    }, 500)
+  }, [navigate])
 
   // Set up WebSocket
-  useLobbyWebSocket({
+  const wsRef = useLobbyWebSocket({
     lobbyId: lobbyId || null,
     enabled: !!lobbyId,
     onLobbyUpdate: () => {},
@@ -54,6 +72,16 @@ const Comparison: React.FC = () => {
         setComparisons(message.comparisons)
         setIsLoading(false)
       }
+      
+      // Handle synchronization for navigating to podium
+      if (message.type === 'player_ready_to_continue_podium') {
+        setReadyToContinueCount(message.ready_count || 0)
+      }
+      
+      if (message.type === 'all_ready_to_continue_podium') {
+        // All players ready - navigate to podium
+        navigateToPodium()
+      }
     },
   })
 
@@ -65,80 +93,94 @@ const Comparison: React.FC = () => {
       // For now, using mock data
       setTimeout(() => {
         const mockComparisons: QuestionComparison[] = [
+          // Q1: Shared question
           {
+            questionType: 'shared',
             question: "Tell me about a time you faced a difficult challenge at work.",
             phase: "Behavioural",
-            questionId: "behavioural_q1",
-            bestAnswer: {
+            questionId: "behavioural_q0",
+            leftAnswer: {
               playerId: lobby?.players[0]?.id || "p1",
               playerName: lobby?.players[0]?.name || "Player 1",
-              answer: "I implemented a new system that improved efficiency by 40%. I started by analyzing the workflow, identified bottlenecks, and proposed automation solutions. The team was initially resistant, but I organized workshops to demonstrate the benefits. Within 3 months, we saw significant improvements in productivity.",
+              answer: "I implemented a new system that improved efficiency by 40%. I started by analyzing the workflow, identified bottlenecks, and proposed automation solutions.",
               score: 850,
-              compliment: "Outstanding communication and clear structure! Your answer demonstrated excellent problem-solving skills."
+              feedback: "Outstanding communication and clear structure! Your answer demonstrated excellent problem-solving skills."
             },
-            worstAnswer: {
+            rightAnswer: {
               playerId: lobby?.players[1]?.id || "p2",
               playerName: lobby?.players[1]?.name || "Player 2",
               answer: "I... uh... worked on something hard once...",
               score: 250,
-              roast: "A bit vague there! Next time, try adding specific details and concrete examples to make your answer shine."
+              feedback: "A bit vague there! Next time, try adding specific details and concrete examples to make your answer shine."
             }
           },
+          // Q2: Follow-up question
           {
-            question: "Describe a situation where you had to work with a difficult team member.",
+            questionType: 'followup',
+            question: "Follow-up Questions",
             phase: "Behavioural",
-            questionId: "behavioural_q2",
-            bestAnswer: {
+            questionId: "behavioural_q1",
+            leftFollowUp: "Can you tell me more about how you handled team resistance?",
+            rightFollowUp: "What specific challenge did you face?",
+            leftAnswer: {
               playerId: lobby?.players[0]?.id || "p1",
               playerName: lobby?.players[0]?.name || "Player 1",
-              answer: "I worked with a colleague who often missed deadlines. Instead of confronting them aggressively, I scheduled a one-on-one to understand their perspective. I discovered they were overwhelmed with tasks. We worked together to prioritize work and establish better communication channels, which improved our collaboration significantly.",
+              answer: "I organized workshops to demonstrate the benefits and addressed concerns one-on-one. This helped build trust and buy-in.",
               score: 820,
-              compliment: "Great empathy and problem-solving approach! You showed excellent interpersonal skills."
+              feedback: "Great follow-up! You showed excellent interpersonal skills and problem-solving."
             },
-            worstAnswer: {
+            rightAnswer: {
               playerId: lobby?.players[1]?.id || "p2",
               playerName: lobby?.players[1]?.name || "Player 2",
-              answer: "I just avoided them and did my own work.",
+              answer: "I just tried harder and it worked out.",
               score: 180,
-              roast: "That's not really teamwork! Consider discussing conflict resolution strategies next time."
+              feedback: "Consider providing more specific examples and details in your follow-up answers."
             }
           },
+          // Q3: Best/Worst answers
           {
-            question: "What is the difference between let, const, and var in JavaScript?",
+            questionType: 'best_worst',
+            question: "Best and Worst Answers",
             phase: "Technical Theory",
-            questionId: "technical_theory_q1",
-            bestAnswer: {
-              playerId: lobby?.players[1]?.id || "p2",
-              playerName: lobby?.players[1]?.name || "Player 2",
-              answer: "var has function scope and is hoisted, let and const have block scope. let allows reassignment while const doesn't. var can be redeclared, but let and const cannot. const must be initialized when declared.",
-              score: 900,
-              compliment: "Perfect explanation! You covered all the key differences clearly."
-            },
-            worstAnswer: {
+            questionId: "technical_theory_comparison",
+            wrongAnswer: {
               playerId: lobby?.players[0]?.id || "p1",
               playerName: lobby?.players[0]?.name || "Player 1",
               answer: "They're all the same, just different ways to declare variables.",
               score: 100,
-              roast: "Not quite! There are important differences in scope, hoisting, and mutability."
-            }
-          },
-          {
-            question: "Implement a function to reverse a string.",
-            phase: "Technical Practical",
-            questionId: "technical_practical_q1",
+              feedback: "Not quite! There are important differences."
+            },
             bestAnswer: {
               playerId: lobby?.players[1]?.id || "p2",
               playerName: lobby?.players[1]?.name || "Player 2",
-              answer: "function reverseString(str) { return str.split('').reverse().join(''); } This splits the string into an array of characters, reverses the array, and joins it back into a string.",
-              score: 880,
-              compliment: "Clean and efficient solution! Great use of built-in methods."
+              answer: "var has function scope and is hoisted, let and const have block scope. let allows reassignment while const doesn't.",
+              score: 900,
+              feedback: "Perfect explanation! You covered all the key differences clearly."
             },
-            worstAnswer: {
+            wrongQuestion: "What is the difference between let, const, and var in JavaScript?",
+            rightQuestion: "Explain the concept of closures in JavaScript.",
+            wrongQuip: "Oops! Looks like someone needs to brush up on JavaScript basics! 😅",
+            rightQuip: "Now that's what I call a textbook answer! 📚✨"
+          },
+          // Q4: Shared question (final)
+          {
+            questionType: 'shared_final',
+            question: "Implement a function to reverse a string.",
+            phase: "Technical Practical",
+            questionId: "technical_practical_q1",
+            leftAnswer: {
               playerId: lobby?.players[0]?.id || "p1",
               playerName: lobby?.players[0]?.name || "Player 1",
               answer: "I would use a for loop... but I'm not sure exactly how.",
               score: 220,
-              roast: "Good start with the approach, but you need to provide actual working code!"
+              feedback: "Good start with the approach, but you need to provide actual working code!"
+            },
+            rightAnswer: {
+              playerId: lobby?.players[1]?.id || "p2",
+              playerName: lobby?.players[1]?.name || "Player 2",
+              answer: "function reverseString(str) { return str.split('').reverse().join(''); }",
+              score: 880,
+              feedback: "Clean and efficient solution! Great use of built-in methods."
             }
           }
         ]
@@ -148,97 +190,145 @@ const Comparison: React.FC = () => {
     }
   }, [lobby])
 
+  // Typewriter effect for answers
   useEffect(() => {
     if (currentIndex < comparisons.length && comparisons[currentIndex]) {
       const current = comparisons[currentIndex]
       
       // Reset text
-      setDisplayedBestText('')
-      setDisplayedWorstText('')
-      setDisplayedJudgeBestText('')
-      setDisplayedJudgeWorstText('')
-      setTypingBest(true)
-      setTypingWorst(true)
-      setTypingJudgeBest(false)
-      setTypingJudgeWorst(false)
+      setDisplayedLeftText('')
+      setDisplayedRightText('')
+      setDisplayedJudgeLeftText('')
+      setDisplayedJudgeRightText('')
+      setTypingLeft(true)
+      setTypingRight(true)
+      setTypingJudgeLeft(false)
+      setTypingJudgeRight(false)
       
-      // Typewriter effect for best answer
-      let bestIndex = 0
-      const bestInterval = setInterval(() => {
-        if (bestIndex < current.bestAnswer.answer.length) {
-          setDisplayedBestText(current.bestAnswer.answer.slice(0, bestIndex + 1))
-          bestIndex++
-        } else {
-          clearInterval(bestInterval)
-          setTypingBest(false)
-        }
-      }, 30) // Speed of typing (30ms per character)
+      // Determine what to display based on question type
+      let leftAnswerText = ''
+      let rightAnswerText = ''
       
-      // Typewriter effect for worst answer (same timing)
-      let worstIndex = 0
-      const worstInterval = setInterval(() => {
-        if (worstIndex < current.worstAnswer.answer.length) {
-          setDisplayedWorstText(current.worstAnswer.answer.slice(0, worstIndex + 1))
-          worstIndex++
+      if (current.questionType === 'shared' || current.questionType === 'shared_final') {
+        leftAnswerText = current.leftAnswer?.answer || ''
+        rightAnswerText = current.rightAnswer?.answer || ''
+      } else if (current.questionType === 'followup') {
+        leftAnswerText = current.leftAnswer?.answer || ''
+        rightAnswerText = current.rightAnswer?.answer || ''
+      } else       if (current.questionType === 'best_worst') {
+        leftAnswerText = current.wrongAnswer?.answer || ''
+        rightAnswerText = current.bestAnswer?.answer || ''
+      }
+      
+      // Typewriter effect for left answer
+      let leftIndex = 0
+      const leftInterval = setInterval(() => {
+        if (leftIndex < leftAnswerText.length) {
+          setDisplayedLeftText(leftAnswerText.slice(0, leftIndex + 1))
+          leftIndex++
         } else {
-          clearInterval(worstInterval)
-          setTypingWorst(false)
+          clearInterval(leftInterval)
+          setTypingLeft(false)
         }
-      }, 30) // Speed of typing (30ms per character)
+      }, 30)
+      
+      // Typewriter effect for right answer
+      let rightIndex = 0
+      const rightInterval = setInterval(() => {
+        if (rightIndex < rightAnswerText.length) {
+          setDisplayedRightText(rightAnswerText.slice(0, rightIndex + 1))
+          rightIndex++
+        } else {
+          clearInterval(rightInterval)
+          setTypingRight(false)
+        }
+      }, 30)
       
       return () => {
-        clearInterval(bestInterval)
-        clearInterval(worstInterval)
+        clearInterval(leftInterval)
+        clearInterval(rightInterval)
       }
     }
   }, [currentIndex, comparisons])
 
   // Judge typewriter effect - starts after both answers finish
   useEffect(() => {
-    if (!typingBest && !typingWorst && currentIndex < comparisons.length && comparisons[currentIndex]) {
+    if (!typingLeft && !typingRight && currentIndex < comparisons.length && comparisons[currentIndex]) {
       const current = comparisons[currentIndex]
       
-      setTypingJudgeBest(true)
-      setTypingJudgeWorst(true)
+      setTypingJudgeLeft(true)
+      setTypingJudgeRight(true)
       
-      // Typewriter effect for judge best comment
-      let judgeBestIndex = 0
-      const judgeBestInterval = setInterval(() => {
-        if (judgeBestIndex < current.bestAnswer.compliment.length) {
-          setDisplayedJudgeBestText(current.bestAnswer.compliment.slice(0, judgeBestIndex + 1))
-          judgeBestIndex++
+      // Determine feedback/quip text
+      let leftFeedbackText = ''
+      let rightFeedbackText = ''
+      
+      if (current.questionType === 'shared' || current.questionType === 'shared_final') {
+        leftFeedbackText = current.leftAnswer?.feedback || ''
+        rightFeedbackText = current.rightAnswer?.feedback || ''
+      } else if (current.questionType === 'followup') {
+        leftFeedbackText = current.leftAnswer?.feedback || ''
+        rightFeedbackText = current.rightAnswer?.feedback || ''
+      } else if (current.questionType === 'best_worst') {
+        leftFeedbackText = current.wrongQuip || ''
+        rightFeedbackText = current.rightQuip || ''
+      }
+      
+      // Typewriter effect for left feedback
+      let judgeLeftIndex = 0
+      const judgeLeftInterval = setInterval(() => {
+        if (judgeLeftIndex < leftFeedbackText.length) {
+          setDisplayedJudgeLeftText(leftFeedbackText.slice(0, judgeLeftIndex + 1))
+          judgeLeftIndex++
         } else {
-          clearInterval(judgeBestInterval)
-          setTypingJudgeBest(false)
+          clearInterval(judgeLeftInterval)
+          setTypingJudgeLeft(false)
         }
       }, 30)
       
-      // Typewriter effect for judge worst comment (same timing)
-      let judgeWorstIndex = 0
-      const judgeWorstInterval = setInterval(() => {
-        if (judgeWorstIndex < current.worstAnswer.roast.length) {
-          setDisplayedJudgeWorstText(current.worstAnswer.roast.slice(0, judgeWorstIndex + 1))
-          judgeWorstIndex++
+      // Typewriter effect for right feedback
+      let judgeRightIndex = 0
+      const judgeRightInterval = setInterval(() => {
+        if (judgeRightIndex < rightFeedbackText.length) {
+          setDisplayedJudgeRightText(rightFeedbackText.slice(0, judgeRightIndex + 1))
+          judgeRightIndex++
         } else {
-          clearInterval(judgeWorstInterval)
-          setTypingJudgeWorst(false)
+          clearInterval(judgeRightInterval)
+          setTypingJudgeRight(false)
         }
       }, 30)
       
       return () => {
-        clearInterval(judgeBestInterval)
-        clearInterval(judgeWorstInterval)
+        clearInterval(judgeLeftInterval)
+        clearInterval(judgeRightInterval)
       }
     }
-  }, [typingBest, typingWorst, currentIndex, comparisons])
+  }, [typingLeft, typingRight, currentIndex, comparisons])
 
   const handleNext = () => {
     if (currentIndex < comparisons.length - 1) {
       setCurrentIndex(currentIndex + 1)
     } else {
-      navigate('/podium')
+      // Last comparison - send ready signal and navigate
+      handleReadyForPodium()
     }
   }
+
+  const handleReadyForPodium = useCallback(() => {
+    if (hasSentContinueRef.current || !lobbyId || !playerId) return
+    
+    const ws = wsRef.current
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      console.log('[COMPARISON] Sending ready_to_continue_podium')
+      ws.send(JSON.stringify({
+        type: 'ready_to_continue_podium',
+        player_id: playerId,
+        lobby_id: lobbyId,
+        phase: 'comparison'
+      }))
+      hasSentContinueRef.current = true
+    }
+  }, [lobbyId, playerId, wsRef])
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
@@ -261,15 +351,23 @@ const Comparison: React.FC = () => {
       <div className="flex items-center justify-center min-h-screen game-bg">
         <div className="game-paper px-8 py-6 game-shadow-hard-lg">
           <div className="text-2xl font-black mb-4">NO COMPARISONS AVAILABLE</div>
+          {readyToContinueCount > 0 && (
+            <div className="text-sm text-gray-600 mb-4">
+              Waiting for players... ({readyToContinueCount} / {lobby?.players.length || 0})
+            </div>
+          )}
           <button
-            onClick={() => navigate('/podium')}
+            onClick={handleReadyForPodium}
+            disabled={hasSentContinueRef.current}
             className="game-sharp px-6 py-3 game-button-hover"
             style={{
               border: '4px solid var(--game-text-primary)',
-              backgroundColor: 'var(--game-green)',
+              backgroundColor: hasSentContinueRef.current ? 'var(--game-bg-alt)' : 'var(--game-green)',
+              opacity: hasSentContinueRef.current ? 0.6 : 1,
+              cursor: hasSentContinueRef.current ? 'not-allowed' : 'pointer',
             }}
           >
-            CONTINUE
+            {hasSentContinueRef.current ? 'WAITING FOR OTHERS...' : 'CONTINUE TO RANKINGS'}
           </button>
         </div>
       </div>
@@ -277,6 +375,58 @@ const Comparison: React.FC = () => {
   }
 
   const current = comparisons[currentIndex]
+  
+  // Determine labels and content based on question type
+  const getLeftLabel = () => {
+    if (current.questionType === 'followup') {
+      return current.leftAnswer?.playerName.toUpperCase() || 'PLAYER 1'
+    }
+    if (current.questionType === 'best_worst') {
+      return 'WRONG ANSWER (EASIEST QUESTION)'
+    }
+    return current.leftAnswer?.playerName.toUpperCase() || 'PLAYER 1'
+  }
+  
+  const getRightLabel = () => {
+    if (current.questionType === 'followup') {
+      return current.rightAnswer?.playerName.toUpperCase() || 'PLAYER 2'
+    }
+    if (current.questionType === 'best_worst') {
+      return 'RIGHT ANSWER (HARDEST QUESTION)'
+    }
+    return current.rightAnswer?.playerName.toUpperCase() || 'PLAYER 2'
+  }
+  
+  const getLeftPlayerName = () => {
+    if (current.questionType === 'followup') {
+      return current.leftAnswer?.playerName.toUpperCase() || 'PLAYER 1'
+    }
+    if (current.questionType === 'best_worst') {
+      return current.wrongAnswer?.playerName.toUpperCase() || 'PLAYER 1'
+    }
+    return current.leftAnswer?.playerName.toUpperCase() || 'PLAYER 1'
+  }
+  
+  const getRightPlayerName = () => {
+    if (current.questionType === 'best_worst') {
+      return current.bestAnswer?.playerName.toUpperCase() || 'PLAYER 2'
+    }
+    return current.rightAnswer?.playerName.toUpperCase() || 'PLAYER 2'
+  }
+  
+  const getLeftAnswer = () => {
+    if (current.questionType === 'best_worst') {
+      return current.wrongAnswer
+    }
+    return current.leftAnswer
+  }
+  
+  const getRightAnswer = () => {
+    if (current.questionType === 'best_worst') {
+      return current.bestAnswer
+    }
+    return current.rightAnswer
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen game-bg relative overflow-hidden">
@@ -293,57 +443,37 @@ const Comparison: React.FC = () => {
       {/* Question Phase Label */}
       <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-10">
         <div className="game-paper px-6 py-2 game-shadow-hard">
-          <div className="text-sm font-bold text-gray-600">{current.phase} Round</div>
+          <div className="text-sm font-bold text-gray-600">
+            {current.questionType === 'shared' ? 'QUESTION 1: SHARED' :
+             current.questionType === 'followup' ? 'QUESTION 2: FOLLOW UP' :
+             current.questionType === 'best_worst' ? 'QUESTION 3: BEST & WORST' :
+             'QUESTION 4: SHARED'}
+          </div>
         </div>
       </div>
 
       {/* Question Display */}
-      <div className="absolute top-36 left-1/2 transform -translate-x-1/2 z-10 w-full max-w-3xl px-8">
-        <div className="game-paper px-8 py-4 game-shadow-hard-lg text-center">
-          <div className="text-xl font-bold mb-3">{current.question}</div>
-          <div className="text-sm text-gray-600">
-            Question {currentIndex + 1} of {comparisons.length}
+      {(current.questionType === 'shared' || current.questionType === 'shared_final') && (
+        <div className="absolute top-36 left-1/2 transform -translate-x-1/2 z-10 w-full max-w-3xl px-8">
+          <div className="game-paper px-8 py-4 game-shadow-hard-lg text-center">
+            <div className="text-xl font-bold mb-3">{current.question}</div>
+            <div className="text-sm text-gray-600">
+              Question {currentIndex + 1} of {comparisons.length}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+      
 
       {/* Main VS Content - Chat Bubble Style - Side by Side */}
       <div className="relative z-10 w-full max-w-[1400px] px-8 mt-16 flex items-start justify-between gap-8">
-        {/* Best Answer - Left Side (Blue Chat Bubble) */}
+        {/* Left Side */}
         <div className="w-[42%] animate-stamp-in" style={{ animationDelay: '0.2s' }}>
-          <div className="game-label-text text-sm mb-2 game-shadow-hard-sm px-3 py-1 inline-flex items-center gap-2"
-            style={{ 
-              backgroundColor: '#FFD700',
-              color: 'black',
-              boxShadow: '0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.4)'
-            }}>
-            {current.bestAnswer.playerName.toUpperCase()}
-          </div>
-          <div className="relative">
-            {/* Chat bubble tail pointing left */}
-            <div 
-              className="absolute left-0 top-4 w-0 h-0"
-              style={{
-                borderTop: '12px solid transparent',
-                borderBottom: '12px solid transparent',
-                borderRight: '12px solid var(--game-blue)',
-                transform: 'translateX(-11px)',
-              }}
-            />
-            <div className="px-6 py-4 game-sharp game-shadow-hard-lg border-4 border-[var(--game-text-primary)]"
-              style={{ backgroundColor: 'var(--game-blue)' }}>
-              <div className="text-base leading-relaxed font-semibold text-white">
-                {displayedBestText}
-                {typingBest && <span className="inline-block w-1 h-5 bg-white ml-1 animate-blink" />}
-              </div>
-            </div>
-          </div>
-          
-          {/* Judge Reply - Best Answer */}
-          {!typingBest && !typingWorst && (
-            <div className="mt-4">
+          {/* Interviewer question for Q2 (follow-up) */}
+          {current.questionType === 'followup' && current.leftFollowUp && (
+            <div className="mb-4">
               <div className="game-label-text text-xs mb-2 game-shadow-hard-sm bg-gray-700 px-3 py-1 text-white inline-flex items-center gap-2">
-                JUDGE
+                INTERVIEWER
               </div>
               <div className="relative">
                 {/* Chat bubble tail pointing left */}
@@ -358,8 +488,89 @@ const Comparison: React.FC = () => {
                 />
                 <div className="px-4 py-3 game-sharp game-shadow-hard border-4 border-[var(--game-text-primary)] bg-white">
                   <div className="text-sm leading-relaxed text-[var(--game-text-primary)]">
-                    {displayedJudgeBestText}
-                    {typingJudgeBest && <span className="inline-block w-1 h-4 bg-[var(--game-text-primary)] ml-1 animate-blink" />}
+                    {current.leftFollowUp}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Interviewer question for Q3 (best/worst) */}
+          {current.questionType === 'best_worst' && current.wrongQuestion && (
+            <div className="mb-4">
+              <div className="game-label-text text-xs mb-2 game-shadow-hard-sm bg-gray-700 px-3 py-1 text-white inline-flex items-center gap-2">
+                INTERVIEWER
+              </div>
+              <div className="relative">
+                {/* Chat bubble tail pointing left */}
+                <div 
+                  className="absolute left-0 top-4 w-0 h-0"
+                  style={{
+                    borderTop: '10px solid transparent',
+                    borderBottom: '10px solid transparent',
+                    borderRight: '10px solid var(--game-text-primary)',
+                    transform: 'translateX(-9px)',
+                  }}
+                />
+                <div className="px-4 py-3 game-sharp game-shadow-hard border-4 border-[var(--game-text-primary)] bg-white">
+                  <div className="text-sm leading-relaxed text-[var(--game-text-primary)]">
+                    {current.wrongQuestion}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Player name label */}
+          <div className="game-label-text text-sm mb-2 game-shadow-hard-sm px-3 py-1 inline-flex items-center gap-2"
+            style={{ 
+              backgroundColor: current.questionType === 'best_worst' ? 'var(--game-red)' : '#FFD700',
+              color: 'white',
+              boxShadow: current.questionType === 'best_worst' ? 'none' : '0 0 20px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 215, 0, 0.4)'
+            }}>
+            {getLeftLabel()}
+          </div>
+          <div className="relative">
+            {/* Chat bubble tail pointing left - BLACK */}
+            <div 
+              className="absolute left-0 top-4 w-0 h-0"
+              style={{
+                borderTop: '12px solid transparent',
+                borderBottom: '12px solid transparent',
+                borderRight: '12px solid var(--game-text-primary)',
+                transform: 'translateX(-11px)',
+              }}
+            />
+            <div className="px-6 py-4 game-sharp game-shadow-hard-lg border-4 border-[var(--game-text-primary)]"
+              style={{ backgroundColor: current.questionType === 'best_worst' ? 'var(--game-red)' : 'var(--game-blue)' }}>
+              <div className="text-base leading-relaxed font-semibold text-white">
+                {displayedLeftText}
+                {typingLeft && <span className="inline-block w-1 h-5 bg-white ml-1 animate-blink" />}
+              </div>
+            </div>
+          </div>
+          
+          {/* Judge Reply / Quip */}
+          {!typingLeft && !typingRight && (
+            <div className="mt-4">
+              <div className="game-label-text text-xs mb-2 game-shadow-hard-sm bg-gray-700 px-3 py-1 text-white inline-flex items-center gap-2">
+                {current.questionType === 'best_worst' ? 'QUIP' : 'JUDGE'}
+              </div>
+              <div className="relative">
+                {/* Chat bubble tail pointing left */}
+                <div 
+                  className="absolute left-0 top-4 w-0 h-0"
+                  style={{
+                    borderTop: '10px solid transparent',
+                    borderBottom: '10px solid transparent',
+                    borderRight: '10px solid var(--game-text-primary)',
+                    transform: 'translateX(-9px)',
+                  }}
+                />
+                <div className="px-4 py-3 game-sharp game-shadow-hard border-4 border-[var(--game-text-primary)] bg-white">
+                  <div className="text-sm leading-relaxed text-[var(--game-text-primary)]">
+                    {displayedJudgeLeftText}
+                    {typingJudgeLeft && <span className="inline-block w-1 h-4 bg-[var(--game-text-primary)] ml-1 animate-blink" />}
                   </div>
                 </div>
               </div>
@@ -367,39 +578,14 @@ const Comparison: React.FC = () => {
           )}
         </div>
 
-        {/* Worst Answer - Right Side (Red Chat Bubble) */}
+        {/* Right Side */}
         <div className="w-[42%] animate-stamp-in" style={{ animationDelay: '0.2s' }}>
-          <div className="text-right mb-2">
-            <div className="game-label-text text-sm game-shadow-hard-sm bg-[var(--game-red)] px-3 py-1 text-white inline-flex items-center gap-2">
-              {current.worstAnswer.playerName.toUpperCase()}
-            </div>
-          </div>
-          <div className="relative">
-            {/* Chat bubble tail pointing right */}
-            <div 
-              className="absolute right-0 top-4 w-0 h-0"
-              style={{
-                borderTop: '12px solid transparent',
-                borderBottom: '12px solid transparent',
-                borderLeft: '12px solid var(--game-red)',
-                transform: 'translateX(11px)',
-              }}
-            />
-            <div className="px-6 py-4 game-sharp game-shadow-hard-lg border-4 border-[var(--game-text-primary)]"
-              style={{ backgroundColor: 'var(--game-red)' }}>
-              <div className="text-base leading-relaxed font-semibold text-white">
-                {displayedWorstText}
-                {typingWorst && <span className="inline-block w-1 h-5 bg-white ml-1 animate-blink" />}
-              </div>
-            </div>
-          </div>
-          
-          {/* Judge Reply - Worst Answer */}
-          {!typingBest && !typingWorst && (
-            <div className="mt-4">
+          {/* Interviewer question for Q2 (follow-up) */}
+          {current.questionType === 'followup' && current.rightFollowUp && (
+            <div className="mb-4">
               <div className="text-right mb-2">
                 <div className="game-label-text text-xs game-shadow-hard-sm bg-gray-700 px-3 py-1 text-white inline-flex items-center gap-2">
-                  JUDGE
+                  INTERVIEWER
                 </div>
               </div>
               <div className="relative">
@@ -415,8 +601,92 @@ const Comparison: React.FC = () => {
                 />
                 <div className="px-4 py-3 game-sharp game-shadow-hard border-4 border-[var(--game-text-primary)] bg-white">
                   <div className="text-sm leading-relaxed text-[var(--game-text-primary)]">
-                    {displayedJudgeWorstText}
-                    {typingJudgeWorst && <span className="inline-block w-1 h-4 bg-[var(--game-text-primary)] ml-1 animate-blink" />}
+                    {current.rightFollowUp}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Interviewer question for Q3 (best/worst) */}
+          {current.questionType === 'best_worst' && current.rightQuestion && (
+            <div className="mb-4">
+              <div className="text-right mb-2">
+                <div className="game-label-text text-xs game-shadow-hard-sm bg-gray-700 px-3 py-1 text-white inline-flex items-center gap-2">
+                  INTERVIEWER
+                </div>
+              </div>
+              <div className="relative">
+                {/* Chat bubble tail pointing right */}
+                <div 
+                  className="absolute right-0 top-4 w-0 h-0"
+                  style={{
+                    borderTop: '10px solid transparent',
+                    borderBottom: '10px solid transparent',
+                    borderLeft: '10px solid var(--game-text-primary)',
+                    transform: 'translateX(9px)',
+                  }}
+                />
+                <div className="px-4 py-3 game-sharp game-shadow-hard border-4 border-[var(--game-text-primary)] bg-white">
+                  <div className="text-sm leading-relaxed text-[var(--game-text-primary)]">
+                    {current.rightQuestion}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div className="text-right mb-2">
+            <div className="game-label-text text-sm game-shadow-hard-sm px-3 py-1 text-white inline-flex items-center gap-2"
+              style={{ 
+                backgroundColor: current.questionType === 'best_worst' ? 'var(--game-green)' : 'var(--game-red)',
+              }}>
+              {getRightLabel()}
+            </div>
+          </div>
+          <div className="relative">
+            {/* Chat bubble tail pointing right - BLACK */}
+            <div 
+              className="absolute right-0 top-4 w-0 h-0"
+              style={{
+                borderTop: '12px solid transparent',
+                borderBottom: '12px solid transparent',
+                borderLeft: '12px solid var(--game-text-primary)',
+                transform: 'translateX(11px)',
+              }}
+            />
+            <div className="px-6 py-4 game-sharp game-shadow-hard-lg border-4 border-[var(--game-text-primary)]"
+              style={{ backgroundColor: current.questionType === 'best_worst' ? 'var(--game-green)' : 'var(--game-red)' }}>
+              <div className="text-base leading-relaxed font-semibold text-white">
+                {displayedRightText}
+                {typingRight && <span className="inline-block w-1 h-5 bg-white ml-1 animate-blink" />}
+              </div>
+            </div>
+          </div>
+          
+          {/* Judge Reply / Quip */}
+          {!typingLeft && !typingRight && (
+            <div className="mt-4">
+              <div className="text-right mb-2">
+                <div className="game-label-text text-xs game-shadow-hard-sm bg-gray-700 px-3 py-1 text-white inline-flex items-center gap-2">
+                  {current.questionType === 'best_worst' ? 'QUIP' : 'JUDGE'}
+                </div>
+              </div>
+              <div className="relative">
+                {/* Chat bubble tail pointing right */}
+                <div 
+                  className="absolute right-0 top-4 w-0 h-0"
+                  style={{
+                    borderTop: '10px solid transparent',
+                    borderBottom: '10px solid transparent',
+                    borderLeft: '10px solid var(--game-text-primary)',
+                    transform: 'translateX(9px)',
+                  }}
+                />
+                <div className="px-4 py-3 game-sharp game-shadow-hard border-4 border-[var(--game-text-primary)] bg-white">
+                  <div className="text-sm leading-relaxed text-[var(--game-text-primary)]">
+                    {displayedJudgeRightText}
+                    {typingJudgeRight && <span className="inline-block w-1 h-4 bg-[var(--game-text-primary)] ml-1 animate-blink" />}
                   </div>
                 </div>
               </div>
@@ -452,14 +722,21 @@ const Comparison: React.FC = () => {
         </button>
         <button
           onClick={handleNext}
+          disabled={hasSentContinueRef.current && currentIndex === comparisons.length - 1}
           className="game-sharp px-8 py-4 text-base font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover"
           style={{
             border: '4px solid var(--game-text-primary)',
-            backgroundColor: 'var(--game-green)',
+            backgroundColor: (hasSentContinueRef.current && currentIndex === comparisons.length - 1) ? 'var(--game-bg-alt)' : 'var(--game-green)',
             color: 'var(--game-text-white)',
+            opacity: (hasSentContinueRef.current && currentIndex === comparisons.length - 1) ? 0.6 : 1,
+            cursor: (hasSentContinueRef.current && currentIndex === comparisons.length - 1) ? 'not-allowed' : 'pointer',
           }}
         >
-          {currentIndex < comparisons.length - 1 ? 'NEXT ' : 'VIEW RANKINGS'}
+          {currentIndex < comparisons.length - 1 
+            ? 'NEXT' 
+            : hasSentContinueRef.current 
+              ? `WAITING FOR OTHERS... (${readyToContinueCount}/${lobby?.players.length || 0})`
+              : 'VIEW RANKINGS'}
         </button>
       </div>
     </div>
