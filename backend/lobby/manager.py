@@ -67,7 +67,16 @@ class LobbyManager:
         lobby.remove_player(player_id=player_id, player_name=player_name)
         print(f"Player removed from lobby {lobby_id}. Remaining players: {len(lobby.players)}")
         
-        # Only clean up empty lobbies if they have no connections AND no players
+        # Don't clean up lobbies that have an active match or recently completed match
+        # This ensures the lobby stays available during end-game flow (podium, analytics, etc.)
+        has_active_match = lobby.match is not None
+        is_game_completed = lobby.status == "completed"
+        
+        if has_active_match or is_game_completed:
+            print(f"Lobby {lobby_id} has active/completed match (status: {lobby.status}) - keeping lobby active")
+            return
+        
+        # Only clean up empty lobbies if they have no connections AND no players AND no match
         # Don't delete immediately - let them persist for a bit in case someone is joining
         if lobby.is_empty() and len(lobby.connections) == 0:
             print(f"Cleaning up empty lobby {lobby_id}")

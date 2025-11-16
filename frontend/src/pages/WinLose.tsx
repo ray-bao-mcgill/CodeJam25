@@ -13,6 +13,58 @@ const WinLose: React.FC = () => {
   const [timeRemaining, setTimeRemaining] = useState<number>(7)
   const [showConfetti, setShowConfetti] = useState(false)
   const [totalScore, setTotalScore] = useState<number>(0)
+  const [rank, setRank] = useState<number>(1)
+
+  // Fetch rankings from database API on mount
+  useEffect(() => {
+    const fetchRankings = async () => {
+      if (!lobbyId || !playerId) {
+        // Fallback to URL params if no lobbyId
+        const urlParams = new URLSearchParams(window.location.search)
+        const urlScore = parseInt(urlParams.get('score') || '0')
+        const urlRank = parseInt(urlParams.get('rank') || '1')
+        if (urlScore > 0 || urlRank > 0) {
+          console.log(`[WINLOSE] Using URL params: rank=${urlRank}, score=${urlScore}`)
+          setTotalScore(urlScore)
+          setRank(urlRank)
+        }
+        return
+      }
+
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://127.0.0.1:8000' : window.location.origin)
+        const response = await fetch(`${API_URL}/api/lobby/${lobbyId}/match-rankings`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.rankings && data.rankings.length > 0) {
+            const playerRanking = data.rankings.find((r: any) => r.player_id === playerId)
+            if (playerRanking) {
+              console.log(`[WINLOSE] Fetched from database: rank=${playerRanking.rank}, score=${playerRanking.score}`)
+              setTotalScore(playerRanking.score)
+              setRank(playerRanking.rank)
+              return
+            }
+          }
+        } else {
+          console.error('[WINLOSE] API error:', response.status, response.statusText)
+        }
+      } catch (e) {
+        console.error('[WINLOSE] Error fetching rankings from API:', e)
+      }
+
+      // Fallback to URL params if API fails
+      const urlParams = new URLSearchParams(window.location.search)
+      const urlScore = parseInt(urlParams.get('score') || '0')
+      const urlRank = parseInt(urlParams.get('rank') || '1')
+      if (urlScore > 0 || urlRank > 0) {
+        console.log(`[WINLOSE] Using URL params fallback: rank=${urlRank}, score=${urlScore}`)
+        setTotalScore(urlScore)
+        setRank(urlRank)
+      }
+    }
+
+    fetchRankings()
+  }, [lobbyId, playerId])
 
   // Set up WebSocket for synchronization
   const wsRef = useLobbyWebSocket({
@@ -26,24 +78,33 @@ const WinLose: React.FC = () => {
     onGameMessage: (message: any) => {
       if (message.type === 'winlose_start') {
         setTimeRemaining(message.timeRemaining || 7)
+      } else if (message.type === 'game_end' && message.rankings && playerId) {
+        // Update from game_end message (but prefer database fetch)
+        const playerRanking = message.rankings.find((r: any) => r.player_id === playerId)
+        if (playerRanking) {
+          console.log(`[WINLOSE] Received game_end message: rank=${playerRanking.rank}, score=${playerRanking.score}`)
+          setTotalScore(playerRanking.score)
+          setRank(playerRanking.rank)
+        }
       }
     },
   });
 
   const handleContinueToPodium = useCallback(() => {
     // Navigate to podium page with score and rank
-    // TODO: Get actual rank from game state
-    const rank = 1 // Placeholder - should get from game state
-    navigate(`/podium?score=${totalScore || 3000}&rank=${rank}`)
-  }, [navigate, totalScore])
+    // Ensure we have valid values before navigating
+    const finalScore = totalScore > 0 ? totalScore : (parseInt(new URLSearchParams(window.location.search).get('score') || '0'))
+    const finalRank = rank > 0 ? rank : (parseInt(new URLSearchParams(window.location.search).get('rank') || '1'))
+    console.log(`[WINLOSE] Navigating to podium with score=${finalScore}, rank=${finalRank}`)
+    navigate(`/podium?score=${finalScore}&rank=${finalRank}`)
+  }, [navigate, totalScore, rank])
 
   useEffect(() => {
-    // Determine result based on score (threshold: 3000 points)
-    // TODO: Get actual score from game state
-    const score = totalScore || 3000 // Default to HIRE for now
-    const isHired = score >= 3000
+    // Determine result based on rank (rank 1 = HIRED, rank > 1 = FIRED)
+    const isHired = rank === 1
     setResult(isHired ? 'HIRE' : 'FIRE')
     setShowConfetti(isHired)
+    console.log(`[WINLOSE] useEffect: rank=${rank}, score=${totalScore}, isHired=${isHired}, result=${isHired ? 'HIRE' : 'FIRE'}`)
     
     // Notify server that win/lose screen started
     const wsConnection = wsRef.current
@@ -98,7 +159,7 @@ const WinLose: React.FC = () => {
       clearTimeout(timer)
       clearTimeout(soundTimer)
     }
-  }, [playerId, wsRef, totalScore])
+  }, [playerId, wsRef, totalScore, rank])
 
   // 7-second timer countdown
   useEffect(() => {
@@ -125,8 +186,11 @@ const WinLose: React.FC = () => {
     return () => clearInterval(interval)
   }, [timeRemaining, handleContinueToPodium])
 
-  const isHired = result === 'HIRE'
-  const resultText = result || 'HIRE'
+  // Determine HIRED vs FIRED based on rank (rank 1 = HIRED, rank > 1 = FIRED)
+  const isHired = rank === 1
+  const resultText = isHired ? 'HIRE' : 'FIRE'
+  
+  console.log(`[WINLOSE] Display: rank=${rank}, isHired=${isHired}, resultText=${resultText}, totalScore=${totalScore}`)
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg relative overflow-hidden">

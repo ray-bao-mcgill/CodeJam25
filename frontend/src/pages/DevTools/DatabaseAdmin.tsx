@@ -259,6 +259,10 @@ const BrowseTab: React.FC<{
   onRefresh: () => void;
 }> = ({ tableName, rows, columns, onRefresh }) => {
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [jsonModal, setJsonModal] = useState<{ open: boolean; data: TableRow | null }>({
+    open: false,
+    data: null,
+  });
   const DB_API = `${API_URL}/admin/db`;
 
   const handleDelete = async (row: TableRow) => {
@@ -336,18 +340,78 @@ const BrowseTab: React.FC<{
                   </td>
                 ))}
                 <td className="px-4 py-2">
-                  <button
-                    onClick={() => handleDelete(row)}
-                    className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex gap-2">
+                    {columns.includes('game_state') && row.game_state && (
+                      <button
+                        onClick={() => {
+                          // Parse game_state if it's a string, otherwise use as-is
+                          let gameStateData = row.game_state;
+                          if (typeof gameStateData === 'string') {
+                            try {
+                              gameStateData = JSON.parse(gameStateData);
+                            } catch (e) {
+                              // If parsing fails, use the string as-is
+                            }
+                          }
+                          setJsonModal({ open: true, data: gameStateData });
+                        }}
+                        className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                      >
+                        View game_state JSON
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(row)}
+                      className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      
+      {/* JSON Modal */}
+      {jsonModal.open && jsonModal.data && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-gray-800">game_state JSON</h2>
+              <button
+                onClick={() => setJsonModal({ open: false, data: null })}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-4 overflow-auto flex-1">
+              <pre className="bg-gray-50 p-4 rounded border text-sm overflow-x-auto">
+                {JSON.stringify(jsonModal.data, null, 2)}
+              </pre>
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(jsonModal.data, null, 2));
+                  alert("JSON copied to clipboard!");
+                }}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
+              >
+                Copy to Clipboard
+              </button>
+              <button
+                onClick={() => setJsonModal({ open: false, data: null })}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

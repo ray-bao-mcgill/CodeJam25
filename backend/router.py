@@ -652,6 +652,25 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                         import traceback
                                         traceback.print_exc()
                                 
+                                # For technical_practical, score the submission immediately
+                                if phase == "technical_practical":
+                                    from game.technical_practical_scoring import score_technical_practical_submission
+                                    try:
+                                        score = await score_technical_practical_submission(
+                                            match_id=match_id,
+                                            player_id=player_id,
+                                            question_index=question_index or 0,
+                                            submission_data=answer_text
+                                        )
+                                        if score is not None:
+                                            print(f"[SUBMIT] Scored technical practical submission: {score} points")
+                                        else:
+                                            print(f"[SUBMIT] WARNING: Could not score technical practical submission")
+                                    except Exception as e:
+                                        print(f"[SUBMIT] Error scoring technical practical submission: {e}")
+                                        import traceback
+                                        traceback.print_exc()
+                                
                                 total_players = len(lobby.players)
                                 phase_state = phase_manager.get_phase_state(match_id, phase)
                                 
@@ -870,18 +889,158 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                 print(f"[SUBMIT] Technical practical completion status: {phase_complete} ({len(phase_state.player_submissions)}/{total_players} players)")
                                 
                                 if phase_complete:
-                                    print(f"[SUBMIT] Technical practical COMPLETE! All players submitted. Broadcasting show_results")
-                                    # Phase is complete - broadcast show_results
-                                    await lobby_manager.broadcast_game_message(
-                                        lobby_id,
-                                        {
-                                            "type": "show_results",
-                                            "phase": phase,
-                                            "reason": "phase_complete",
-                                            "phaseComplete": True,
-                                            "forceShow": True
-                                        }
-                                    )
+                                    print(f"[SUBMIT] Technical practical COMPLETE! All players submitted. Getting pre-calculated scores.")
+                                    
+                                    # Get pre-calculated scores (scored incrementally as submissions were submitted)
+                                    try:
+                                        from game.technical_practical_scoring import get_technical_practical_total_score
+                                        player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
+                                        scores = {}
+                                        for pid in player_ids:
+                                            score = await get_technical_practical_total_score(match_id, pid)
+                                            scores[pid] = score
+                                            print(f"[TECHNICAL_PRACTICAL] Player {pid} total score: {score}")
+                                        
+                                        # Store scores in database for consistency
+                                        final_scores, previous_scores = await calculate_and_store_scores(match_id, "technical_practical", player_ids)
+                                        print(f"[TECHNICAL_PRACTICAL] Scores retrieved: {final_scores}")
+                                        
+                                        # Get phase-specific scores for display
+                                        db_phase = SessionLocal()
+                                        try:
+                                            match_record_phase = db_phase.query(OngoingMatch).filter(
+                                                OngoingMatch.match_id == match_id
+                                            ).first()
+                                            phase_scores_for_round = {}
+                                            if match_record_phase and match_record_phase.game_state:
+                                                game_state_phase = match_record_phase.game_state
+                                                if isinstance(game_state_phase, dict):
+                                                    phase_scores_data = game_state_phase.get("technical_practical_scores", {})
+                                                    if isinstance(phase_scores_data, dict):
+                                                        for pid in player_ids:
+                                                            player_phase_scores = phase_scores_data.get(pid, {})
+                                                            if isinstance(player_phase_scores, dict):
+                                                                phase_scores_for_round[pid] = player_phase_scores.get("_total", 0)
+                                        finally:
+                                            db_phase.close()
+                                        
+                                        # Broadcast scores and phase completion
+                                        await lobby_manager.broadcast_game_message(
+                                            lobby_id,
+                                            {
+                                                "type": "scores_ready",
+                                                "phase": "technical_practical",
+                                                "scores": final_scores,
+                                                "phase_scores": phase_scores_for_round,
+                                                "previous_scores": previous_scores,
+                                                "serverTime": datetime.utcnow().timestamp() * 1000
+                                            }
+                                        )
+                                        
+                                        await lobby_manager.broadcast_game_message(
+                                            lobby_id,
+                                            {
+                                                "type": "show_results",
+                                                "phase": phase,
+                                                "reason": "phase_complete",
+                                                "phaseComplete": True,
+                                                "forceShow": True
+                                            }
+                                        )
+                                        
+                                        # GAME END: Calculate final rankings and determine winners
+                                        print(f"[GAME_END] Technical practical complete - calculating final rankings")
+                                        
+                                        # Get final cumulative scores from database
+                                        db_final = SessionLocal()
+                                        try:
+                                            match_record_final = db_final.query(OngoingMatch).filter(
+                                                OngoingMatch.match_id == match_id
+                                            ).first()
+                                            if match_record_final and match_record_final.game_state:
+                                                game_state_final = match_record_final.game_state
+                                                if isinstance(game_state_final, dict):
+                                                    final_cumulative_scores = game_state_final.get("scores", {})
+                                                    if isinstance(final_cumulative_scores, dict):
+                                                        # Calculate rankings (sorted by score descending)
+                                                        player_rankings = []
+                                                        for pid in player_ids:
+                                                            player_score = final_cumulative_scores.get(pid, 0)
+                                                            player_name = next((p.get("name", pid) if isinstance(p, dict) else str(p)) for p in lobby.players if (p.get("id") if isinstance(p, dict) else str(p)) == pid)
+                                                            player_rankings.append({
+                                                                "player_id": pid,
+                                                                "name": player_name,
+                                                                "score": player_score
+                                                            })
+                                                        
+                                                        # Sort by score descending
+                                                        player_rankings.sort(key=lambda x: x["score"], reverse=True)
+                                                        
+                                                        # Assign ranks (handle ties)
+                                                        rankings = []
+                                                        current_rank = 1
+                                                        for idx, player in enumerate(player_rankings):
+                                                            if idx > 0 and player["score"] < player_rankings[idx - 1]["score"]:
+                                                                current_rank = idx + 1
+                                                            rankings.append({
+                                                                "player_id": player["player_id"],
+                                                                "name": player["name"],
+                                                                "score": player["score"],
+                                                                "rank": current_rank
+                                                            })
+                                                        
+                                                        print(f"[GAME_END] Final rankings: {rankings}")
+                                                        
+                                                        # Mark lobby as completed to prevent cleanup during end-game flow
+                                                        if lobby:
+                                                            lobby.status = "completed"
+                                                            print(f"[GAME_END] Marked lobby {lobby_id} as completed")
+                                                        
+                                                        # Broadcast game_end message to all clients with rankings
+                                                        await lobby_manager.broadcast_game_message(
+                                                            lobby_id,
+                                                            {
+                                                                "type": "game_end",
+                                                                "rankings": rankings,
+                                                                "final_scores": final_cumulative_scores,
+                                                                "serverTime": datetime.utcnow().timestamp() * 1000
+                                                            }
+                                                        )
+                                                        
+                                                        print(f"[GAME_END] Broadcast game_end with rankings to all players")
+                                        finally:
+                                            db_final.close()
+                                        
+                                    except Exception as e:
+                                        print(f"[TECHNICAL_PRACTICAL] Error getting scores: {e}")
+                                        import traceback
+                                        traceback.print_exc()
+                                        # Fallback: use RNG scores
+                                        import random
+                                        player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
+                                        scores = {pid: random.randint(50, 100) for pid in player_ids}
+                                        
+                                        # Broadcast scores even on error
+                                        await lobby_manager.broadcast_game_message(
+                                            lobby_id,
+                                            {
+                                                "type": "scores_ready",
+                                                "phase": "technical_practical",
+                                                "scores": scores,
+                                                "serverTime": datetime.utcnow().timestamp() * 1000
+                                            }
+                                        )
+                                        
+                                        await lobby_manager.broadcast_game_message(
+                                            lobby_id,
+                                            {
+                                                "type": "show_results",
+                                                "phase": phase,
+                                                "reason": "phase_complete",
+                                                "phaseComplete": True,
+                                                "forceShow": True
+                                            }
+                                        )
                             else:
                                 # For other phases, check phase completion
                                 check_phase = phase
@@ -1303,32 +1462,58 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                     if isinstance(game_state, dict) and phase_scores_key in game_state:
                                         # Scores already calculated for this phase, use existing cumulative scores
                                         scores = game_state.get("scores", {})
+                                        # Get previous scores from phase metadata if available
+                                        previous_scores = game_state.get("previous_scores", {})
+                                        if not isinstance(previous_scores, dict):
+                                            previous_scores = {}
                                         print(f"[SCORES] Using existing cumulative scores for {phase}: {scores}")
                                     else:
                                         # Calculate new scores (this uses database locking to prevent race conditions)
                                         print(f"[SCORES] Calculating new scores for {phase}")
                                         
                                         # Calculate scores using standard scoring (or LLM judge for behavioural)
-                                        scores = await calculate_and_store_scores(match_id, phase, player_ids)
+                                        scores, previous_scores = await calculate_and_store_scores(match_id, phase, player_ids)
                                 else:
                                     # No game state yet, calculate scores
                                     print(f"[SCORES] No game state found, calculating new scores for {phase}")
-                                    scores = await calculate_and_store_scores(match_id, phase, player_ids)
+                                    scores, previous_scores = await calculate_and_store_scores(match_id, phase, player_ids)
                             finally:
                                 db_session.close()
                             
                             # Ensure all players have scores (even if 0)
                             final_scores = {}
+                            final_previous_scores = {}
                             for pid in player_ids:
                                 final_scores[pid] = scores.get(pid, 0)
+                                final_previous_scores[pid] = previous_scores.get(pid, 0) if isinstance(previous_scores, dict) else 0
                             
-                            # Broadcast scores to ALL players simultaneously
+                            # Get phase-specific scores from database for round display
+                            phase_scores_for_round = {}
+                            db_phase = SessionLocal()
+                            try:
+                                match_record_phase = db_phase.query(OngoingMatch).filter(
+                                    OngoingMatch.match_id == match_id
+                                ).first()
+                                if match_record_phase and match_record_phase.game_state:
+                                    game_state_phase = match_record_phase.game_state
+                                    if isinstance(game_state_phase, dict):
+                                        phase_scores_data = game_state_phase.get(phase_scores_key, {})
+                                        if isinstance(phase_scores_data, dict):
+                                            for pid in player_ids:
+                                                phase_scores_for_round[pid] = phase_scores_data.get(pid, 0)
+                            finally:
+                                db_phase.close()
+                            
+                            # Broadcast scores to ALL players simultaneously with previous scores for animation
+                            # Include phase_scores for round-specific display
                             await lobby_manager.broadcast_game_message(
                                 lobby_id,
                                 {
                                     "type": "scores_ready",
                                     "phase": phase,
-                                    "scores": final_scores,
+                                    "scores": final_scores,  # Cumulative scores
+                                    "phase_scores": phase_scores_for_round,  # Round-specific scores from DB
+                                    "previous_scores": final_previous_scores,
                                     "serverTime": datetime.utcnow().timestamp() * 1000
                                 }
                             )
@@ -2323,3 +2508,164 @@ async def run_code(request: CodeRunRequest):
             "execution_time": 0,
             "error": str(e)
         }
+
+
+@router.get("/api/match/{match_id}/rankings")
+async def get_match_rankings(match_id: str):
+    """
+    Get final rankings and scores for a completed match
+    """
+    db: Session = SessionLocal()
+    try:
+        match_record = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
+        if not match_record:
+            return {"error": "Match not found", "rankings": []}
+        
+        game_state = match_record.game_state
+        if not game_state or not isinstance(game_state, dict):
+            return {"error": "No game state found", "rankings": []}
+        
+        # Get final cumulative scores
+        final_scores = game_state.get("scores", {})
+        if not final_scores:
+            return {"error": "No scores found", "rankings": []}
+        
+        # Get lobby_id from match record
+        lobby_id = match_record.lobby_id if hasattr(match_record, 'lobby_id') else None
+        
+        # Get lobby to get player names
+        lobby = None
+        player_ids = list(final_scores.keys())
+        if lobby_id:
+            lobby = lobby_manager.get_lobby(lobby_id)
+            if lobby and lobby.players:
+                player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
+        
+        # Build rankings
+        player_rankings = []
+        for player_id in player_ids:
+            player_score = final_scores.get(player_id, 0)
+            # Get player name from lobby if available
+            player_name = player_id
+            if lobby and lobby.players:
+                for p in lobby.players:
+                    p_id = p.get("id") if isinstance(p, dict) else str(p)
+                    if p_id == player_id:
+                        player_name = p.get("name", player_id) if isinstance(p, dict) else str(p)
+                        break
+            
+            player_rankings.append({
+                "player_id": player_id,
+                "name": player_name,
+                "score": player_score
+            })
+        
+        # Sort by score descending
+        player_rankings.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Assign ranks (handle ties)
+        rankings = []
+        current_rank = 1
+        for idx, player in enumerate(player_rankings):
+            if idx > 0 and player["score"] < player_rankings[idx - 1]["score"]:
+                current_rank = idx + 1
+            rankings.append({
+                "player_id": player["player_id"],
+                "name": player["name"],
+                "score": player["score"],
+                "rank": current_rank
+            })
+        
+        print(f"[API] Returning rankings for match {match_id}: {rankings}")
+        return {
+            "match_id": match_id,
+            "rankings": rankings,
+            "final_scores": final_scores
+        }
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[API] Error getting rankings: {str(e)}\n{error_trace}")
+        return {"error": str(e), "rankings": []}
+    finally:
+        db.close()
+
+
+@router.get("/api/lobby/{lobby_id}/match-rankings")
+async def get_lobby_match_rankings(lobby_id: str):
+    """
+    Get final rankings and scores for a lobby's match
+    """
+    db: Session = SessionLocal()
+    try:
+        match_record = get_match_by_lobby_id(lobby_id)
+        if not match_record:
+            return {"error": "Match not found for lobby", "rankings": []}
+        
+        match_id = match_record.match_id
+        game_state = match_record.game_state
+        if not game_state or not isinstance(game_state, dict):
+            return {"error": "No game state found", "rankings": []}
+        
+        # Get final cumulative scores
+        final_scores = game_state.get("scores", {})
+        if not final_scores:
+            return {"error": "No scores found", "rankings": []}
+        
+        # Get lobby to get player names
+        lobby = lobby_manager.get_lobby(lobby_id)
+        player_ids = []
+        if lobby and lobby.players:
+            player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
+        else:
+            # Fallback: use player_ids from scores
+            player_ids = list(final_scores.keys())
+        
+        # Build rankings
+        player_rankings = []
+        for player_id in player_ids:
+            player_score = final_scores.get(player_id, 0)
+            # Get player name from lobby if available
+            player_name = player_id
+            if lobby and lobby.players:
+                for p in lobby.players:
+                    p_id = p.get("id") if isinstance(p, dict) else str(p)
+                    if p_id == player_id:
+                        player_name = p.get("name", player_id) if isinstance(p, dict) else str(p)
+                        break
+            
+            player_rankings.append({
+                "player_id": player_id,
+                "name": player_name,
+                "score": player_score
+            })
+        
+        # Sort by score descending
+        player_rankings.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Assign ranks (handle ties)
+        rankings = []
+        current_rank = 1
+        for idx, player in enumerate(player_rankings):
+            if idx > 0 and player["score"] < player_rankings[idx - 1]["score"]:
+                current_rank = idx + 1
+            rankings.append({
+                "player_id": player["player_id"],
+                "name": player["name"],
+                "score": player["score"],
+                "rank": current_rank
+            })
+        
+        print(f"[API] Returning rankings for lobby {lobby_id}: {rankings}")
+        return {
+            "match_id": match_id,
+            "rankings": rankings,
+            "final_scores": final_scores
+        }
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[API] Error getting rankings: {str(e)}\n{error_trace}")
+        return {"error": str(e), "rankings": []}
+    finally:
+        db.close()
