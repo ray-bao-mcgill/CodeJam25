@@ -1088,6 +1088,8 @@ const TechnicalPractical: React.FC = () => {
                     e.preventDefault();
                     e.stopPropagation();
                     if (e.nativeEvent) {
+                      e.nativeEvent.preventDefault();
+                      e.nativeEvent.stopPropagation();
                       e.nativeEvent.stopImmediatePropagation();
                     }
                     const language = files[currentFileIdx].language;
@@ -1175,6 +1177,7 @@ const TechnicalPractical: React.FC = () => {
                         }
                       }
                     }
+                    return false;
                   }}
                   disabled={!EXECUTABLE_LANGS.includes(files[currentFileIdx].language)}
                   title={!EXECUTABLE_LANGS.includes(files[currentFileIdx].language) ? 'Run feature not supported for this language yet' : 'Run code'}
