@@ -21,6 +21,8 @@ const BehaviouralQuestion: React.FC = () => {
   const [loadingMessage, setLoadingMessage] = useState<string>(
     initialQuestionIndex === 1 ? "Waiting for players..." : "Loading question..."
   );
+  const [skipConfirmations, setSkipConfirmations] = useState<Set<string>>(new Set());
+  const [skipTotalPlayers, setSkipTotalPlayers] = useState<number>(0);
   const hasRequestedRef = useRef<Record<number, boolean>>({})
   
   console.log(`[BEHAVIOURAL_Q] Component mounted with initial questionIndex=${initialQuestionIndex}`)
@@ -40,6 +42,13 @@ const BehaviouralQuestion: React.FC = () => {
     onKicked: () => {},
     currentPlayerId: playerId || null,
     onGameMessage: (message: any) => {
+      // Handle skip confirmation
+      if (message.type === 'behavioural_question_skip_confirmed') {
+        setSkipConfirmations(prev => new Set([...prev, message.player_id]))
+        setSkipTotalPlayers(message.total_players || 0)
+      }
+      
+      // Handle skip execution (all players confirmed)
       if (message.type === 'behavioural_question_skipped') {
         navigate('/behavioural-answer')
       }
@@ -503,8 +512,12 @@ const BehaviouralQuestion: React.FC = () => {
             style={{
               border: "6px solid var(--game-text-primary)",
               color: "var(--game-text-white)",
+              opacity: skipConfirmations.has(playerId || '') ? 0.6 : 1
             }}
             onClick={() => {
+              if (skipConfirmations.has(playerId || '')) {
+                return // Already confirmed
+              }
               const wsConnection = wsRef.current
               if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
                 wsConnection.send(JSON.stringify({
@@ -515,8 +528,17 @@ const BehaviouralQuestion: React.FC = () => {
               }
             }}
           >
-            Skip
+            {skipConfirmations.has(playerId || '') 
+              ? `Skip (${skipConfirmations.size}/${skipTotalPlayers || lobby?.players.length || 0})`
+              : 'Skip'}
           </button>
+          {skipConfirmations.size > 0 && skipConfirmations.size < (skipTotalPlayers || lobby?.players.length || 0) && (
+            <div className="text-center w-full">
+              <div className="game-label-text text-xs">
+                Waiting for {(skipTotalPlayers || lobby?.players.length || 0) - skipConfirmations.size} more player(s) to confirm skip
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Decorative sticky notes */}

@@ -55,6 +55,10 @@ ready_players_tracker: Dict[str, Dict[str, Set[str]]] = {}
 # Structure: {lobby_id: {phase: set(player_ids)}}
 ready_to_continue_tracker: Dict[str, Dict[str, Set[str]]] = {}
 
+# Track players who confirmed skip for behavioural questions
+# Structure: {lobby_id: {phase: set(player_ids)}}
+skip_confirmation_tracker: Dict[str, Dict[str, Set[str]]] = {}
+
 # Track players who completed round start countdown
 # Structure: {lobby_id: {round_type: set(player_ids)}}
 round_start_completed_tracker: Dict[str, Dict[str, Set[str]]] = {}
@@ -806,12 +810,12 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                         # Calculate new scores (this uses database locking to prevent race conditions)
                                         print(f"[SCORES] Calculating new scores for {phase}")
                                         
-                                        # Calculate scores using standard scoring
-                                        scores = calculate_and_store_scores(match_id, phase, player_ids)
+                                        # Calculate scores using standard scoring (or LLM judge for behavioural)
+                                        scores = await calculate_and_store_scores(match_id, phase, player_ids)
                                 else:
                                     # No game state yet, calculate scores
                                     print(f"[SCORES] No game state found, calculating new scores for {phase}")
-                                    scores = calculate_and_store_scores(match_id, phase, player_ids)
+                                    scores = await calculate_and_store_scores(match_id, phase, player_ids)
                             finally:
                                 db_session.close()
                             
@@ -1006,61 +1010,76 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             # Clear tracker after navigation
                             round_start_completed_tracker[lobby_id][round_type] = set()
                 elif message.get("type") == "behavioural_question_skip":
-                    # Player clicked skip on behavioural question - broadcast to all players and update database
+                    # Player clicked skip on behavioural question - require all players to confirm
                     player_id = message.get("player_id")
                     phase = message.get("phase", "behavioural")
-                    print(f"[SKIP] Player {player_id} skipped behavioural question in lobby {lobby_id}")
+                    print(f"[SKIP] Player {player_id} confirmed skip for behavioural question in lobby {lobby_id}")
                     
                     lobby = lobby_manager.get_lobby(lobby_id)
                     if lobby:
-                        match_id = None
-                        if lobby.match:
-                            match_id = lobby.match.match_id
-                        else:
-                            match_record = get_match_by_lobby_id(lobby_id)
-                            if match_record:
-                                match_id = match_record.match_id
+                        # Initialize skip confirmation tracker for this lobby/phase
+                        if lobby_id not in skip_confirmation_tracker:
+                            skip_confirmation_tracker[lobby_id] = {}
+                        if phase not in skip_confirmation_tracker[lobby_id]:
+                            skip_confirmation_tracker[lobby_id][phase] = set()
                         
-                        if match_id:
-                            # Update database state - mark question as skipped
-                            update_phase(match_id, phase, {
-                                "question_skipped": True,
-                                "skipped_by": player_id,
-                                "skipped_at": datetime.utcnow().isoformat(),
-                                "question_index": 0  # First question
-                            })
-                            
-                            # Record skip as submission for phase manager (so phase can complete)
-                            # This allows phase to advance even if players skip
-                            phase_manager.record_submission(match_id, phase, player_id, 0)
-                            
-                            # Check if all players skipped or submitted
-                            total_players = len(lobby.players)
-                            phase_state = phase_manager.get_phase_state(match_id, phase)
-                            submitted_count = len(phase_state.player_submissions)
-                            
-                            # If all players have skipped/submitted, show results
-                            if submitted_count >= total_players:
-                                await lobby_manager.broadcast_game_message(
-                                    lobby_id,
-                                    {
-                                        "type": "show_results",
-                                        "phase": phase,
-                                        "reason": "all_skipped_or_submitted",
-                                        "phaseComplete": False,  # Not phase complete yet, just first question
-                                        "forceShow": True
-                                    }
-                                )
+                        # Add player to skip confirmations
+                        skip_confirmation_tracker[lobby_id][phase].add(player_id)
                         
-                        # Broadcast skip to ALL players - they navigate together
+                        total_players = len(lobby.players)
+                        confirmed_count = len(skip_confirmation_tracker[lobby_id][phase])
+                        
+                        print(f"[SKIP] Skip confirmations: {confirmed_count}/{total_players} players")
+                        
+                        # Broadcast skip confirmation status to all players
                         await lobby_manager.broadcast_game_message(
                             lobby_id,
                             {
-                                "type": "behavioural_question_skipped",
-                                "skipped_by": player_id
+                                "type": "behavioural_question_skip_confirmed",
+                                "player_id": player_id,
+                                "confirmed_count": confirmed_count,
+                                "total_players": total_players
                             }
                         )
-                        print(f"[SKIP] Broadcast behavioural question skip to all players")
+                        
+                        # Only skip if ALL players have confirmed
+                        if confirmed_count >= total_players:
+                            print(f"[SKIP] All {total_players} players confirmed skip - proceeding with skip")
+                            
+                            match_id = None
+                            if lobby.match:
+                                match_id = lobby.match.match_id
+                            else:
+                                match_record = get_match_by_lobby_id(lobby_id)
+                                if match_record:
+                                    match_id = match_record.match_id
+                            
+                            if match_id:
+                                # Update database state - mark question as skipped
+                                update_phase(match_id, phase, {
+                                    "question_skipped": True,
+                                    "skipped_by": "all_players",
+                                    "skipped_at": datetime.utcnow().isoformat(),
+                                    "question_index": 0  # First question
+                                })
+                                
+                                # Record skip as submission for phase manager (so phase can complete)
+                                # This allows phase to advance even if players skip
+                                for p_id in lobby.players:
+                                    phase_manager.record_submission(match_id, phase, p_id.get("id") if isinstance(p_id, dict) else p_id, 0)
+                            
+                            # Broadcast skip to ALL players - they navigate together
+                            await lobby_manager.broadcast_game_message(
+                                lobby_id,
+                                {
+                                    "type": "behavioural_question_skipped",
+                                    "skipped_by": "all_players"
+                                }
+                            )
+                            
+                            # Clear skip confirmations after skip
+                            skip_confirmation_tracker[lobby_id][phase] = set()
+                            print(f"[SKIP] Broadcast behavioural question skip to all players")
                 elif message.get("type") == "request_question":
                     # Client requests a question for a specific phase
                     # All clients should receive the SAME question - cache it in game_state

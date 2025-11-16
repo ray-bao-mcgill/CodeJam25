@@ -694,7 +694,7 @@ def get_player_answers_for_phase(match_id: str, phase: str, player_ids: List[str
         db.close()
 
 
-def calculate_and_store_scores(match_id: str, phase: str, player_ids: List[str]) -> Dict[str, int]:
+async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List[str]) -> Dict[str, int]:
     """
     Calculate scores for a phase and store them in the database
     For testing: increments owner (first player) score by 1 each round
@@ -733,18 +733,46 @@ def calculate_and_store_scores(match_id: str, phase: str, player_ids: List[str])
             # Return existing cumulative scores, not phase-specific
             return existing_scores
         
-        # Get player answers for this phase
-        from game.scoring import calculate_phase_scores
-        player_answers = get_player_answers_for_phase(match_id, phase, player_ids)
+        # Normalize phase name (remove "_score" suffix if present for answer lookup)
+        answer_phase = phase.replace("_score", "") if phase.endswith("_score") else phase
         
-        # Calculate phase scores using standard scoring module
-        phase_scores = calculate_phase_scores(
-            match_id=match_id,
-            phase=phase,
-            player_ids=player_ids,
-            player_answers=player_answers,
-            correct_answers=None  # TODO: Get correct answers from question data
-        )
+        # Get player answers for this phase
+        player_answers = get_player_answers_for_phase(match_id, answer_phase, player_ids)
+        
+        # For behavioural phase, use LLM judge for scoring
+        if answer_phase == "behavioural":
+            from game.behavioural_scoring import score_behavioural_answers
+            from app.llm.judge import BehaviouralJudge
+            from app.llm.openai import OpenAIClient
+            import os
+            
+            # Initialize judge
+            llm_client = OpenAIClient(api_key=os.environ.get("OPENAI_API_KEY"))
+            judge = BehaviouralJudge(llm_client)
+            
+            # Calculate scores using LLM judge for each player
+            phase_scores = {}
+            for player_id in player_ids:
+                try:
+                    score = await score_behavioural_answers(match_id, player_id, judge)
+                    phase_scores[player_id] = score
+                    print(f"[SCORES] LLM judge scored player {player_id}: {score}")
+                except Exception as e:
+                    print(f"[SCORES] Error scoring player {player_id} with LLM judge: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # Fallback to 0 if scoring fails
+                    phase_scores[player_id] = 0
+        else:
+            # For other phases, use standard scoring module
+            from game.scoring import calculate_phase_scores
+            phase_scores = calculate_phase_scores(
+                match_id=match_id,
+                phase=answer_phase,
+                player_ids=player_ids,
+                player_answers=player_answers,
+                correct_answers=None  # TODO: Get correct answers from question data
+            )
         
         # Calculate cumulative scores (add phase score to existing)
         scores: Dict[str, int] = {}
