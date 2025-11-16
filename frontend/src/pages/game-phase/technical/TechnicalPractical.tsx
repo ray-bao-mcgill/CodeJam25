@@ -581,9 +581,6 @@ const TechnicalPractical: React.FC = () => {
         <div className="game-paper px-10 py-4 game-shadow-hard-lg mb-3">
           <h1 className="game-title text-3xl sm:text-4xl">TECHNICAL PRACTICAL</h1>
         </div>
-        <div className="game-label-text text-center text-base">
-          Complete the practical question using your preferred mode
-        </div>
       </div>
 
       {/* TABS */}
