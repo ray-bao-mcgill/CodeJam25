@@ -31,11 +31,9 @@ const WinLose: React.FC = () => {
   });
 
   const handleContinueToPodium = useCallback(() => {
-    // Navigate to podium page with score and rank
-    // TODO: Get actual rank from game state
-    const rank = 1 // Placeholder - should get from game state
-    navigate(`/podium?score=${totalScore || 3000}&rank=${rank}`)
-  }, [navigate, totalScore])
+    // Navigate to comparison page first, which will then go to podium
+    navigate('/comparison')
+  }, [navigate])
 
   useEffect(() => {
     // Determine result based on score (threshold: 3000 points)
@@ -207,7 +205,7 @@ const WinLose: React.FC = () => {
         {/* Timer indicator */}
         {showButtons && (
           <div className="text-sm text-gray-600 mb-4">
-            Auto-advancing to podium in {timeRemaining}s...
+            Auto-advancing to answer comparison in {timeRemaining}s...
           </div>
         )}
 
@@ -224,7 +222,7 @@ const WinLose: React.FC = () => {
               animationDelay: '1.8s'
             }}
           >
-            VIEW RANKINGS
+            VIEW ANSWER COMPARISON
           </button>
         )}
       </div>
