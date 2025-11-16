@@ -194,14 +194,14 @@ const LandingV1: React.FC = () => {
           bottom: 0;
           left: 0;
           right: 0;
-          height: 60px;
+          height: 75px;
           background: var(--game-red);
-          border-top: 6px solid var(--game-text-primary);
+          border-top: 8px solid var(--game-text-primary);
           overflow: hidden;
           z-index: 20;
           display: flex;
           align-items: center;
-          box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 -5px 10px rgba(0, 0, 0, 0.2);
           contain: layout style paint;
         }
         .rejection-ticker-top {
@@ -209,14 +209,14 @@ const LandingV1: React.FC = () => {
           top: 0;
           left: 0;
           right: 0;
-          height: 60px;
+          height: 75px;
           background: var(--game-green);
-          border-bottom: 6px solid var(--game-text-primary);
+          border-bottom: 8px solid var(--game-text-primary);
           overflow: hidden;
           z-index: 20;
           display: flex;
           align-items: center;
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
           contain: layout style paint;
         }
         .ticker-content {
@@ -236,29 +236,29 @@ const LandingV1: React.FC = () => {
         .ticker-item {
           display: inline-flex;
           align-items: center;
-          padding: 0 40px;
+          padding: 0 50px;
           font-family: 'Courier New', monospace;
           font-weight: bold;
-          font-size: 1.2rem;
+          font-size: 1.5rem;
           color: var(--game-text-white);
           text-transform: uppercase;
           letter-spacing: 0.1em;
-          text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.3);
+          text-shadow: 2.5px 2.5px 0px rgba(0, 0, 0, 0.3);
           backface-visibility: hidden;
         }
         .ticker-separator {
           display: inline-block;
-          width: 8px;
-          height: 8px;
+          width: 10px;
+          height: 10px;
           background: var(--game-text-white);
           border-radius: 50%;
-          margin: 0 20px;
+          margin: 0 25px;
           backface-visibility: hidden;
         }
       `}</style>
     {/* Tutorial button - top left */}
     <button
-      className="game-sharp font-black transition-all duration-300 ease-out hover:scale-110 hover:-rotate-6 fixed top-20 left-8 z-50 flex items-center justify-center opacity-0 animate-[fadeIn_0.6s_ease-out_1.8s_both]"
+      className="game-sharp font-black transition-all duration-300 ease-out hover:scale-110 hover:-rotate-6 fixed top-24 left-8 z-50 flex items-center justify-center opacity-0 animate-[fadeIn_0.6s_ease-out_1.8s_both]"
       style={{
         background: "#9966ff",
         border: "6px solid var(--game-text-primary)",
