@@ -3,6 +3,10 @@ Question: {{ question }}
 Answer: {{ answer }}
 
 For each STAR section (Situation, Task, Action, Result), award an integer score between 0 and 125 (total across all four up to 500). Sum these scores as the overall score.
+Use this tone for the reasoning based on the final score:
+- 334–500: praise and encouragement (highlight strengths while briefly noting any minor gaps)
+- 167–333: neutral and balanced (state pros/cons matter-of-factly)
+-   0–166: more direct/\"roasting\" but still professional and constructive (clearly call out issues and what to improve)
 
 Output your result in JSON with these fields:
 - score
