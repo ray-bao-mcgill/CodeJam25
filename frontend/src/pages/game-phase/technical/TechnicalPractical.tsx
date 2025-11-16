@@ -377,6 +377,16 @@ const TechnicalPractical: React.FC = () => {
     }
   }, [leftPanelWidth, activeTab, isResizing]);
 
+  // Update Monaco editor layout when output appears/disappears
+  useEffect(() => {
+    if (monacoEditorRef.current && activeTab === TAB_IDE) {
+      const timeoutId = setTimeout(() => {
+        monacoEditorRef.current?.layout();
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [outputLog.length, activeTab]);
+
   return (
     <div className="game-bg w-full" style={{ minHeight: '100vh', padding: '1rem 0.5rem 4rem', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
@@ -494,10 +504,16 @@ const TechnicalPractical: React.FC = () => {
                 <ul style={{listStyle:'none',padding:0, margin:0, flex:1}}>
                   {files.map((f, idx) => (
                     <li key={f.name}>
-                      <button style={{
+                      <button 
+                        type="button"
+                        style={{
                           display:'flex', alignItems:'center', width:'100%', fontWeight:idx===currentFileIdx?700:400, background:idx===currentFileIdx?'#ffe838':'transparent',
                           color:'#222', border:'none', borderRadius:5, marginBottom:2, cursor:'pointer', padding:'0.23em 0.4em'}}
-                        onClick={()=>setCurrentFileIdx(idx)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setCurrentFileIdx(idx);
+                        }}
                       >{f.name}
                         {files.length > 1 ? (
                           <span onClick={e => { e.stopPropagation(); handleRemoveFile(idx);}} style={{marginLeft:'auto',color:'#aa2020',paddingLeft:6, fontWeight:900,cursor:'pointer'}}>×</span>) : null}
@@ -587,7 +603,11 @@ const TechnicalPractical: React.FC = () => {
                       } finally {
                         (window as any).console.log = originalLog;
                       }
-                      setOutputLog(logs.concat(error? ["[Error] "+error] : []));
+                      const jsOutput = logs.filter(log => log.trim() !== '');
+                      if (error) {
+                        jsOutput.push(`[Error] ${error}`);
+                      }
+                      setOutputLog(jsOutput);
                     } else {
                       // Run Python/Java via backend
                       try {
@@ -614,16 +634,18 @@ const TechnicalPractical: React.FC = () => {
                         
                         let output: string[] = [];
                         if (result.stdout) {
-                          output.push(result.stdout);
+                          // Trim trailing whitespace and split by lines, filter out empty lines
+                          const stdoutLines = result.stdout.trim().split('\n').filter((line: string) => line.trim() !== '');
+                          output.push(...stdoutLines);
                         }
                         if (result.stderr) {
-                          output.push(`[Error] ${result.stderr}`);
+                          output.push(`[Error] ${result.stderr.trim()}`);
                         }
                         if (result.error && !result.stderr) {
                           output.push(`[Error] ${result.error}`);
                         }
                         if (result.execution_time) {
-                          output.push(`\n[Execution time: ${result.execution_time.toFixed(2)}s]`);
+                          output.push(`[Execution time: ${result.execution_time.toFixed(2)}s]`);
                         }
                         if (output.length === 0) {
                           output.push(result.success ? '(No output)' : '(Execution failed)');
@@ -693,18 +715,20 @@ const TechnicalPractical: React.FC = () => {
               </div>
             </div>
             <div style={{width:'100%', minWidth:0, flex: '1 1 auto', display: 'flex', flexDirection: 'column', minHeight: 0}}>
-              <div className={styles.editorWrapper}>
+              <div className={styles.editorWrapper} style={{flex: outputLog.length > 0 ? '0 1 auto' : '1 1 auto'}}>
                 <div
                   id="code-editor"
                   ref={editorContainerRef}
                   className={styles.editorContainer}
                 />
               </div>
-              <div className={styles.outputSection}>
-                <div style={{fontWeight:600,letterSpacing:'.025em',fontSize:'1.1em',color:'#ffe838',marginBottom:2}}>Output</div>
-                <div style={{overflowX:'auto', wordBreak:'break-all', fontSize:'1.05em'}}>{outputLog.length > 0 ? outputLog.join('\n') : ''}</div>
-                <button type="button" onClick={()=>setOutputLog([])} style={{position:'absolute',top:8,right:15,fontSize:'1.05em',background:'none',border:'none',color:'#ffe838',cursor:'pointer'}}>Clear Output</button>
-              </div>
+              {outputLog.length > 0 && (
+                <div className={styles.outputSection}>
+                  <div style={{fontWeight:600,letterSpacing:'.025em',fontSize:'1.5em',color:'#ffe838',marginBottom:2}}>Output</div>
+                  <div style={{overflowX:'auto', wordBreak:'break-all', fontSize:'1.5em', lineHeight:'1.4', whiteSpace:'pre-wrap'}}>{outputLog.join('\n')}</div>
+                  <button type="button" onClick={()=>setOutputLog([])} style={{position:'absolute',top:8,right:15,fontSize:'1.2em',background:'none',border:'none',color:'#ffe838',cursor:'pointer'}}>Clear Output</button>
+                </div>
+              )}
             </div>
           </div>
             </div>
