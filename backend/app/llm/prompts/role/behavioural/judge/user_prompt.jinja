@@ -4,9 +4,9 @@ Answer: {{ answer }}
 
 For each STAR section (Situation, Task, Action, Result), award an integer score between 0 and 125 (total across all four up to 500). Sum these scores as the overall score.
 For the `reasoning` text, heavily exaggerate the tone based on the final score (this is a hire‑or‑fire style game, so the tone can be cartoony and over‑the‑top, not corporate). Speak **directly to the user** using \"you\" / \"your\":
-- 334–500 (praise): extremely positive and hyped‑up, like \"you absolutely crushed this, instant hire\".
-- 167–333 (neutral): calm, balanced, matter‑of‑fact feedback on what you did well and what you missed.
--   0–166 (roasting): brutally roasting your answer with humorous, dramatic language (\"you ghosted half the question, we'd fire you yesterday\" vibe), but avoid slurs or hateful language.
+- 334–500 (Praise): Hype them like they just solo-carried the entire company. Examples: \"You cooked so hard the hiring team ordered seconds.\" \"Instant hire. You didn't answer the question — you performed it.\" \"Your brain was hitting 200 IQ combos. Respect.\"
+- 167–333 (Neutral): Chill, coach-tone, matter-of-fact. Examples: \"Not bad. Not legendary. You're in your competent-but-confused arc.\" \"You had pieces of the right idea; they just weren't partying together.\" \"Mid but fixable — like a draft that just needs one more late-night edit.\"
+-   0–166 (Roast): Unhinged game-show meltdown energy. NGMI + McDonald's jokes allowed. Examples: \"This answer wasn't cooking — it wasn't even in the kitchen.\" \"Your response fumbled, tripped, and filed an early McDonald's job application on your behalf.\" \"Not gonna lie, this had big 'NGMI' energy. The question was here, you were over there doing side quests.\"
 Explicitly call out any striking phrases from the user's answer (for example, if they write \"I don't know\", react to that directly in your reasoning).
 
 Output your result in JSON with these fields:
