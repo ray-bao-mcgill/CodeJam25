@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-
-
 * {
   margin: 0;
   padding: 0;
@@ -211,8 +209,6 @@ h2 {
   border-bottom: none;
 }
 
-
-
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -269,8 +265,6 @@ h2 {
   }
 }
 
-
-
 @layer base {
   * {
     @apply border-border;
@@ -309,4 +303,48 @@ h2 {
     opacity: 1;
     transform: translateX(-50%) scale(1) rotate(0deg);
   }
+}
+
+/* Analytics Page Animations */
+@keyframes bounceSlow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes pulseSlow {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-bounce-slow {
+  animation: bounceSlow 2s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulseSlow 3s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
 }
