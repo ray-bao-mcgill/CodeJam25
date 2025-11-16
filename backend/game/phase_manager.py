@@ -66,7 +66,7 @@ class PhaseState:
             "all_players_must_submit": True,
             "sub_phases": None  # No sub-phases
         },
-        "quickfire": {
+        "technical_theory": {
             "questions_required": 10,
             "all_players_must_submit": True,
             "sub_phases": None
@@ -86,7 +86,7 @@ class PhaseState:
             "questions_required": 1,
             "all_players_must_submit": True,
             "sub_phases": None,
-            "parent_phase": None  # Standalone phase (technical_theory is quickfire, handled separately)
+            "parent_phase": None  # Standalone phase
         }
     }
     

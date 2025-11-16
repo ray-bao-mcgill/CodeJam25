@@ -50,7 +50,7 @@ export interface PlayerStats {
 
 export interface RoundHistory {
   roundNumber: number;
-  phase: "behavioural" | "followup" | "theory" | "practical" | "rapid-fire";
+  phase: "behavioural" | "followup" | "theory" | "practical" | "technical-theory";
   title: string;
   question?: string;
 
@@ -89,7 +89,7 @@ export interface RoundHistory {
 
 // AI Feedback per phase
 export interface PhaseFeedback {
-  phase: "behavioural" | "followup" | "theory" | "practical" | "rapid-fire";
+  phase: "behavioural" | "followup" | "theory" | "practical" | "technical-theory";
   roundNumber: number;
   score: number;
   maxScore: number;
@@ -108,7 +108,7 @@ export interface PhaseFeedback {
     clarity?: number; // 0-100
     relevance?: number; // 0-100
     depth?: number; // 0-100
-    accuracy?: number; // 0-100 for rapid-fire
+    accuracy?: number; // 0-100 for technical-theory
     speed?: number; // percentile
   };
 }
@@ -237,7 +237,7 @@ export function createMockGameHistory(): GameHistory {
       },
       {
         roundNumber: 3,
-        phase: "rapid-fire",
+        phase: "technical-theory",
         title: "Quick-Fire Questions",
         results: [
           {
@@ -256,7 +256,7 @@ export function createMockGameHistory(): GameHistory {
             responseTime: 28,
           },
         ],
-        commentary: "Alice dominated the rapid-fire round! 🔥",
+        commentary: "Alice dominated the technical theory round! 🔥",
         highlight: "blowout",
       },
       {
@@ -334,7 +334,7 @@ export function createMockGameHistory(): GameHistory {
         },
       },
       {
-        phase: "rapid-fire",
+        phase: "technical-theory",
         roundNumber: 3,
         score: 1200,
         maxScore: 1500,

@@ -25,12 +25,10 @@ from game.scoring import calculate_phase_scores
 from game.question_manager import question_manager
 from app.llm.openai import OpenAIClient
 from app.llm.followup_generator import FollowUpQuestionGenerator
-from app.llm.judge import BehaviouralJudge
 
 # Initialize LLM client and generators
 llm_client = OpenAIClient(api_key=os.environ.get("OPENAI_API_KEY"))
 followup_generator = FollowUpQuestionGenerator(llm_client)
-behavioural_judge = BehaviouralJudge(llm_client)
 
 router = APIRouter()
 
@@ -448,11 +446,11 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             print(f"[SUBMIT] Phase state player_submissions: {phase_state.player_submissions}")
                             print(f"[SUBMIT] Phase state question_submissions: {phase_state.question_submissions}")
                             
-                            # For quickfire: players work independently, only check completion when all 10 questions are done
-                            if phase == "quickfire":
+                            # For technical_theory: players work independently, only check completion when all 10 questions are done
+                            if phase == "technical_theory":
                                 player_submissions = phase_state.player_submissions.get(player_id, set())
                                 finished_all = len(player_submissions) >= 10
-                                print(f"[QUICKFIRE] Player {player_id} has submitted {len(player_submissions)}/10 questions. Finished all: {finished_all}")
+                                print(f"[TECHNICAL_THEORY] Player {player_id} has submitted {len(player_submissions)}/10 questions. Finished all: {finished_all}")
                                 
                                 if finished_all:
                                     # Player finished all questions - broadcast to show waiting status
@@ -460,7 +458,7 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                     await lobby_manager.broadcast_game_message(
                                         lobby_id,
                                         {
-                                            "type": "player_finished_quickfire",
+                                            "type": "player_finished_technical_theory",
                                             "player_id": player_id,
                                             "total_finished": len(finished_players),
                                             "total_players": total_players
@@ -469,12 +467,12 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                     
                                     # Check if all players finished
                                     if len(finished_players) >= total_players:
-                                        print(f"[QUICKFIRE] All players finished! Phase complete.")
+                                        print(f"[TECHNICAL_THEORY] All players finished! Phase complete.")
                                         await lobby_manager.broadcast_game_message(
                                             lobby_id,
                                             {
                                                 "type": "show_results",
-                                                "phase": "quickfire",
+                                                "phase": "technical_theory",
                                                 "reason": "phase_complete",
                                                 "phaseComplete": True,
                                                 "forceShow": True
@@ -553,7 +551,7 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                         }
                                     )
                             elif phase == "technical_practical":
-                                # Technical practical is standalone (technical_theory is quickfire, handled separately)
+                                # Technical practical is standalone (technical_theory handled separately)
                                 # Check if practical phase is complete (both players submitted)
                                 phase_complete = phase_manager.check_phase_complete(match_id, phase, total_players)
                                 
@@ -576,7 +574,7 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                 # For other phases, check phase completion
                                 check_phase = phase
                                 if phase in ["technical_theory"]:
-                                    # Check parent "technical" phase completion (but technical_theory is quickfire, so this shouldn't happen)
+                                    # Check parent "technical" phase completion
                                     check_phase = "technical"
                                 
                                 # Check if phase completion criteria are met
@@ -613,10 +611,10 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                         }
                     )
                     print(f"[SUBMIT] Broadcast player_submitted to all players for player {player_id}")
-                elif message.get("type") == "quickfire_finished":
-                    # Player finished all quickfire questions - track and check completion
+                elif message.get("type") == "technical_theory_finished":
+                    # Player finished all technical theory questions - track and check completion
                     player_id = message.get("player_id")
-                    print(f"[QUICKFIRE] Player {player_id} finished all quickfire questions in lobby {lobby_id}")
+                    print(f"[TECHNICAL_THEORY] Player {player_id} finished all technical theory questions in lobby {lobby_id}")
                     
                     lobby = lobby_manager.get_lobby(lobby_id)
                     if lobby:
@@ -631,7 +629,7 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                         if match_id:
                             # Record that player finished all questions (if not already recorded)
                             # This is a backup in case submit_answer didn't catch it
-                            phase_state = phase_manager.get_phase_state(match_id, "quickfire")
+                            phase_state = phase_manager.get_phase_state(match_id, "technical_theory")
                             player_submissions = phase_state.player_submissions.get(player_id, set())
                             
                             # If player hasn't submitted all 10 yet, this message might be premature
@@ -639,13 +637,13 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             total_players = len(lobby.players)
                             finished_players = [p for p in phase_state.player_submissions.keys() if len(phase_state.player_submissions.get(p, set())) >= 10]
                             
-                            print(f"[QUICKFIRE] Finished players: {len(finished_players)}/{total_players}")
+                            print(f"[TECHNICAL_THEORY] Finished players: {len(finished_players)}/{total_players}")
                             
                             # Broadcast player finished status
                             await lobby_manager.broadcast_game_message(
                                 lobby_id,
                                 {
-                                    "type": "player_finished_quickfire",
+                                    "type": "player_finished_technical_theory",
                                     "player_id": player_id,
                                     "total_finished": len(finished_players),
                                     "total_players": total_players
@@ -654,12 +652,12 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             
                             # Check if all players finished
                             if len(finished_players) >= total_players:
-                                print(f"[QUICKFIRE] All players finished! Phase complete.")
+                                print(f"[TECHNICAL_THEORY] All players finished! Phase complete.")
                                 await lobby_manager.broadcast_game_message(
                                     lobby_id,
                                     {
                                         "type": "show_results",
-                                        "phase": "quickfire",
+                                        "phase": "technical_theory",
                                         "reason": "phase_complete",
                                         "phaseComplete": True,
                                         "forceShow": True
@@ -795,54 +793,8 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                         # Calculate new scores (this uses database locking to prevent race conditions)
                                         print(f"[SCORES] Calculating new scores for {phase}")
                                         
-                                        # For behavioural phase, use LLM-based scoring
-                                        if phase == "behavioural_score" or phase == "behavioural":
-                                            print(f"[SCORES] Using LLM judge for behavioural scoring")
-                                            from game.behavioural_scoring import score_behavioural_answers
-                                            
-                                            # Score each player using LLM judge
-                                            phase_scores = {}
-                                            for pid in player_ids:
-                                                try:
-                                                    llm_score = await score_behavioural_answers(
-                                                        match_id=match_id,
-                                                        player_id=pid,
-                                                        judge=behavioural_judge
-                                                    )
-                                                    phase_scores[pid] = llm_score
-                                                except Exception as e:
-                                                    print(f"[SCORES] Error scoring player {pid} with LLM: {e}")
-                                                    import traceback
-                                                    traceback.print_exc()
-                                                    phase_scores[pid] = 0
-                                            
-                                            # Get existing scores and add LLM scores
-                                            existing_scores = game_state.get("scores", {}) if isinstance(game_state, dict) else {}
-                                            scores = {}
-                                            for pid in player_ids:
-                                                base_score = existing_scores.get(pid, 0)
-                                                phase_score = phase_scores.get(pid, 0)
-                                                scores[pid] = base_score + phase_score
-                                            
-                                            # Store scores in database
-                                            import copy
-                                            current_state = match_record.game_state or {}
-                                            if not isinstance(current_state, dict):
-                                                current_state = {}
-                                            
-                                            current_state["scores"] = scores.copy()
-                                            current_state[f"{phase}_scores"] = phase_scores.copy()
-                                            current_state["scores_updated_at"] = datetime.utcnow().isoformat()
-                                            
-                                            match_record.game_state = copy.deepcopy(current_state)
-                                            from sqlalchemy.orm.attributes import flag_modified
-                                            flag_modified(match_record, "game_state")
-                                            db_session.commit()
-                                            
-                                            print(f"[SCORES] LLM scores calculated and stored: {scores}")
-                                        else:
-                                            # Use standard scoring for other phases
-                                            scores = calculate_and_store_scores(match_id, phase, player_ids)
+                                        # Calculate scores using standard scoring
+                                        scores = calculate_and_store_scores(match_id, phase, player_ids)
                                 else:
                                     # No game state yet, calculate scores
                                     print(f"[SCORES] No game state found, calculating new scores for {phase}")

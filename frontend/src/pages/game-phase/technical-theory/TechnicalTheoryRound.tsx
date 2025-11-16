@@ -6,18 +6,18 @@ import { useGameSync } from '@/hooks/useGameSync'
 import { useLobby } from '@/hooks/useLobby'
 import { useLobbyWebSocket } from '@/hooks/useLobbyWebSocket'
 
-interface QuickFireQuestion {
+interface TechnicalTheoryQuestion {
   question: string
   options: MultipleChoiceOption[]
   correctAnswer: string
 }
 
-const QuickFireRound: React.FC = () => {
+const TechnicalTheoryRound: React.FC = () => {
   const navigate = useNavigate()
-  const { submitQuickFireAnswer } = useGameFlow()
+  const { submitTechnicalTheoryAnswer } = useGameFlow()
   const { lobbyId, playerId, lobby } = useLobby()
   const { gameState, submitAnswer: syncSubmitAnswer, showResults } = useGameSync()
-  const [questions, setQuestions] = useState<QuickFireQuestion[]>([])
+  const [questions, setQuestions] = useState<TechnicalTheoryQuestion[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [submittedQuestions, setSubmittedQuestions] = useState<Set<number>>(new Set())
@@ -35,10 +35,10 @@ const QuickFireRound: React.FC = () => {
   })
 
   useEffect(() => {
-    // TODO: Fetch 10 quick fire questions from backend API
+    // TODO: Fetch 10 technical theory questions from backend API
     // For now, use placeholder questions with multiple choice options
     setTimeout(() => {
-      const placeholderQuestions: QuickFireQuestion[] = [
+      const placeholderQuestions: TechnicalTheoryQuestion[] = [
         {
           question: 'What is the time complexity of binary search?',
           options: [
@@ -50,109 +50,110 @@ const QuickFireRound: React.FC = () => {
           correctAnswer: 'B'
         },
         {
-          question: 'What keyword declares a constant in JavaScript?',
+          question: 'Which data structure uses LIFO?',
           options: [
-            { id: 'A', label: 'var', color: 'red' },
-            { id: 'B', label: 'let', color: 'blue' },
-            { id: 'C', label: 'const', color: 'yellow' },
-            { id: 'D', label: 'final', color: 'green' }
+            { id: 'A', label: 'Queue', color: 'red' },
+            { id: 'B', label: 'Stack', color: 'blue' },
+            { id: 'C', label: 'Array', color: 'yellow' },
+            { id: 'D', label: 'Linked List', color: 'green' }
           ],
-          correctAnswer: 'C'
+          correctAnswer: 'B'
         },
         {
           question: 'What does REST stand for?',
           options: [
-            { id: 'A', label: 'Representational State Transfer', color: 'red' },
-            { id: 'B', label: 'Remote Execution State Transfer', color: 'blue' },
-            { id: 'C', label: 'Resource Exchange Service Type', color: 'yellow' },
-            { id: 'D', label: 'Rapid Execution System Transfer', color: 'green' }
+            { id: 'A', label: 'Remote State Transfer', color: 'red' },
+            { id: 'B', label: 'Representational State Transfer', color: 'blue' },
+            { id: 'C', label: 'Real State Transport', color: 'yellow' },
+            { id: 'D', label: 'Responsive State Transfer', color: 'green' }
+          ],
+          correctAnswer: 'B'
+        },
+        {
+          question: 'What is polymorphism?',
+          options: [
+            { id: 'A', label: 'Multiple forms', color: 'red' },
+            { id: 'B', label: 'Single form', color: 'blue' },
+            { id: 'C', label: 'No form', color: 'yellow' },
+            { id: 'D', label: 'Hidden form', color: 'green' }
           ],
           correctAnswer: 'A'
         },
         {
-          question: 'What is the primary purpose of a database index?',
+          question: 'Which sorting algorithm is fastest on average?',
           options: [
-            { id: 'A', label: 'Store data', color: 'red' },
-            { id: 'B', label: 'Improve query performance', color: 'blue' },
-            { id: 'C', label: 'Backup data', color: 'yellow' },
-            { id: 'D', label: 'Encrypt data', color: 'green' }
+            { id: 'A', label: 'Bubble Sort', color: 'red' },
+            { id: 'B', label: 'Quick Sort', color: 'blue' },
+            { id: 'C', label: 'Selection Sort', color: 'yellow' },
+            { id: 'D', label: 'Insertion Sort', color: 'green' }
           ],
           correctAnswer: 'B'
+        },
+        {
+          question: 'What is encapsulation?',
+          options: [
+            { id: 'A', label: 'Hiding data', color: 'red' },
+            { id: 'B', label: 'Showing data', color: 'blue' },
+            { id: 'C', label: 'Deleting data', color: 'yellow' },
+            { id: 'D', label: 'Copying data', color: 'green' }
+          ],
+          correctAnswer: 'A'
         },
         {
           question: 'What is a closure in JavaScript?',
           options: [
-            { id: 'A', label: 'A function that closes the browser', color: 'red' },
-            { id: 'B', label: 'A function with access to outer scope variables', color: 'blue' },
-            { id: 'C', label: 'A way to close files', color: 'yellow' },
-            { id: 'D', label: 'A type of loop', color: 'green' }
+            { id: 'A', label: 'Function with access to outer scope', color: 'red' },
+            { id: 'B', label: 'Closed function', color: 'blue' },
+            { id: 'C', label: 'Private function', color: 'yellow' },
+            { id: 'D', label: 'Static function', color: 'green' }
           ],
-          correctAnswer: 'B'
+          correctAnswer: 'A'
         },
         {
-          question: 'What is the main difference between SQL and NoSQL databases?',
+          question: 'What does SQL stand for?',
           options: [
-            { id: 'A', label: 'SQL is faster', color: 'red' },
-            { id: 'B', label: 'NoSQL uses tables, SQL uses documents', color: 'blue' },
-            { id: 'C', label: 'SQL is relational, NoSQL is non-relational', color: 'yellow' },
-            { id: 'D', label: 'NoSQL is older', color: 'green' }
+            { id: 'A', label: 'Structured Query Language', color: 'red' },
+            { id: 'B', label: 'Simple Query Language', color: 'blue' },
+            { id: 'C', label: 'Standard Query Language', color: 'yellow' },
+            { id: 'D', label: 'Sequential Query Language', color: 'green' }
           ],
-          correctAnswer: 'C'
+          correctAnswer: 'A'
         },
         {
-          question: 'What is Git primarily used for?',
+          question: 'What is the purpose of Docker?',
           options: [
-            { id: 'A', label: 'Running code', color: 'red' },
+            { id: 'A', label: 'Containerization', color: 'red' },
             { id: 'B', label: 'Version control', color: 'blue' },
             { id: 'C', label: 'Database management', color: 'yellow' },
-            { id: 'D', label: 'Web hosting', color: 'green' }
-          ],
-          correctAnswer: 'B'
-        },
-        {
-          question: 'What is the difference between synchronous and asynchronous code?',
-          options: [
-            { id: 'A', label: 'Synchronous blocks, asynchronous doesn\'t', color: 'red' },
-            { id: 'B', label: 'Asynchronous is faster', color: 'blue' },
-            { id: 'C', label: 'Synchronous uses callbacks', color: 'yellow' },
-            { id: 'D', label: 'No difference', color: 'green' }
+            { id: 'D', label: 'Code editing', color: 'green' }
           ],
           correctAnswer: 'A'
         },
         {
-          question: 'What is the main difference between a stack and a queue?',
+          question: 'What is a RESTful API?',
           options: [
-            { id: 'A', label: 'Stack is LIFO, queue is FIFO', color: 'red' },
-            { id: 'B', label: 'Queue is LIFO, stack is FIFO', color: 'blue' },
-            { id: 'C', label: 'Stack is faster', color: 'yellow' },
-            { id: 'D', label: 'No difference', color: 'green' }
-          ],
-          correctAnswer: 'A'
-        },
-        {
-          question: 'What is the purpose of unit testing?',
-          options: [
-            { id: 'A', label: 'Test individual components', color: 'red' },
-            { id: 'B', label: 'Test the entire system', color: 'blue' },
-            { id: 'C', label: 'Test user interfaces', color: 'yellow' },
-            { id: 'D', label: 'Test network connections', color: 'green' }
+            { id: 'A', label: 'API using REST principles', color: 'red' },
+            { id: 'B', label: 'API for resting', color: 'blue' },
+            { id: 'C', label: 'API with no state', color: 'yellow' },
+            { id: 'D', label: 'API for testing', color: 'green' }
           ],
           correctAnswer: 'A'
         }
       ]
+      
       setQuestions(placeholderQuestions)
       setIsLoading(false)
     }, 500)
   }, [])
 
-  // Notify server when finished all questions and wait for all players
+  // Check if all questions are submitted
   useEffect(() => {
     if (submittedQuestions.size === 10 && questions.length === 10 && !finishedAllQuestions) {
       // Finished all questions - notify server
       const ws = wsRef.current
       if (ws && ws.readyState === WebSocket.OPEN && playerId && lobbyId) {
         ws.send(JSON.stringify({
-          type: 'quickfire_finished',
+          type: 'technical_theory_finished',
           player_id: playerId,
           lobby_id: lobbyId
         }))
@@ -163,8 +164,8 @@ const QuickFireRound: React.FC = () => {
 
   // Navigate when server says all players finished (phase complete)
   useEffect(() => {
-    if (showResults && gameState?.showResults && gameState?.phaseComplete && gameState?.phase === 'quickfire' && finishedAllQuestions) {
-      sessionStorage.setItem('currentRound', 'quickfire')
+    if (showResults && gameState?.showResults && gameState?.phaseComplete && gameState?.phase === 'technical_theory' && finishedAllQuestions) {
+      sessionStorage.setItem('currentRound', 'technical-theory')
       setTimeout(() => {
         navigate('/current-score')
       }, 500)
@@ -178,9 +179,9 @@ const QuickFireRound: React.FC = () => {
     }
 
     const currentQuestion = questions[currentIndex]
-    await submitQuickFireAnswer(selectedOptionId, currentIndex)
+    await submitTechnicalTheoryAnswer(selectedOptionId, currentIndex)
     // Submit via sync with phase information
-    syncSubmitAnswer(selectedOptionId, `quickfire_q${currentIndex}`, 'quickfire', currentIndex)
+    syncSubmitAnswer(selectedOptionId, `technical_theory_q${currentIndex}`, 'technical_theory', currentIndex)
     
     // Mark this question as submitted
     setSubmittedQuestions(prev => new Set([...prev, currentIndex]))
@@ -232,7 +233,7 @@ const QuickFireRound: React.FC = () => {
           question={currentQuestion.question}
           options={currentQuestion.options}
           onSubmit={handleSubmit}
-          title="QUICK FIRE ROUND"
+          title="TECHNICAL THEORY"
           submitButtonText="SUBMIT"
           disabled={submittedQuestions.has(currentIndex)}
           isWaitingForOthers={finishedAllQuestions && !gameState?.phaseComplete}
@@ -244,5 +245,5 @@ const QuickFireRound: React.FC = () => {
   )
 }
 
-export default QuickFireRound
+export default TechnicalTheoryRound
 

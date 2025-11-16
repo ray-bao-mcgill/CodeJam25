@@ -14,7 +14,7 @@ const ResultsPage: React.FC = () => {
   const location = useLocation();
   const state = (location.state || {}) as Partial<ResultsSummaryProps>;
 
-  const roundType: RoundType = (phase as RoundType) || "rapid-fire";
+  const roundType: RoundType = (phase as RoundType) || "technical-theory";
 
   const onNextTarget = nextRouteFor(roundType);
 
@@ -43,7 +43,7 @@ const ResultsPage: React.FC = () => {
 function nextRouteFor(round: RoundType): string {
   // Define default phase progression for Next button
   switch (round) {
-    case "rapid-fire":
+    case "technical-theory":
       return "/technical-practical";
     case "behavioural":
     case "followup":

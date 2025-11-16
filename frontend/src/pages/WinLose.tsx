@@ -30,14 +30,12 @@ const WinLose: React.FC = () => {
     },
   });
 
-  const handlePlayAgain = () => {
-    navigate('/lobby-creation')
-  }
-
-  const handleViewAnalytics = useCallback(() => {
-    // Navigate to analytics page
-    navigate('/analytics')
-  }, [navigate])
+  const handleContinueToPodium = useCallback(() => {
+    // Navigate to podium page with score and rank
+    // TODO: Get actual rank from game state
+    const rank = 1 // Placeholder - should get from game state
+    navigate(`/podium?score=${totalScore || 3000}&rank=${rank}`)
+  }, [navigate, totalScore])
 
   useEffect(() => {
     // Determine result based on score (threshold: 3000 points)
@@ -105,8 +103,8 @@ const WinLose: React.FC = () => {
   // 7-second timer countdown
   useEffect(() => {
     if (timeRemaining <= 0) {
-      // Timer expired - auto-advance to analytics
-      handleViewAnalytics()
+      // Timer expired - auto-advance to podium
+      handleContinueToPodium()
       return
     }
 
@@ -115,9 +113,9 @@ const WinLose: React.FC = () => {
         const newTime = prev - 1
         if (newTime <= 0) {
           clearInterval(interval)
-          // Auto-advance to analytics
+          // Auto-advance to podium
           setTimeout(() => {
-            handleViewAnalytics()
+            handleContinueToPodium()
           }, 100)
         }
         return newTime
@@ -125,7 +123,7 @@ const WinLose: React.FC = () => {
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [timeRemaining, handleViewAnalytics])
+  }, [timeRemaining, handleContinueToPodium])
 
   const isHired = result === 'HIRE'
   const resultText = result || 'HIRE'
@@ -209,14 +207,14 @@ const WinLose: React.FC = () => {
         {/* Timer indicator */}
         {showButtons && (
           <div className="text-sm text-gray-600 mb-4">
-            Auto-advancing to analytics in {timeRemaining}s...
+            Auto-advancing to podium in {timeRemaining}s...
           </div>
         )}
 
-        {/* View Analytics Button */}
+        {/* Continue to Podium Button */}
         {showButtons && (
           <button
-            onClick={handleViewAnalytics}
+            onClick={handleContinueToPodium}
             className="game-sharp game-block-blue px-16 py-6 text-2xl font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover animate-fade-in-up"
             style={{
               border: '6px solid var(--game-text-primary)',
@@ -226,7 +224,7 @@ const WinLose: React.FC = () => {
               animationDelay: '1.8s'
             }}
           >
-            VIEW ANALYTICS
+            VIEW RANKINGS
           </button>
         )}
       </div>

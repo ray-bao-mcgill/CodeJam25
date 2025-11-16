@@ -7,14 +7,14 @@ const COUNTDOWN_SECONDS = 5;
 
 const nextRouteForType: Record<string, string> = {
   behavioural: "/behavioural-question",
-  "technical-theory": "/quickfire-round",  // technical-theory IS the quickfire round
+  "technical-theory": "/technical-theory-round",
   "technical-practical": "/technical-practical",
 };
 
 const getRoundTitle = (type: string): string => {
   const normalized = type.toLowerCase();
   if (normalized === "behavioural") return "BEHAVIOURAL ROUND";
-  if (normalized === "technical-theory") return "QUICKFIRE ROUND";  // technical-theory IS quickfire
+  if (normalized === "technical-theory") return "TECHNICAL THEORY ROUND";
   if (normalized === "technical-practical") return "PRACTICAL ROUND";
   return "ROUND";
 };
@@ -218,7 +218,7 @@ const RoundStartCounter: React.FC = () => {
           style={{ transform: "rotate(2deg)" }}
         >
           <div className="text-xs font-bold uppercase">
-            {roundType === "behavioural" ? "Behavioural" : roundType === "technical-theory" ? "Quickfire" : "Practical"}
+            {roundType === "behavioural" ? "Behavioural" : roundType === "technical-theory" ? "Technical Theory" : "Practical"}
           </div>
         </div>
       </div>

@@ -29,8 +29,8 @@ const CurrentScore: React.FC = () => {
     
     if (currentRound === 'behavioural') {
       return 'behavioural_score'
-    } else if (currentRound === 'quickfire') {
-      return 'quickfire_score'
+    } else if (currentRound === 'technical-theory') {
+      return 'technical_theory_score'
     } else if (currentRound === 'technical') {
       return 'technical_score'
     }
@@ -209,9 +209,9 @@ const CurrentScore: React.FC = () => {
       
       setTimeout(() => {
         if (phase === 'behavioural_score') {
-          sessionStorage.setItem('currentRound', 'quickfire')
-          navigate('/round-start-counter/technical-theory')  // technical-theory IS quickfire
-        } else if (phase === 'quickfire_score') {
+          sessionStorage.setItem('currentRound', 'technical-theory')
+          navigate('/round-start-counter/technical-theory')
+        } else if (phase === 'technical_theory_score') {
           sessionStorage.setItem('currentRound', 'technical')
           navigate('/round-start-counter/technical-practical')
         } else if (phase === 'technical_score') {
@@ -288,8 +288,8 @@ const CurrentScore: React.FC = () => {
     switch (currentPhase) {
       case 'behavioural_score':
         return 'BEHAVIOURAL ROUND SCORES'
-      case 'quickfire_score':
-        return 'QUICK FIRE ROUND SCORES'
+      case 'technical_theory_score':
+        return 'TECHNICAL THEORY ROUND SCORES'
       case 'technical_score':
         return 'TECHNICAL ROUND SCORES'
       default:

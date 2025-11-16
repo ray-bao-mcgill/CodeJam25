@@ -26,8 +26,8 @@ export function computeResultsFromPractical(gameState: any, submissions: any) {
   return baseEmpty("practical");
 }
 
-export function computeResultsFromRapidFire(gameState: any, submissions: any) {
-  return baseEmpty("rapid-fire");
+export function computeResultsFromTechnicalTheory(gameState: any, submissions: any) {
+  return baseEmpty("technical-theory");
 }
 
 function baseEmpty(roundType: RoundType) {

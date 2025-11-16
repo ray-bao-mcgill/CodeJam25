@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import hiredSound from '@/assets/sounds/hired.mp3'
+import firedSound from '@/assets/sounds/fired.mp3'
 
 const Winner: React.FC = () => {
   const navigate = useNavigate()
@@ -12,18 +14,43 @@ const Winner: React.FC = () => {
   const isHired = rank === 1
   const resultText = isHired ? 'HIRED!' : 'FIRED!'
 
-  // Play sound immediately when component renders
-  const soundFile = isHired ? '/sounds/hired.mp3' : '/sounds/fired.mp3'
-  const stampSound = new Audio(soundFile)
-  stampSound.volume = 1.0
-  
-  // Trigger play attempt immediately
-  stampSound.play().catch(err => {
-    console.log('Audio play failed (browser may block autoplay):', err.message)
-  })
-
   useEffect(() => {
     setShowConfetti(true)
+
+    // Play different sound effect based on hired/fired with delay to match animation
+    const soundTimer = setTimeout(() => {
+      try {
+        // Use imported audio files - Vite will handle the path resolution
+        const soundFile = isHired ? hiredSound : firedSound
+        const stampSound = new Audio(soundFile)
+        stampSound.volume = 1.0
+        stampSound.preload = 'auto'
+        
+        // Handle successful load
+        stampSound.addEventListener('canplaythrough', () => {
+          const playPromise = stampSound.play()
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                console.log('✓ Sound played successfully')
+              })
+              .catch(err => {
+                console.log('Audio play blocked (browser autoplay restriction):', err.message)
+              })
+          }
+        }, { once: true })
+        
+        // Handle loading errors
+        stampSound.addEventListener('error', (e) => {
+          console.error('Audio file failed to load:', soundFile, e)
+        }, { once: true })
+        
+        // Start loading
+        stampSound.load()
+      } catch (error) {
+        console.error('Error creating audio:', error)
+      }
+    }, 300) // Matches the stamp animation delay
 
     // Navigate to podium after showing result
     const navigationTimer = setTimeout(() => {
@@ -32,8 +59,7 @@ const Winner: React.FC = () => {
     
     return () => {
       clearTimeout(navigationTimer)
-      stampSound.pause()
-      stampSound.currentTime = 0
+      clearTimeout(soundTimer)
     }
   }, [isHired, totalScore, rank, navigate])
 
@@ -129,3 +155,4 @@ const Winner: React.FC = () => {
 }
 
 export default Winner
+
