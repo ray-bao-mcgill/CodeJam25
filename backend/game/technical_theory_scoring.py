@@ -129,7 +129,15 @@ async def score_technical_theory_answer(
             print(f"[TECHNICAL_THEORY_SCORING] WARNING: Found corrupted structure for player {player_id}, fixing...")
             game_state["technical_theory_scores"][player_id] = {}
         
+        # Debug: Log what was in player_scores BEFORE storing this question
+        player_scores_before = game_state["technical_theory_scores"][player_id].copy()
+        print(f"[TECHNICAL_THEORY_SCORING] DEBUG: BEFORE storing Q{question_index}, player_scores contains: {list(player_scores_before.keys())}")
+        for key, val in player_scores_before.items():
+            if isinstance(val, dict):
+                print(f"[TECHNICAL_THEORY_SCORING] DEBUG:   {key}: is_correct={val.get('is_correct')}, score={val.get('score')}")
+        
         # Store individual question score (200 if correct, 0 if incorrect)
+        print(f"[TECHNICAL_THEORY_SCORING] DEBUG: Storing score for Q{question_index}, is_correct={is_correct}, score={score}")
         game_state["technical_theory_scores"][player_id][str(question_index)] = {
             "score": score,
             "is_correct": is_correct,
@@ -153,12 +161,19 @@ async def score_technical_theory_answer(
         # Count correct answers by iterating through all question indices
         # This is robust and handles unanswered questions correctly
         correct_count = 0
+        correct_questions = []  # Debug: track which questions are counted
         for q_idx in range(question_count):
             q_idx_str = str(q_idx)
             score_data = player_scores.get(q_idx_str)
             # Only count if question was answered AND is correct
             if isinstance(score_data, dict) and score_data.get("is_correct", False):
                 correct_count += 1
+                correct_questions.append(q_idx)
+        
+        # Debug: Log all keys in player_scores to see what's there
+        all_keys = list(player_scores.keys())
+        print(f"[TECHNICAL_THEORY_SCORING] DEBUG: Player {player_id} player_scores keys: {all_keys}")
+        print(f"[TECHNICAL_THEORY_SCORING] DEBUG: Correct questions found: {correct_questions}")
         
         cumulative_score = correct_count * 200
         game_state["technical_theory_scores"][player_id]["_total"] = cumulative_score
