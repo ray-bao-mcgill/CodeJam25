@@ -6,7 +6,7 @@ export type RoundType =
   | "followup"
   | "theory"
   | "practical"
-  | "rapid-fire";
+  | "technical-theory";
 
 export interface Player {
   id: string;
@@ -60,7 +60,7 @@ export interface ResultsSummaryProps {
   flags?: Flags;
 }
 
-// Reusable Results summary component matching RapidFireQuiz dramatic VS layout
+// Reusable Results summary component matching TechnicalTheoryRound dramatic VS layout
 // - Vertical split with score boxes, centered VS badge
 // - Bold shadows, high contrast, Impact-style fonts
 // - Auto-advance countdown for lobby mode
@@ -180,7 +180,7 @@ function labelForRound(round: ResultsSummaryProps["roundType"]) {
       return "Technical Theory";
     case "practical":
       return "Technical Practical";
-    case "rapid-fire":
+    case "technical-theory":
       return "Rapid Fire";
     default:
       return String(round);

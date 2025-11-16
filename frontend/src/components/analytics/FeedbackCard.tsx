@@ -19,7 +19,7 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({
     followup: "🔄",
     theory: "🧠",
     practical: "💻",
-    "rapid-fire": "⚡",
+    "technical-theory": "⚡",
   };
 
   const phaseLabels = {
@@ -27,7 +27,7 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({
     followup: "Follow-Up Question",
     theory: "Technical Theory",
     practical: "Coding Challenge",
-    "rapid-fire": "Rapid Fire Round",
+    "technical-theory": "Technical Theory Round",
   };
 
   const toneColors = {

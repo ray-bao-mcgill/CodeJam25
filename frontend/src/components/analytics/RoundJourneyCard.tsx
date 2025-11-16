@@ -38,7 +38,7 @@ export const RoundJourneyCard: React.FC<RoundJourneyCardProps> = ({
     followup: "🔄",
     theory: "🧠",
     practical: "💻",
-    "rapid-fire": "⚡",
+    "technical-theory": "⚡",
   };
 
   const phaseLabels = {
@@ -46,7 +46,7 @@ export const RoundJourneyCard: React.FC<RoundJourneyCardProps> = ({
     followup: "Follow-Up",
     theory: "Tech Theory",
     practical: "Coding Challenge",
-    "rapid-fire": "Rapid Fire",
+    "technical-theory": "Technical Theory",
   };
 
   return (

@@ -31,7 +31,7 @@ const Tutorial: React.FC = () => {
     {
       title: "ROUND 2: QUICK FIRE",
       content:
-        "Answer 10 rapid-fire questions. Speed and accuracy matter here. Think fast!",
+        "Answer 10 technical theory questions. Speed and accuracy matter here. Think fast!",
     },
     {
       title: "ROUND 3: TECHNICAL",

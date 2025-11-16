@@ -6,7 +6,7 @@ export interface GameState {
   phase: string
   questionId?: string
   question?: string
-  questionIndex?: number // For multi-question phases (quickfire)
+  questionIndex?: number // For multi-question phases (technical_theory)
   startTime?: number // Server timestamp in milliseconds
   serverTime?: number // Server's current time when message was sent
   submittedPlayers: string[]
@@ -135,8 +135,8 @@ export function useGameSync() {
           phase: message.phase || prev.phase
         }
       })
-    } else if (message.type === 'player_finished_quickfire') {
-      // Track players who finished all quickfire questions
+    } else if (message.type === 'player_finished_technical_theory') {
+      // Track players who finished all technical theory questions
       setGameState((prev) => {
         if (!prev) return prev
         const newSubmitted = [...(prev.submittedPlayers || [])]
@@ -285,8 +285,6 @@ export function useGameSync() {
     let dbPhase = currentPhase
     if (currentPhase.includes('behavioural')) {
       dbPhase = 'behavioural'
-    } else if (currentPhase.includes('quickfire')) {
-      dbPhase = 'quickfire'
     } else if (currentPhase.includes('technical_theory')) {
       dbPhase = 'technical_theory'
     } else if (currentPhase.includes('technical_practical')) {

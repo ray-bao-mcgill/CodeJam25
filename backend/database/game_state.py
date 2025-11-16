@@ -75,7 +75,7 @@ def record_answer(
         player_id: The player who answered
         question_id: The question ID
         answer: The answer text
-        phase: The game phase (behavioural, quickfire, technical_theory, technical_practical)
+        phase: The game phase (behavioural, technical_theory, technical_practical)
         question_index: Optional index of the question in the phase
     
     Returns:
@@ -184,7 +184,7 @@ def update_phase(
     
     Args:
         match_id: The match ID
-        phase: The current phase (tutorial, behavioural, quickfire, technical_theory, technical_practical, score)
+        phase: The current phase (tutorial, behavioural, technical_theory, technical_practical, score)
         phase_data: Optional additional phase-specific data
     
     Returns:
@@ -596,7 +596,7 @@ def get_scores_for_phase(match_id: str, phase: str) -> Dict[str, int]:
     
     Args:
         match_id: The match ID
-        phase: The phase name (e.g., 'behavioural_score', 'quickfire_score', 'technical_score')
+        phase: The phase name (e.g., 'behavioural_score', 'technical_theory_score', 'technical_score')
     
     Returns:
         Dictionary mapping player_id to cumulative score, or empty dict if not found
@@ -737,24 +737,14 @@ def calculate_and_store_scores(match_id: str, phase: str, player_ids: List[str])
         from game.scoring import calculate_phase_scores
         player_answers = get_player_answers_for_phase(match_id, phase, player_ids)
         
-        # For behavioural phase, use LLM-based scoring
-        # For other phases, use standard scoring
-        if phase == "behavioural_score" or phase == "behavioural":
-            # Use LLM scoring for behavioural phase
-            # This will be handled asynchronously in the router
-            # For now, return existing scores and let router handle async scoring
-            print(f"[SCORES] Behavioural phase detected - LLM scoring will be handled asynchronously")
-            # Return existing scores temporarily - router will update after LLM scoring
-            return existing_scores
-        else:
-            # Calculate phase scores using standard scoring module
-            phase_scores = calculate_phase_scores(
-                match_id=match_id,
-                phase=phase,
-                player_ids=player_ids,
-                player_answers=player_answers,
-                correct_answers=None  # TODO: Get correct answers from question data
-            )
+        # Calculate phase scores using standard scoring module
+        phase_scores = calculate_phase_scores(
+            match_id=match_id,
+            phase=phase,
+            player_ids=player_ids,
+            player_answers=player_answers,
+            correct_answers=None  # TODO: Get correct answers from question data
+        )
         
         # Calculate cumulative scores (add phase score to existing)
         scores: Dict[str, int] = {}

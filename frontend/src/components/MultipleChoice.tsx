@@ -44,7 +44,7 @@ const MultipleChoice: React.FC<MultipleChoiceProps> = ({
     }
   }
 
-  // Define colors and shapes for each option - RapidFireQuiz style
+  // Define colors and shapes for each option - TechnicalTheoryRound style
   const optionStyles = [
     {
       color: 'orange',

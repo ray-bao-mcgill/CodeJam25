@@ -20,7 +20,7 @@ def calculate_player_score(
     Args:
         match_id: The match ID (for deterministic randomness)
         player_id: The player ID
-        phase: The phase name (behavioural, quickfire, technical_theory, technical_practical)
+        phase: The phase name (behavioural, technical_theory, technical_practical)
         answers: List of answer dictionaries with question_id, answer, question_index
         correct_answers: Optional dict mapping question_id to correct answer
     
