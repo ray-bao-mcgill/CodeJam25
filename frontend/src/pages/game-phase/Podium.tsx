@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLobby } from '@/hooks/useLobby'
 import { useLobbyWebSocket } from '@/hooks/useLobbyWebSocket'
@@ -75,8 +75,12 @@ const Podium: React.FC = () => {
     fetchRankings()
   }, [lobbyId, lobby, playerId, urlScore, urlRank])
 
-  // Listen for game_end message to get actual rankings from backend (in case it arrives late)
-  useLobbyWebSocket({
+  const [readyToContinueCount, setReadyToContinueCount] = useState(0)
+  const hasSentReadyRef = useRef(false)
+  const wsRef = useRef<WebSocket | null>(null)
+  
+  // Set up WebSocket for rankings sync (same pattern as Comparison page)
+  const wsRefFromHook = useLobbyWebSocket({
     lobbyId: lobbyId || null,
     enabled: !!lobbyId,
     onLobbyUpdate: () => {},
@@ -96,8 +100,40 @@ const Podium: React.FC = () => {
         console.log('[PODIUM] Received game_end message with rankings:', playerRankings)
         setRankings(playerRankings)
       }
+      
+      // Handle synchronization for viewing rankings (same pattern as Comparison)
+      if (message.type === 'player_ready_to_view_rankings') {
+        setReadyToContinueCount(message.ready_count || 0)
+      }
+      
+      if (message.type === 'all_ready_to_view_rankings') {
+        // All players ready - rankings already displayed
+        console.log('[PODIUM] All players ready to view rankings')
+      }
     },
   })
+  
+  // Store wsRef for sending messages
+  useEffect(() => {
+    wsRef.current = wsRefFromHook.current
+  }, [wsRefFromHook])
+  
+  // Send ready signal when rankings are loaded (same sync pattern as elsewhere)
+  useEffect(() => {
+    if (!hasSentReadyRef.current && rankings.length > 0 && lobbyId && playerId && wsRef.current) {
+      const ws = wsRef.current
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        console.log('[PODIUM] Sending ready_to_view_rankings')
+        ws.send(JSON.stringify({
+          type: 'ready_to_view_rankings',
+          player_id: playerId,
+          lobby_id: lobbyId,
+          phase: 'podium'
+        }))
+        hasSentReadyRef.current = true
+      }
+    }
+  }, [rankings, lobbyId, playerId, wsRef])
 
   const getPodiumHeight = (rank: number) => {
     if (rank === 1) return 'h-80'

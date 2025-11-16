@@ -34,10 +34,11 @@ const Winner: React.FC = () => {
     // Fallback to URL params if localStorage doesn't have it
     const urlScore = parseInt(searchParams.get('score') || '0')
     const urlRank = parseInt(searchParams.get('rank') || '1')
-    if (urlScore > 0 || urlRank > 0) {
+    // Always set score and rank from URL params if available (even if 0)
+    if (!isNaN(urlScore)) {
       console.log(`[WINNER] Using URL params: rank=${urlRank}, score=${urlScore}`)
-      if (urlScore > 0) setTotalScore(urlScore)
-      if (urlRank > 0) setRank(urlRank)
+      setTotalScore(urlScore)
+      setRank(urlRank)
     }
   }, [playerId, searchParams])
   
@@ -110,9 +111,9 @@ const Winner: React.FC = () => {
       }
     }, 300) // Matches the stamp animation delay
 
-    // Navigate to podium after showing result
+    // Navigate to comparison after showing result
     const navigationTimer = setTimeout(() => {
-      navigate(`/podium?score=${totalScore}&rank=${rank}`)
+      navigate('/comparison')
     }, 4000) // Show winner screen for 4 seconds
     
     return () => {
@@ -189,7 +190,7 @@ const Winner: React.FC = () => {
               textTransform: 'uppercase'
             }}
           >
-            {totalScore}
+            {totalScore ?? 0}
           </div>
           <div className="game-label-text text-xl game-shadow-hard-sm">
             {isHired ? 'WELCOME TO THE TEAM!' : 'BETTER LUCK NEXT TIME'}

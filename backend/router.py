@@ -68,6 +68,14 @@ ready_players_tracker: Dict[str, Dict[str, Set[str]]] = {}
 # Structure: {lobby_id: {phase: set(player_ids)}}
 ready_to_continue_tracker: Dict[str, Dict[str, Set[str]]] = {}
 
+# Track players ready to view rankings (from podium page)
+# Structure: {lobby_id: set(player_ids)}
+ready_to_view_rankings_tracker: Dict[str, Set[str]] = {}
+
+# Track players ready to continue to podium (from comparison page)
+# Structure: {lobby_id: set(player_ids)}
+ready_to_continue_podium_tracker: Dict[str, Set[str]] = {}
+
 # Track if scores are being calculated for a phase (prevent duplicate calculations)
 # Structure: {lobby_id: {phase: bool}}
 scores_calculating: Dict[str, Dict[str, bool]] = {}
@@ -1116,6 +1124,15 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                         # GAME END: Calculate final rankings and determine winners
                                         print(f"[GAME_END] Technical practical complete - calculating final rankings")
                                         
+                                        # Generate match summary JSON for Comparison page
+                                        from game.match_summary import store_match_summary_json
+                                        print(f"[GAME_END] Generating match summary JSON for match {match_id}")
+                                        summary_stored = store_match_summary_json(match_id)
+                                        if summary_stored:
+                                            print(f"[GAME_END] Successfully generated match summary JSON")
+                                        else:
+                                            print(f"[GAME_END] Warning: Failed to generate match summary JSON")
+                                        
                                         # Get final cumulative scores from database
                                         db_final = SessionLocal()
                                         try:
@@ -2006,6 +2023,90 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             )
                             # Clear the tracker for this phase after all are ready
                             ready_to_continue_tracker[lobby_id][phase] = set()
+                elif message.get("type") == "ready_to_view_rankings":
+                    # Player ready to view rankings (from podium page) - sync like other pages
+                    player_id = message.get("player_id")
+                    print(f"[RANKINGS] Player {player_id} ready to view rankings in lobby {lobby_id}")
+                    
+                    # Initialize tracking for this lobby if needed
+                    if lobby_id not in ready_to_view_rankings_tracker:
+                        ready_to_view_rankings_tracker[lobby_id] = set()
+                    
+                    # Add player to ready set
+                    ready_to_view_rankings_tracker[lobby_id].add(player_id)
+                    
+                    # Get lobby and check if all players are ready
+                    lobby = lobby_manager.get_lobby(lobby_id)
+                    if lobby:
+                        total_players = len(lobby.players)
+                        ready_count = len(ready_to_view_rankings_tracker[lobby_id])
+                        
+                        print(f"[RANKINGS] {ready_count}/{total_players} players ready to view rankings")
+                        
+                        # Broadcast player_ready_to_view_rankings message to all connections
+                        await lobby_manager.broadcast_game_message(
+                            lobby_id,
+                            {
+                                "type": "player_ready_to_view_rankings",
+                                "player_id": player_id,
+                                "ready_count": ready_count,
+                                "total_players": total_players
+                            }
+                        )
+                        
+                        # If all players are ready, broadcast all_ready_to_view_rankings
+                        if ready_count >= total_players:
+                            print(f"[RANKINGS] All players ready to view rankings!")
+                            await lobby_manager.broadcast_game_message(
+                                lobby_id,
+                                {
+                                    "type": "all_ready_to_view_rankings"
+                                }
+                            )
+                            # Clear the tracker after all are ready
+                            ready_to_view_rankings_tracker[lobby_id] = set()
+                elif message.get("type") == "ready_to_continue_podium":
+                    # Player ready to continue to podium (from comparison page) - sync like other pages
+                    player_id = message.get("player_id")
+                    print(f"[PODIUM] Player {player_id} ready to continue to podium in lobby {lobby_id}")
+                    
+                    # Initialize tracking for this lobby if needed
+                    if lobby_id not in ready_to_continue_podium_tracker:
+                        ready_to_continue_podium_tracker[lobby_id] = set()
+                    
+                    # Add player to ready set
+                    ready_to_continue_podium_tracker[lobby_id].add(player_id)
+                    
+                    # Get lobby and check if all players are ready
+                    lobby = lobby_manager.get_lobby(lobby_id)
+                    if lobby:
+                        total_players = len(lobby.players)
+                        ready_count = len(ready_to_continue_podium_tracker[lobby_id])
+                        
+                        print(f"[PODIUM] {ready_count}/{total_players} players ready to continue to podium")
+                        
+                        # Broadcast player_ready_to_continue_podium message to all connections
+                        await lobby_manager.broadcast_game_message(
+                            lobby_id,
+                            {
+                                "type": "player_ready_to_continue_podium",
+                                "player_id": player_id,
+                                "ready_count": ready_count,
+                                "total_players": total_players
+                            }
+                        )
+                        
+                        # If all players are ready, broadcast all_ready_to_continue_podium
+                        if ready_count >= total_players:
+                            print(f"[PODIUM] All players ready to continue to podium!")
+                            await lobby_manager.broadcast_game_message(
+                                lobby_id,
+                                {
+                                    "type": "all_ready_to_continue_podium"
+                                }
+                            )
+                            # Clear the tracker after all are ready
+                            ready_to_continue_podium_tracker[lobby_id] = set()
                 elif message.get("type") == "tutorial_completed":
                     # Tutorial completed - update phase in database
                     player_id = message.get("player_id")
@@ -3230,5 +3331,65 @@ async def get_lobby_match_rankings(lobby_id: str):
         error_trace = traceback.format_exc()
         print(f"[API] Error getting rankings: {str(e)}\n{error_trace}")
         return {"error": str(e), "rankings": []}
+    finally:
+        db.close()
+
+
+@router.get("/api/match/{match_id}/summary")
+async def get_match_summary(match_id: str):
+    """
+    Get match summary JSON for Comparison page
+    
+    Args:
+        match_id: The match ID
+        
+    Returns:
+        Match summary JSON with comparisons array
+    """
+    db: Session = SessionLocal()
+    try:
+        match_record = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
+        if not match_record:
+            return {"error": "Match not found", "comparisons": []}
+        
+        summary_json = match_record.match_summary_json
+        if not summary_json:
+            return {"error": "Match summary not yet generated", "comparisons": []}
+        
+        return summary_json
+        
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[API] Error getting match summary: {str(e)}\n{error_trace}")
+        return {"error": str(e), "comparisons": []}
+    finally:
+        db.close()
+
+
+@router.get("/api/lobby/{lobby_id}/match-id")
+async def get_match_id_from_lobby(lobby_id: str):
+    """
+    Get match_id from lobby_id for Comparison page
+    
+    Args:
+        lobby_id: The lobby ID
+        
+    Returns:
+        Dictionary with match_id
+    """
+    db: Session = SessionLocal()
+    try:
+        match_record = get_match_by_lobby_id(lobby_id)
+        if not match_record:
+            return {"error": "Match not found for lobby", "match_id": None}
+        
+        return {"match_id": match_record.match_id}
+        
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[API] Error getting match_id from lobby: {str(e)}\n{error_trace}")
+        return {"error": str(e), "match_id": None}
     finally:
         db.close()

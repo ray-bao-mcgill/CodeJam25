@@ -134,49 +134,176 @@ class PracticalJudge:
             results["reasoning"] = self._build_overall_reasoning(results, total_score)
         return results
 
+    def _format_code_for_llm(self, code: str) -> str:
+        """
+        Format code submission for LLM evaluation.
+        Structures code clearly for ChatGPT to evaluate - wraps in markdown code blocks
+        and formats multi-file submissions with clear separators.
+        """
+        if not code:
+            return ""
+        
+        # Remove leading/trailing whitespace
+        code = code.strip()
+        
+        lines = code.split('\n')
+        
+        # Detect language from file markers or code patterns
+        language = None
+        if '//' in code and ('function' in code or 'const' in code or 'let' in code):
+            language = 'javascript'
+        elif 'def ' in code or 'import ' in code or 'print(' in code:
+            language = 'python'
+        elif 'function' in code and '{' in code and '=>' in code:
+            language = 'typescript'
+        
+        # Check if it's multi-file (has // filename markers)
+        has_file_markers = any(
+            line.strip().startswith('//') and 
+            ('file' in line.lower() or any(ext in line.lower() for ext in ['.js', '.py', '.ts', '.java', '.cpp', '.c', '.go', '.rs', '.html', '.css']))
+            for line in lines[:10]
+        )
+        
+        if has_file_markers:
+            # Multi-file submission - format each file clearly with separators
+            formatted_parts = []
+            current_file = []
+            current_filename = None
+            
+            for line in lines:
+                stripped = line.strip()
+                # Check if this is a file marker (// filename or // File: filename)
+                if stripped.startswith('//') and ('file' in stripped.lower() or any(ext in stripped.lower() for ext in ['.js', '.py', '.ts', '.java', '.cpp', '.c', '.go', '.rs', '.html', '.css'])):
+                    # Save previous file if exists
+                    if current_filename and current_file:
+                        file_code = '\n'.join(current_file).strip()
+                        formatted_parts.append(f"File: {current_filename}\n```{language or ''}\n{file_code}\n```")
+                    # Extract filename from marker
+                    filename = stripped.replace('//', '').replace('File:', '').replace('file:', '').strip()
+                    current_filename = filename
+                    current_file = []
+                else:
+                    current_file.append(line)
+            
+            # Add last file
+            if current_filename and current_file:
+                file_code = '\n'.join(current_file).strip()
+                formatted_parts.append(f"File: {current_filename}\n```{language or ''}\n{file_code}\n```")
+            elif not current_filename and current_file:
+                # No file markers but we have code - treat as single file
+                file_code = '\n'.join(current_file).strip()
+                return f"```{language or ''}\n{file_code}\n```"
+            
+            return "\n\n".join(formatted_parts)
+        else:
+            # Single file - wrap in markdown code block for ChatGPT
+            return f"```{language or ''}\n{code}\n```"
+
     async def judge_ide(self, question: dict, ide_code: str, score_max: int) -> IDEJudgeResult:
         # Use the dedicated technical_practical judge prompts
-        system = render_prompt("role/technical_practical/judge/system_prompt.jinja")
-        prompt = render_prompt(
-            "role/technical_practical/judge/user_prompt.jinja",
-            question=question,
-            user_code=ide_code,
-            evaluation_type="ide",
-            score_max=score_max,
-        )
-        llm_resp = await self.client.generate_text(
-            LLMTextRequest(
-                prompt=prompt,
-                system=system,
-                temperature=0.0,
-                max_tokens=700,
+        try:
+            system = render_prompt("role/technical_practical/judge/system_prompt.jinja")
+            # Extract question text - handle both {"question": "..."} and just string
+            question_text = question.get("question", "") if isinstance(question, dict) else str(question)
+            
+            # Format code nicely for ChatGPT evaluation
+            formatted_code = self._format_code_for_llm(ide_code)
+            
+            # Log what we're sending to ChatGPT
+            print(f"[PRACTICAL_JUDGE] Sending to ChatGPT:")
+            print(f"  Question: {question_text[:200]}...")
+            print(f"  Code length: {len(formatted_code)} chars (original: {len(ide_code)} chars)")
+            print(f"  Code preview: {formatted_code[:300]}...")
+            
+            prompt = render_prompt(
+                "role/technical_practical/judge/user_prompt.jinja",
+                question=question_text,
+                user_code=formatted_code,  # Pass formatted code to ChatGPT
+                evaluation_type="ide",
+                score_max=score_max,
             )
-        )
-        raw_text = llm_resp.text or ""
-        data = self._parse_llm_json(raw_text)
-        return IDEJudgeResult(**data)
+            
+            print(f"[PRACTICAL_JUDGE] Calling OpenAI API...")
+            llm_resp = await self.client.generate_text(
+                LLMTextRequest(
+                    prompt=prompt,
+                    system=system,
+                    temperature=0.0,
+                    max_tokens=700,
+                )
+            )
+            raw_text = llm_resp.text or ""
+            print(f"[PRACTICAL_JUDGE] ChatGPT response length: {len(raw_text)} chars")
+            print(f"[PRACTICAL_JUDGE] ChatGPT response preview: {raw_text[:300]}...")
+            
+            if not raw_text:
+                print("[PRACTICAL_JUDGE] ERROR: LLM returned empty response for IDE judging")
+                raise ValueError("Empty LLM response")
+            data = self._parse_llm_json(raw_text)
+            print(f"[PRACTICAL_JUDGE] Parsed JSON successfully: {data}")
+            return IDEJudgeResult(**data)
+        except Exception as e:
+            print(f"[PRACTICAL_JUDGE] ERROR in judge_ide: {e}")
+            import traceback
+            traceback.print_exc()
+            # Return a default result instead of failing completely
+            return IDEJudgeResult(
+                completeness=0,
+                correctness=0,
+                efficiency=0,
+                reasoning=f"Error judging code: {str(e)}"
+            )
 
     async def judge_text(self, question: dict, text_answer: str, score_max: int) -> TextJudgeResult:
         # Use the dedicated technical_practical judge prompts
-        system = render_prompt("role/technical_practical/judge/system_prompt.jinja")
-        prompt = render_prompt(
-            "role/technical_practical/judge/user_prompt.jinja",
-            question=question,
-            text_answer=text_answer,
-            evaluation_type="text",
-            score_max=score_max,
-        )
-        llm_resp = await self.client.generate_text(
-            LLMTextRequest(
-                prompt=prompt,
-                system=system,
-                temperature=0.0,
-                max_tokens=700,
+        try:
+            system = render_prompt("role/technical_practical/judge/system_prompt.jinja")
+            # Extract question text - handle both {"question": "..."} and just string
+            question_text = question.get("question", "") if isinstance(question, dict) else str(question)
+            
+            print(f"[PRACTICAL_JUDGE] Sending text answer to ChatGPT:")
+            print(f"  Question: {question_text[:200]}...")
+            print(f"  Text answer length: {len(text_answer)} chars")
+            print(f"  Text answer preview: {text_answer[:300]}...")
+            
+            prompt = render_prompt(
+                "role/technical_practical/judge/user_prompt.jinja",
+                question=question_text,
+                text_answer=text_answer,  # Pass text directly to ChatGPT
+                evaluation_type="text",
+                score_max=score_max,
             )
-        )
-        raw_text = llm_resp.text or ""
-        data = self._parse_llm_json(raw_text)
-        return TextJudgeResult(**data)
+            
+            print(f"[PRACTICAL_JUDGE] Calling OpenAI API for text...")
+            llm_resp = await self.client.generate_text(
+                LLMTextRequest(
+                    prompt=prompt,
+                    system=system,
+                    temperature=0.0,
+                    max_tokens=700,
+                )
+            )
+            raw_text = llm_resp.text or ""
+            print(f"[PRACTICAL_JUDGE] ChatGPT text response length: {len(raw_text)} chars")
+            print(f"[PRACTICAL_JUDGE] ChatGPT text response preview: {raw_text[:300]}...")
+            
+            if not raw_text:
+                print("[PRACTICAL_JUDGE] ERROR: LLM returned empty response for text judging")
+                raise ValueError("Empty LLM response")
+            data = self._parse_llm_json(raw_text)
+            print(f"[PRACTICAL_JUDGE] Parsed text JSON successfully: {data}")
+            return TextJudgeResult(**data)
+        except Exception as e:
+            print(f"[PRACTICAL_JUDGE] ERROR in judge_text: {e}")
+            import traceback
+            traceback.print_exc()
+            # Return a default result instead of failing completely
+            return TextJudgeResult(
+                completeness=0,
+                clarity=0,
+                correctness=0,
+                reasoning=f"Error judging text: {str(e)}"
+            )
 
     def _parse_llm_json(self, text: str) -> dict:
         """Attempt to extract a JSON object from an LLM response with aggressive clean-up.

@@ -118,15 +118,22 @@ async def score_technical_theory_answer(
         if player_id not in game_state["answer_tracking"]["technical_theory"]:
             game_state["answer_tracking"]["technical_theory"][player_id] = {}
         
-        # Store answer with feedback (technical theory has no feedback, but track attempted flag)
+        # Store answer with feedback (store judge response)
+        # Generate basic feedback based on correctness
+        if is_correct:
+            feedback = f"Correct! Your answer matches the expected answer."
+        else:
+            feedback = f"Incorrect. The correct answer is: {correct_answer}"
+        
         game_state["answer_tracking"]["technical_theory"][player_id][str(question_index)] = {
-            "answer": answer,
-            "answer_text": player_answer_text,
+            "answer": answer,  # Option letter (A, B, C, D)
+            "answer_text": player_answer_text,  # Mapped answer text
             "correct_answer": correct_answer,
             "is_correct": is_correct,
+            "score": score,
             "attempted": True,
             "answered_at": datetime.utcnow().isoformat(),
-            "feedback": None  # Technical theory has no feedback
+            "feedback": feedback  # Store judge response/feedback
         }
         
         # Store score incrementally in game_state
