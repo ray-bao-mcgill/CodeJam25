@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import json
 import asyncio
 from datetime import datetime
-from typing import Dict, Set
+from typing import Dict, Set, Optional
 from sqlalchemy.orm import Session
 from lobby.manager import lobby_manager
 from database.game_state import (
@@ -19,6 +19,19 @@ from database.game_state import (
 from database import SessionLocal, OngoingMatch
 from game.phase_manager import phase_manager
 from game.scoring import calculate_phase_scores
+try:
+    from code_executor import execute_code
+except ImportError as import_error:
+    print(f"Warning: code_executor not available: {import_error}")
+    error_msg = str(import_error)
+    async def execute_code(language: str, code: str):
+        return {
+            'stdout': '',
+            'stderr': f'Code execution not available: {error_msg}',
+            'exit_code': 1,
+            'error': 'Code executor not available',
+            'execution_time': 0
+        }
 
 router = APIRouter()
 
@@ -954,3 +967,40 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
         lobby_manager.remove_connection(lobby_id, websocket)
         # Broadcast updated state after disconnection
         await lobby_manager.broadcast_lobby_update(lobby_id)
+
+
+class CodeRunRequest(BaseModel):
+    language: str
+    code: str
+
+
+@router.post("/api/run")
+async def run_code(request: CodeRunRequest):
+    """
+    Execute code in a secure Docker sandbox
+    Supports: Python, Java, C, C++, Bash, TypeScript, SQL, and more
+    """
+    try:
+        print(f"[Code Runner] Received request: language={request.language}, code_length={len(request.code)}")
+        result = await execute_code(request.language, request.code)
+        print(f"[Code Runner] Execution result: exit_code={result.get('exit_code')}, has_stdout={bool(result.get('stdout'))}, has_stderr={bool(result.get('stderr'))}")
+        return {
+            "success": result.get('exit_code', 1) == 0,
+            "stdout": result.get('stdout', ''),
+            "stderr": result.get('stderr', ''),
+            "exit_code": result.get('exit_code', 1),
+            "execution_time": result.get('execution_time', 0),
+            "error": result.get('error')
+        }
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[Code Runner] Error: {str(e)}\n{error_trace}")
+        return {
+            "success": False,
+            "stdout": "",
+            "stderr": f"Server error: {str(e)}",
+            "exit_code": 1,
+            "execution_time": 0,
+            "error": str(e)
+        }

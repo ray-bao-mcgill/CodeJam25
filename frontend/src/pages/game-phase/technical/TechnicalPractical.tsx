@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styles from './TechnicalPractical.module.css';
 import { useGameSync } from '@/hooks/useGameSync';
+import { API_URL } from '@/config';
 
 const TAB_IDE = 'IDE' as const;
 const TAB_TEXT = 'TEXT' as const;
@@ -82,7 +83,7 @@ interface CodeFile {
 
 const initialFile: CodeFile = {
   name: 'main.js',
-  code: '// Start coding here...\n',
+  code: '',
   language: 'javascript',
 };
 
@@ -212,7 +213,42 @@ const TechnicalPractical: React.FC = () => {
   function handleChangeLanguage(lang: string) {
     setFiles(f => {
       const arr = [...f];
-      arr[currentFileIdx] = { ...arr[currentFileIdx], language: lang };
+      let code = arr[currentFileIdx].code;
+      const trimmed = code.trim();
+      
+      // If code is empty or just a placeholder comment, replace with language-appropriate placeholder
+      if (!trimmed || trimmed === '// Start coding here...' || trimmed === '# Start coding here...' || 
+          trimmed === '/* Start coding here... */' || trimmed === '<!-- Start coding here... -->') {
+        if (lang === 'python' || lang === 'shell') {
+          code = '# Start coding here...\n';
+        } else if (lang === 'javascript' || lang === 'typescript') {
+          code = '// Start coding here...\n';
+        } else if (lang === 'html') {
+          code = '<!-- Start coding here... -->\n';
+        } else if (lang === 'css') {
+          code = '/* Start coding here... */\n';
+        } else {
+          code = '// Start coding here...\n';
+        }
+      } else {
+        // Clean up invalid comment lines for the new language
+        const lines = code.split('\n');
+        const cleanedLines = lines.map(line => {
+          const trimmedLine = line.trim();
+          // Remove JavaScript-style comments if switching to Python/Shell
+          if ((lang === 'python' || lang === 'shell') && trimmedLine.startsWith('//')) {
+            return line.replace(/^\s*\/\/\s*/, '# ');
+          }
+          // Remove Python-style comments if switching to JavaScript/TypeScript
+          if ((lang === 'javascript' || lang === 'typescript') && trimmedLine.startsWith('#')) {
+            return line.replace(/^\s*#\s*/, '// ');
+          }
+          return line;
+        });
+        code = cleanedLines.join('\n');
+      }
+      
+      arr[currentFileIdx] = { ...arr[currentFileIdx], language: lang, code };
       return arr;
     });
   }
@@ -226,7 +262,20 @@ const TechnicalPractical: React.FC = () => {
     }
     // Guess default language by extension
     const lang = getLanguageFromFilename(fname);
-    setFiles(f => [...f, { name: fname, code: '', language: lang }]);
+    // Set appropriate initial comment based on language
+    let initialCode = '';
+    if (lang === 'python' || lang === 'shell') {
+      initialCode = '# Start coding here...\n';
+    } else if (lang === 'javascript' || lang === 'typescript') {
+      initialCode = '// Start coding here...\n';
+    } else if (lang === 'html') {
+      initialCode = '<!-- Start coding here... -->\n';
+    } else if (lang === 'css') {
+      initialCode = '/* Start coding here... */\n';
+    } else {
+      initialCode = '// Start coding here...\n';
+    }
+    setFiles(f => [...f, { name: fname, code: initialCode, language: lang }]);
     setCurrentFileIdx(files.length); // Focus new file
     setShowFileModal(false);
     setFileInput('');
@@ -533,33 +582,99 @@ const TechnicalPractical: React.FC = () => {
             <div style={{flexShrink:0}}>
               <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
                 <button
-                  title={files[currentFileIdx].language === 'javascript'? undefined : 'Only JavaScript files can be run in browser.'}
-                  disabled={files[currentFileIdx].language !== 'javascript'}
-                  onClick={()=>{
-                    // Run JS
+                  type="button"
+                  onClick={async (e)=>{
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const language = files[currentFileIdx].language;
                     const code = files[currentFileIdx].code;
-                    let logs: string[] = [];
-                    let error:
-string | null = null;
-                    const originalLog = window.console.log;
-                    try {
-                      (window as any).console.log = (...args:any[]) => {logs.push(args.map(a=>typeof a==='object'?JSON.stringify(a):String(a)).join(' '));};
-                      // eslint-disable-next-line no-new-func
-                      new Function(code)();
-                    } catch(e) {
-                      error = (e as Error).message;
-                    } finally {
-                      (window as any).console.log = originalLog;
+                    setOutputLog(['Running...']);
+                    
+                    if (language === 'javascript') {
+                      // Run JS locally in browser
+                      let logs: string[] = [];
+                      let error: string | null = null;
+                      const originalLog = window.console.log;
+                      try {
+                        (window as any).console.log = (...args:any[]) => {logs.push(args.map(a=>typeof a==='object'?JSON.stringify(a):String(a)).join(' '));};
+                        // eslint-disable-next-line no-new-func
+                        new Function(code)();
+                      } catch(e) {
+                        error = (e as Error).message;
+                      } finally {
+                        (window as any).console.log = originalLog;
+                      }
+                      setOutputLog(logs.concat(error? ["[Error] "+error] : []));
+                    } else {
+                      // Run other languages via backend
+                      try {
+                        const url = `${API_URL}/api/run`;
+                        console.log(`[Code Runner] Sending request to: ${url}`, { language, codeLength: code.length });
+                        
+                        const response = await fetch(url, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({ language, code }),
+                        });
+                        
+                        if (!response.ok) {
+                          const errorText = await response.text();
+                          console.error(`[Code Runner] HTTP error: ${response.status}`, errorText);
+                          setOutputLog([`[HTTP Error ${response.status}] ${errorText || response.statusText}`]);
+                          return;
+                        }
+                        
+                        const result = await response.json();
+                        console.log('[Code Runner] Response:', result);
+                        
+                        let output: string[] = [];
+                        if (result.stdout) {
+                          output.push(result.stdout);
+                        }
+                        if (result.stderr) {
+                          output.push(`[Error] ${result.stderr}`);
+                        }
+                        if (result.error && !result.stderr) {
+                          output.push(`[Error] ${result.error}`);
+                        }
+                        if (result.execution_time) {
+                          output.push(`\n[Execution time: ${result.execution_time.toFixed(2)}s]`);
+                        }
+                        if (output.length === 0) {
+                          output.push(result.success ? '(No output)' : '(Execution failed)');
+                        }
+                        
+                        setOutputLog(output);
+                      } catch (e) {
+                        console.error('[Code Runner] Network error:', e);
+                        const errorMsg = e instanceof Error ? e.message : 'Failed to connect to server';
+                        const isNetworkError = errorMsg.includes('fetch') || errorMsg.includes('Failed to fetch');
+                        if (isNetworkError) {
+                          setOutputLog([
+                            `[Network Error] Cannot connect to backend server.`,
+                            `\nPlease ensure:`,
+                            `1. Backend server is running (python backend/main.py)`,
+                            `2. Server is accessible at ${API_URL}`,
+                            `3. CORS is properly configured`,
+                            `\n[API URL: ${API_URL}/api/run]`
+                          ]);
+                        } else {
+                          setOutputLog([`[Error] ${errorMsg}`]);
+                        }
+                      }
                     }
-                    setOutputLog(logs.concat(error? ["[Error] "+error] : []));
                   }}
-                  style={{fontWeight:700,background:'#406cd7',color:'#fff',padding:'0.29em 1.4em',borderRadius:5,border:'none',fontSize:'1em',opacity:files[currentFileIdx].language==='javascript'?1:0.65,cursor:files[currentFileIdx].language==='javascript'?'pointer':'not-allowed'}}
+                  style={{fontWeight:700,background:'#406cd7',color:'#fff',padding:'0.29em 1.4em',borderRadius:5,border:'none',fontSize:'1em',cursor:'pointer'}}
                 >Run</button>
                 <button
+                  type="button"
                   onClick={()=>setShowClearModal(true)}
                   style={{fontWeight:600,background:'#f8f8ff',color:'#cc3400',padding:'0.29em 1.08em',borderRadius:5,border:'1px solid #e0e0e0',fontSize:'1em',cursor:'pointer'}}
                 >Reset</button>
                 <button
+                  type="button"
                   onClick={async()=>{
                     try {
                       await navigator.clipboard.writeText(files[currentFileIdx].code);
@@ -569,6 +684,7 @@ string | null = null;
                   style={{fontWeight:600,background:'#f8f8ff',color:'#205568',padding:'0.29em 1.08em',borderRadius:5,border:'1px solid #e0e0e0',fontSize:'1em',cursor:'pointer'}}
                 >Copy</button>
                 <button
+                  type="button"
                   onClick={()=>{
                     const blob = new Blob([files[currentFileIdx].code], {type: 'text/plain'});
                     const link = document.createElement('a');
@@ -592,7 +708,7 @@ string | null = null;
               <div className={styles.outputSection}>
                 <div style={{fontWeight:600,letterSpacing:'.025em',fontSize:'0.96em',color:'#ffe838',marginBottom:2}}>Output</div>
                 <div style={{overflowX:'auto', wordBreak:'break-all'}}>{(outputLog.length > 0)?outputLog.join('\n'):'(No output yet)'}</div>
-                <button onClick={()=>setOutputLog([])} style={{position:'absolute',top:8,right:15,fontSize:'0.95em',background:'none',border:'none',color:'#ffe838',cursor:'pointer'}}>Clear Output</button>
+                <button type="button" onClick={()=>setOutputLog([])} style={{position:'absolute',top:8,right:15,fontSize:'0.95em',background:'none',border:'none',color:'#ffe838',cursor:'pointer'}}>Clear Output</button>
               </div>
             </div>
           </div>
@@ -633,6 +749,7 @@ string | null = null;
 
       <div className="flex justify-center mt-4" style={{ flexShrink: 0 }}>
         <button
+          type="button"
           className="game-sharp game-block-blue px-12 py-4 text-lg font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover"
           style={{ border: '6px solid var(--game-text-primary)', color: 'var(--game-text-white)' }}
         >
@@ -681,9 +798,22 @@ string | null = null;
               <button type="button" onClick={()=>setShowClearModal(false)} style={{fontWeight:600,color:'#666',background:'#efefef',border:'1px solid #bbb',borderRadius:4,padding:'0.23em 0.92em'}}>Cancel</button>
               <button type="button" style={{fontWeight:700,background:'#ffe838',color:'#cc3300',borderRadius:4,border:'none',padding:'0.23em 1.36em'}}
                 onClick={()=> {
-                  setFiles(f=>{const arr=[...f];arr[currentFileIdx]={...arr[currentFileIdx],code:'\n'};return arr;});
+                  const lang = files[currentFileIdx].language;
+                  let emptyCode = '';
+                  if (lang === 'python' || lang === 'shell') {
+                    emptyCode = '# Start coding here...\n';
+                  } else if (lang === 'javascript' || lang === 'typescript') {
+                    emptyCode = '// Start coding here...\n';
+                  } else if (lang === 'html') {
+                    emptyCode = '<!-- Start coding here... -->\n';
+                  } else if (lang === 'css') {
+                    emptyCode = '/* Start coding here... */\n';
+                  } else {
+                    emptyCode = '// Start coding here...\n';
+                  }
+                  setFiles(f=>{const arr=[...f];arr[currentFileIdx]={...arr[currentFileIdx],code:emptyCode};return arr;});
                   setShowClearModal(false);
-                  if(monacoEditorRef.current) monacoEditorRef.current.setValue('\n');
+                  if(monacoEditorRef.current) monacoEditorRef.current.setValue(emptyCode);
                 }}>Reset</button>
             </div>
           </div>
