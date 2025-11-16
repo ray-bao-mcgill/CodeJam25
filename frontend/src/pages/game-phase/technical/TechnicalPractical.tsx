@@ -1053,7 +1053,47 @@ const TechnicalPractical: React.FC = () => {
                 }}
               >
                 <div className="px-4 py-2" style={{flex:1, minWidth:0, width:'auto', display:'flex', flexDirection:'column', minHeight:0}}>
-                  <label className="block font-bold mb-2 text-gray-700" style={{ flexShrink: 0 }}>Text Answer:</label>
+                  <div style={{flexShrink:0, marginBottom: '0.5rem'}}>
+                    <label className="block font-bold mb-2 text-gray-700" style={{ flexShrink: 0 }}>Text Answer:</label>
+                    <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
+                      <button
+                        type="button"
+                        onClick={() => setTextValue('')}
+                        style={{fontWeight:600,background:'#f8f8ff',color:'#cc3400',padding:'0.29em 1.08em',borderRadius:5,border:'1px solid #e0e0e0',fontSize:'1em',cursor:'pointer'}}
+                      >Reset</button>
+                      <button
+                        type="button"
+                        onClick={async()=>{
+                          try {
+                            await navigator.clipboard.writeText(textValue);
+                            setCopySuccess(true); setTimeout(()=>setCopySuccess(false),1650);
+                          } catch{}
+                        }}
+                        style={{
+                          fontWeight:600,
+                          background: copySuccess ? '#27c379' : '#f8f8ff',
+                          color: copySuccess ? '#fff' : '#205568',
+                          padding:'0.29em 1.08em',
+                          borderRadius:5,
+                          border:'1px solid #e0e0e0',
+                          fontSize:'1em',
+                          cursor:'pointer',
+                          transition: 'background 0.2s, color 0.2s'
+                        }}
+                      >{copySuccess ? 'Copied!' : 'Copy'}</button>
+                      <button
+                        type="button"
+                        onClick={()=>{
+                          const blob = new Blob([textValue], {type: 'text/plain'});
+                          const link = document.createElement('a');
+                          link.download = 'answer.txt';
+                          link.href = URL.createObjectURL(blob);
+                          document.body.appendChild(link); link.click(); link.remove();
+                        }}
+                        style={{fontWeight:600,background:'#f8f8ff',color:'#205568',padding:'0.29em 1.08em',borderRadius:5,border:'1px solid #e0e0e0',fontSize:'1em',cursor:'pointer'}}
+                      >Download</button>
+                    </div>
+                  </div>
                   <textarea
                     className={`${styles.textarea} w-full border-4 border-gray-900 rounded-none p-4 text-base focus:outline-none focus:ring-2 focus:ring-blue-600 game-shadow-hard`}
                     style={{
@@ -1221,12 +1261,12 @@ const TechnicalPractical: React.FC = () => {
                       padding: '0.5rem 1rem',
                       fontSize: '0.95rem',
                       fontWeight: 700,
-                      background: isEraserMode ? '#ffe838' : '#f5f5f5',
-                      color: isEraserMode ? '#222' : '#666',
+                      background: isEraserMode ? '#9966ff' : '#f5f5f5',
+                      color: isEraserMode ? '#fff' : '#666',
                       border: isEraserMode ? '3px solid #222' : '2px solid #ccc',
                       borderRadius: '6px',
                       cursor: 'pointer',
-                      boxShadow: isEraserMode ? '0 2px 8px rgba(0,0,0,0.2)' : '0 1px 3px rgba(0,0,0,0.1)',
+                      boxShadow: isEraserMode ? '0 2px 8px rgba(153,102,255,0.3)' : '0 1px 3px rgba(0,0,0,0.1)',
                       transition: 'all 0.2s',
                       outline: 'none'
                     }}
@@ -1247,7 +1287,7 @@ const TechnicalPractical: React.FC = () => {
                     Eraser
                   </button>
                   
-                  {/* Clear Button */}
+                  {/* Reset Button */}
                   <button
                     type="button"
                     onClick={handleClearCanvas}
@@ -1272,9 +1312,52 @@ const TechnicalPractical: React.FC = () => {
                       e.currentTarget.style.background = '#fff';
                       e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
                     }}
-                    aria-label="Clear drawing"
+                    aria-label="Reset drawing"
                   >
-                    🗑️ Clear
+                    Reset
+                  </button>
+                  
+                  {/* Download Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const canvas = canvasRef.current;
+                      if (!canvas) return;
+                      canvas.toBlob((blob) => {
+                        if (blob) {
+                          const link = document.createElement('a');
+                          link.download = 'drawing.png';
+                          link.href = URL.createObjectURL(blob);
+                          document.body.appendChild(link);
+                          link.click();
+                          link.remove();
+                        }
+                      });
+                    }}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.95rem',
+                      fontWeight: 700,
+                      background: '#fff',
+                      color: '#205568',
+                      border: '2px solid #205568',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                      transition: 'all 0.2s',
+                      outline: 'none'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#e8f4f8';
+                      e.currentTarget.style.boxShadow = '0 2px 6px rgba(32,85,104,0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#fff';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                    }}
+                    aria-label="Download drawing"
+                  >
+                    Download
                   </button>
                 </div>
                 
