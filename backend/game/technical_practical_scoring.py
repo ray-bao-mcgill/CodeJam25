@@ -51,12 +51,14 @@ async def score_technical_practical_submission(
             print(f"[TECHNICAL_PRACTICAL_SCORING] Question {question_index} not found in cache")
             return None
         
-        # Parse submission to extract IDE code and text answer
+        # Parse submission to extract IDE code and text answer for ChatGPT
+        # Just format it simply - ChatGPT can handle it
         # Submission format can be:
-        # 1. JSON object with both: {"ide_files": [...], "text_answer": "..."}
-        # 2. JSON stringified array of files: [{"name": "...", "code": "...", "language": "..."}]
-        # 3. HTML string (rich text from text editor)
-        # 4. Data URL (canvas image - should be ignored)
+        # 1. JSON object: {"ide_code": "...", "text_answer": "..."} or {"ide_files": [...], "text_answer": "..."}
+        # 2. JSON array: [{"name": "...", "code": "...", "language": "..."}]
+        # 3. Raw code text (when IDE tab is active)
+        # 4. HTML/text string
+        # 5. Data URL (canvas image - ignore)
         
         ide_code = ""
         text_answer = ""
@@ -66,55 +68,71 @@ async def score_technical_practical_submission(
             parsed = json.loads(submission_data)
             
             if isinstance(parsed, dict):
-                # New format: JSON object with both IDE files and text answer
-                ide_files = parsed.get("ide_files", [])
-                text_answer = parsed.get("text_answer", "")
-                
-                # Process IDE files
-                if isinstance(ide_files, list) and len(ide_files) > 0:
-                    code_parts = []
-                    for file_data in ide_files:
-                        if isinstance(file_data, dict):
-                            file_name = file_data.get("name", "")
-                            file_code = file_data.get("code", "")
-                            if file_code:
-                                code_parts.append(f"// File: {file_name}\n{file_code}")
-                    ide_code = "\n\n".join(code_parts)
-                    print(f"[TECHNICAL_PRACTICAL_SCORING] Parsed combined submission: {len(ide_files)} IDE files, {len(text_answer)} chars text")
+                # Check for new format with ide_code (raw text)
+                if "ide_code" in parsed:
+                    ide_code = parsed.get("ide_code", "")
+                    text_answer = parsed.get("text_answer", "")
+                    print(f"[TECHNICAL_PRACTICAL_SCORING] Parsed JSON with ide_code: {len(ide_code)} chars code, {len(text_answer)} chars text")
+                # Check for ide_files format
+                elif "ide_files" in parsed:
+                    ide_files = parsed.get("ide_files", [])
+                    text_answer = parsed.get("text_answer", "")
+                    # Concatenate all files' code for ChatGPT
+                    if isinstance(ide_files, list) and len(ide_files) > 0:
+                        code_parts = []
+                        for file_data in ide_files:
+                            if isinstance(file_data, dict):
+                                file_name = file_data.get("name", "")
+                                file_code = file_data.get("code", "")
+                                if file_code:
+                                    code_parts.append(f"// {file_name}\n{file_code}")
+                        ide_code = "\n\n".join(code_parts)
+                        print(f"[TECHNICAL_PRACTICAL_SCORING] Parsed ide_files: {len(ide_files)} files -> {len(ide_code)} chars")
                 elif text_answer:
-                    print(f"[TECHNICAL_PRACTICAL_SCORING] Parsed JSON with text answer only: {len(text_answer)} chars")
+                    text_answer = parsed.get("text_answer", "")
+                    print(f"[TECHNICAL_PRACTICAL_SCORING] Parsed JSON with text_answer only: {len(text_answer)} chars")
                 else:
                     print(f"[TECHNICAL_PRACTICAL_SCORING] Empty JSON object submission")
                     
             elif isinstance(parsed, list):
-                # IDE submission - concatenate all files' code
+                # IDE files array - concatenate for ChatGPT
                 code_parts = []
                 for file_data in parsed:
                     if isinstance(file_data, dict):
                         file_name = file_data.get("name", "")
                         file_code = file_data.get("code", "")
                         if file_code:
-                            code_parts.append(f"// File: {file_name}\n{file_code}")
-                ide_code = "\n\n".join(code_parts)
-                print(f"[TECHNICAL_PRACTICAL_SCORING] Parsed IDE submission: {len(parsed)} files, {len(ide_code)} chars")
+                            code_parts.append(f"// {file_name}\n{file_code}")
+                ide_code = "\n\n".join(code_parts) if code_parts else ""
+                print(f"[TECHNICAL_PRACTICAL_SCORING] Parsed IDE files array: {len(parsed)} files -> {len(ide_code)} chars")
             else:
                 print(f"[TECHNICAL_PRACTICAL_SCORING] Unexpected JSON format: {type(parsed)}")
                 
         except (json.JSONDecodeError, TypeError):
-            # Not JSON, check if it's HTML (text submission) or data URL (drawing)
+            # Not JSON - check what it is
             if submission_data.startswith("data:image"):
-                # Drawing submission - ignore it
-                print(f"[TECHNICAL_PRACTICAL_SCORING] Ignoring drawing submission (data URL)")
+                # Drawing - ignore
+                print(f"[TECHNICAL_PRACTICAL_SCORING] Ignoring drawing submission")
                 ide_code = ""
                 text_answer = ""
-            elif submission_data.startswith("<") or "html" in submission_data.lower():
-                # HTML/text submission
+            elif submission_data.startswith("<") or "html" in submission_data.lower() or submission_data.startswith("&lt;"):
+                # HTML/text - treat as text answer
                 text_answer = submission_data
-                print(f"[TECHNICAL_PRACTICAL_SCORING] Parsed text submission: {len(text_answer)} chars")
+                print(f"[TECHNICAL_PRACTICAL_SCORING] Parsed HTML/text: {len(text_answer)} chars")
             else:
-                # Plain text submission
-                text_answer = submission_data
-                print(f"[TECHNICAL_PRACTICAL_SCORING] Parsed plain text submission: {len(text_answer)} chars")
+                # Raw text - check if it's code or text
+                # Simple heuristic: if it has code-like patterns, it's code
+                code_patterns = ["//", "function", "const ", "let ", "var ", "async ", "class ", "import ", "def ", "if ", "for ", "while ", "=>", "{", "}"]
+                is_code = any(pattern in submission_data for pattern in code_patterns)
+                
+                if is_code:
+                    # Raw code - pass directly to ChatGPT
+                    ide_code = submission_data
+                    print(f"[TECHNICAL_PRACTICAL_SCORING] Parsed raw code: {len(ide_code)} chars (passing directly to ChatGPT)")
+                else:
+                    # Plain text answer
+                    text_answer = submission_data
+                    print(f"[TECHNICAL_PRACTICAL_SCORING] Parsed plain text: {len(text_answer)} chars")
         
         # If we have neither IDE code nor text answer, skip judging
         if not ide_code and not text_answer:
@@ -138,23 +156,42 @@ async def score_technical_practical_submission(
         
         print(f"[TECHNICAL_PRACTICAL_SCORING] Judging submission for player {player_id}...")
         print(f"[TECHNICAL_PRACTICAL_SCORING] IDE code present: {bool(ide_code)}, Text answer present: {bool(text_answer)}")
+        if ide_code:
+            print(f"[TECHNICAL_PRACTICAL_SCORING] IDE code preview (first 200 chars): {ide_code[:200]}")
+        if text_answer:
+            print(f"[TECHNICAL_PRACTICAL_SCORING] Text answer preview (first 200 chars): {text_answer[:200]}")
         
-        result = await judge.judge_submission(question_for_judge, submission_dict)
-        
-        total_score = result.get("total_score", 0)
-        ide_result = result.get("ide")
-        text_result = result.get("text")
-        
-        print(f"[TECHNICAL_PRACTICAL_SCORING] Player {player_id} scored:")
-        if ide_result:
-            print(f"  IDE: completeness={ide_result.completeness}, correctness={ide_result.correctness}, efficiency={ide_result.efficiency}")
-            print(f"  IDE Reasoning: {ide_result.reasoning}")
-        if text_result:
-            print(f"  Text: completeness={text_result.completeness}, clarity={text_result.clarity}, correctness={text_result.correctness}")
-            print(f"  Text Reasoning: {text_result.reasoning}")
-        print(f"[TECHNICAL_PRACTICAL_SCORING] JUDGE RETURNED total_score: {total_score} (type: {type(total_score)})")
-        print(f"[TECHNICAL_PRACTICAL_SCORING] Full result dict keys: {list(result.keys())}")
-        print(f"[TECHNICAL_PRACTICAL_SCORING] Full result dict: {result}")
+        try:
+            result = await judge.judge_submission(question_for_judge, submission_dict)
+            
+            if not result:
+                print(f"[TECHNICAL_PRACTICAL_SCORING] ERROR: Judge returned None/empty result!")
+                return None
+            
+            total_score = result.get("total_score", 0)
+            ide_result = result.get("ide")
+            text_result = result.get("text")
+            
+            print(f"[TECHNICAL_PRACTICAL_SCORING] Player {player_id} scored:")
+            if ide_result:
+                print(f"  IDE: completeness={ide_result.completeness}, correctness={ide_result.correctness}, efficiency={ide_result.efficiency}")
+                print(f"  IDE Reasoning: {ide_result.reasoning}")
+            else:
+                print(f"  IDE: No IDE result (ide_code was present: {bool(ide_code)})")
+            if text_result:
+                print(f"  Text: completeness={text_result.completeness}, clarity={text_result.clarity}, correctness={text_result.correctness}")
+                print(f"  Text Reasoning: {text_result.reasoning}")
+            else:
+                print(f"  Text: No text result (text_answer was present: {bool(text_answer)})")
+            print(f"[TECHNICAL_PRACTICAL_SCORING] JUDGE RETURNED total_score: {total_score} (type: {type(total_score)})")
+            print(f"[TECHNICAL_PRACTICAL_SCORING] Full result dict keys: {list(result.keys())}")
+            print(f"[TECHNICAL_PRACTICAL_SCORING] Full result dict: {result}")
+        except Exception as judge_error:
+            print(f"[TECHNICAL_PRACTICAL_SCORING] ERROR: Judge failed with exception: {judge_error}")
+            import traceback
+            traceback.print_exc()
+            # Return None to indicate scoring failed
+            return None
         
         # Track answer with feedback in game_state
         # Initialize answer_tracking structure

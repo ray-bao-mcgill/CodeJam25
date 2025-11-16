@@ -64,7 +64,8 @@ def get_all_technical_theory_questions() -> List[Dict[str, Any]]:
                     "level": level,
                     "question": q_data["question"],
                     "correct_answer": q_data["correct"],
-                    "incorrect_answers": q_data["incorrect"]
+                    "incorrect_answers": q_data["incorrect"],
+                    "difficulty": q_data.get("difficulty")  # Extract difficulty from JSON
                 })
     return questions
 

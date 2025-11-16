@@ -85,12 +85,69 @@ const Comparison: React.FC = () => {
     },
   })
 
-  // Load comparison data (mock for now - should come from backend)
+  // Load comparison data from backend
   useEffect(() => {
-    if (!hasLoadedRef.current) {
+    if (!hasLoadedRef.current && lobbyId) {
       hasLoadedRef.current = true
-      // TODO: Fetch real data from backend
-      // For now, using mock data
+      
+      // Fetch match summary JSON from backend
+      // First get match_id from lobby_id, then fetch summary
+      const fetchMatchSummary = async () => {
+        try {
+          // Get match_id from lobby_id via backend
+          const matchResponse = await fetch(`/api/lobby/${lobbyId}/match-id`)
+          let matchId = null
+          
+          if (matchResponse.ok) {
+            const matchData = await matchResponse.json()
+            matchId = matchData.match_id
+          } else {
+            // Try alternative: get match from game_state
+            const gameStateResponse = await fetch(`/api/lobby/${lobbyId}/game-state`)
+            if (gameStateResponse.ok) {
+              const gameStateData = await gameStateResponse.json()
+              matchId = gameStateData.match_id
+            }
+          }
+          
+          if (!matchId) {
+            console.warn('[COMPARISON] Could not get match_id, using fallback')
+            setComparisons([])
+            setIsLoading(false)
+            return
+          }
+          
+          const response = await fetch(`/api/match/${matchId}/summary`)
+          const data = await response.json()
+          
+          if (data.comparisons && Array.isArray(data.comparisons)) {
+            console.log('[COMPARISON] Loaded match summary:', data.comparisons)
+            setComparisons(data.comparisons)
+            setIsLoading(false)
+          } else if (data.error) {
+            console.error('[COMPARISON] Error loading match summary:', data.error)
+            // Fallback to empty array if summary not yet generated
+            setComparisons([])
+            setIsLoading(false)
+          } else {
+            console.warn('[COMPARISON] Invalid match summary format:', data)
+            setComparisons([])
+            setIsLoading(false)
+          }
+        } catch (error) {
+          console.error('[COMPARISON] Error fetching match summary:', error)
+          setComparisons([])
+          setIsLoading(false)
+        }
+      }
+      
+      fetchMatchSummary()
+      return
+    }
+    
+    // Fallback mock data (only if no lobby/match_id available)
+    if (!hasLoadedRef.current && !lobbyId) {
+      hasLoadedRef.current = true
       setTimeout(() => {
         const mockComparisons: QuestionComparison[] = [
           // Q1: Shared question
@@ -188,7 +245,7 @@ const Comparison: React.FC = () => {
         setIsLoading(false)
       }, 1000)
     }
-  }, [lobby])
+  }, [lobby, lobbyId])
 
   // Typewriter effect for answers
   useEffect(() => {
@@ -305,15 +362,7 @@ const Comparison: React.FC = () => {
     }
   }, [typingLeft, typingRight, currentIndex, comparisons])
 
-  const handleNext = () => {
-    if (currentIndex < comparisons.length - 1) {
-      setCurrentIndex(currentIndex + 1)
-    } else {
-      // Last comparison - send ready signal and navigate
-      handleReadyForPodium()
-    }
-  }
-
+  // Handle ready for podium - send sync signal (must be after wsRef is defined)
   const handleReadyForPodium = useCallback(() => {
     if (hasSentContinueRef.current || !lobbyId || !playerId) return
     
@@ -330,11 +379,22 @@ const Comparison: React.FC = () => {
     }
   }, [lobbyId, playerId, wsRef])
 
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1)
+  // Handle next button click
+  const handleNext = useCallback(() => {
+    if (currentIndex < comparisons.length - 1) {
+      setCurrentIndex(prev => prev + 1)
+    } else {
+      // Last comparison - send ready signal and navigate
+      handleReadyForPodium()
     }
-  }
+  }, [currentIndex, comparisons.length, handleReadyForPodium])
+
+  // Handle previous button click
+  const handlePrevious = useCallback(() => {
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1)
+    }
+  }, [currentIndex])
 
   if (isLoading) {
     return (
