@@ -1038,7 +1038,7 @@ const TechnicalPractical: React.FC = () => {
               <div style={{flex:1, minWidth:0, width:'auto', display:'flex', flexDirection:'column', minHeight:0, padding: '1rem'}}>
                 {/* Color Picker */}
                 <div style={{ flexShrink: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <label className="block font-bold text-gray-700" style={{ fontSize: '1rem' }}>Color:</label>
+                  <label className="block font-bold text-gray-700" style={{ fontSize: '1rem' }}>Colour:</label>
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     {DRAWING_COLORS.map((color) => (
                       <button
@@ -1069,7 +1069,7 @@ const TechnicalPractical: React.FC = () => {
                             e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
                           }
                         }}
-                        aria-label={`Select color ${color}`}
+                        aria-label={`Select colour ${color}`}
                       />
                     ))}
                   </div>
