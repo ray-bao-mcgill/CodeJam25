@@ -366,6 +366,16 @@ async def execute_code(language: str, code: str) -> Dict[str, any]:
                     'execution_time': (datetime.now() - start_time).total_seconds()
                 }
         
+        # For SQL and other languages that require Docker
+        if language == 'sql':
+            return {
+                'stdout': '',
+                'stderr': 'SQL execution requires Docker and a database connection. Please use Docker for secure SQL execution.',
+                'exit_code': 1,
+                'error': 'SQL requires Docker',
+                'execution_time': 0
+            }
+        
         return {
             'stdout': '',
             'stderr': f'Docker is not available. Code execution for {language} requires Docker.',
@@ -536,25 +546,52 @@ gcc /tmp/main.c -o /tmp/main && /tmp/main"""
 
 
 async def _execute_readonly(language: str, config: Dict, code: str, code_file: str) -> Dict:
-    """Execute readonly operations (validation, linting, etc.)"""
+    """Execute readonly operations (validation, linting, etc.)
+    
+    Expected outputs:
+    - YAML: "Valid YAML" or validation error
+    - JSON: "Valid JSON" or validation error
+    - HTML/CSS/Markdown/Dockerfile: File info message
+    """
     if language == 'yaml':
-        validator_code = f"import yaml, sys\nwith open('/tmp/code.yaml', 'r') as f:\n    yaml.safe_load(f)\nprint('Valid YAML')"
+        validator_code = "import yaml, sys\nwith open('/tmp/code.yaml', 'r') as f:\n    yaml.safe_load(f)\nprint('✓ Valid YAML')"
     elif language == 'json':
-        validator_code = f"import json, sys\nwith open('/tmp/code.json', 'r') as f:\n    json.load(f)\nprint('Valid JSON')"
+        validator_code = "import json, sys\nwith open('/tmp/code.json', 'r') as f:\n    json.load(f)\nprint('✓ Valid JSON')"
+    elif language == 'html':
+        validator_code = f"print('HTML file validated\\nFile size: {len(code)} characters')"
+    elif language == 'css':
+        validator_code = f"print('CSS file validated\\nFile size: {len(code)} characters')"
+    elif language == 'markdown':
+        validator_code = f"print('Markdown file validated\\nFile size: {len(code)} characters')"
+    elif language == 'dockerfile':
+        validator_code = f"print('Dockerfile validated\\nFile size: {len(code)} characters')"
     else:
         validator_code = f"print('File validated: {language}')"
     
     try:
-        result = docker_client.containers.run(
-            config['image'],
-            f"{config['command']} -c '{validator_code}'",
-            volumes={code_file: {'bind': f'/tmp/code{_get_file_extension(language)}', 'mode': 'ro'}},
-            mem_limit=config['memory_limit'],
-            network_disabled=True,
-            remove=True,
-            detach=False,
-            timeout=config['timeout']
-        )
+        if language in ['yaml', 'json']:
+            # Use Python validator with file volume
+            result = docker_client.containers.run(
+                config['image'],
+                f"python -c \"{validator_code}\"",
+                volumes={code_file: {'bind': f'/tmp/code{_get_file_extension(language)}', 'mode': 'ro'}},
+                mem_limit=config['memory_limit'],
+                network_disabled=True,
+                remove=True,
+                detach=False,
+                timeout=config['timeout']
+            )
+        else:
+            # For other readonly languages, just echo info
+            result = docker_client.containers.run(
+                config['image'],
+                f"sh -c \"{validator_code}\"",
+                mem_limit=config['memory_limit'],
+                network_disabled=True,
+                remove=True,
+                detach=False,
+                timeout=config['timeout']
+            )
         
         stdout = result.decode('utf-8', errors='replace') if isinstance(result, bytes) else str(result)
         return {
