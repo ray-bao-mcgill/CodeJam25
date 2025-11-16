@@ -9,6 +9,9 @@ const TAB_DRAW = 'DRAW' as const;
 type TabType = typeof TAB_IDE | typeof TAB_TEXT | typeof TAB_DRAW;
 const TAB_OPTIONS: TabType[] = [TAB_IDE, TAB_TEXT, TAB_DRAW];
 
+// Languages that support code execution
+const EXECUTABLE_LANGS = ['python', 'java', 'javascript'];
+
 // Ordered by usage frequency: most popular first, validation languages last
 const SUPPORTED_LANGS = [
   // Most popular executable languages
@@ -586,7 +589,7 @@ const TechnicalPractical: React.FC = () => {
                       }
                       setOutputLog(logs.concat(error? ["[Error] "+error] : []));
                     } else {
-                      // Run other languages via backend
+                      // Run Python/Java via backend
                       try {
                         const url = `${API_URL}/api/run`;
                         console.log(`[Code Runner] Sending request to: ${url}`, { language, codeLength: code.length });
@@ -646,7 +649,19 @@ const TechnicalPractical: React.FC = () => {
                       }
                     }
                   }}
-                  style={{fontWeight:700,background:'#406cd7',color:'#fff',padding:'0.29em 1.4em',borderRadius:5,border:'none',fontSize:'1em',cursor:'pointer'}}
+                  disabled={!EXECUTABLE_LANGS.includes(files[currentFileIdx].language)}
+                  title={!EXECUTABLE_LANGS.includes(files[currentFileIdx].language) ? 'Run feature not supported for this language yet' : 'Run code'}
+                  style={{
+                    fontWeight:700,
+                    background: EXECUTABLE_LANGS.includes(files[currentFileIdx].language) ? '#406cd7' : '#cccccc',
+                    color: EXECUTABLE_LANGS.includes(files[currentFileIdx].language) ? '#fff' : '#888888',
+                    padding:'0.29em 1.4em',
+                    borderRadius:5,
+                    border:'none',
+                    fontSize:'1em',
+                    cursor: EXECUTABLE_LANGS.includes(files[currentFileIdx].language) ? 'pointer' : 'not-allowed',
+                    opacity: EXECUTABLE_LANGS.includes(files[currentFileIdx].language) ? 1 : 0.6
+                  }}
                 >Run</button>
                 <button
                   type="button"

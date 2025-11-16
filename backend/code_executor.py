@@ -120,7 +120,7 @@ LANGUAGE_CONFIGS: Dict[str, Dict] = {
 
 async def execute_code(language: str, code: str) -> Dict[str, any]:
     """
-    Execute code in a Docker sandbox
+    Execute code - supports Python, Java, and JavaScript only
     
     Returns:
         {
@@ -131,8 +131,18 @@ async def execute_code(language: str, code: str) -> Dict[str, any]:
             'execution_time': float
         }
     """
+    # Only support Python, Java, JavaScript
+    if language not in ['python', 'java', 'javascript']:
+        return {
+            'stdout': '',
+            'stderr': f'Run feature not supported for {language} yet. Currently supported: Python, Java, JavaScript.',
+            'exit_code': 1,
+            'error': f'Language {language} not supported',
+            'execution_time': 0
+        }
+    
     if not docker_client:
-        # Fallback: Try to execute Python code directly if Docker unavailable (development only)
+        # Fallback: Execute locally if Docker unavailable (development only)
         if language == 'python':
             start_time = datetime.now()
             try:
@@ -254,137 +264,13 @@ async def execute_code(language: str, code: str) -> Dict[str, any]:
                 except:
                     pass
         
-        elif language == 'typescript':
-            start_time = datetime.now()
-            # Find ts-node executable (Windows needs .cmd extension)
-            ts_node_cmd = 'ts-node.cmd' if sys.platform == 'win32' else 'ts-node'
-            if not shutil.which(ts_node_cmd):
-                ts_node_cmd = 'ts-node'
-            
-            # Try ts-node first
-            try:
-                process = await asyncio.create_subprocess_exec(
-                    ts_node_cmd, '-e', code,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
-                )
-                try:
-                    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10)
-                except asyncio.TimeoutError:
-                    process.kill()
-                    await process.wait()
-                    return {
-                        'stdout': '',
-                        'stderr': 'Execution timed out after 10 seconds.',
-                        'exit_code': 124,
-                        'error': 'Timeout',
-                        'execution_time': (datetime.now() - start_time).total_seconds()
-                    }
-                
-                return {
-                    'stdout': stdout.decode('utf-8', errors='replace'),
-                    'stderr': stderr.decode('utf-8', errors='replace'),
-                    'exit_code': process.returncode or 0,
-                    'error': None,
-                    'execution_time': (datetime.now() - start_time).total_seconds()
-                }
-            except FileNotFoundError:
-                # Fallback: tsc + node
-                tsc_cmd = 'tsc.cmd' if sys.platform == 'win32' else 'tsc'
-                node_cmd = 'node.cmd' if sys.platform == 'win32' else 'node'
-                
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.ts', delete=False) as f:
-                    f.write(code)
-                    ts_path = f.name
-                
-                try:
-                    js_path = ts_path.replace('.ts', '.js')
-                    
-                    # Compile
-                    compile_process = await asyncio.create_subprocess_exec(
-                        tsc_cmd, ts_path, '--target', 'ES2020', '--module', 'commonjs',
-                        '--esModuleInterop', '--skipLibCheck',
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE
-                    )
-                    _, compile_stderr = await asyncio.wait_for(compile_process.communicate(), timeout=5)
-                    
-                    if compile_process.returncode != 0:
-                        return {
-                            'stdout': '',
-                            'stderr': compile_stderr.decode('utf-8', errors='replace'),
-                            'exit_code': compile_process.returncode,
-                            'error': 'TypeScript compilation failed',
-                            'execution_time': (datetime.now() - start_time).total_seconds()
-                        }
-                    
-                    if not os.path.exists(js_path):
-                        return {
-                            'stdout': '',
-                            'stderr': 'Compiled JavaScript file not found.',
-                            'exit_code': 1,
-                            'error': 'Compilation output missing',
-                            'execution_time': (datetime.now() - start_time).total_seconds()
-                        }
-                    
-                    # Run
-                    run_process = await asyncio.create_subprocess_exec(
-                        node_cmd, js_path,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE
-                    )
-                    try:
-                        stdout, stderr = await asyncio.wait_for(run_process.communicate(), timeout=10)
-                    except asyncio.TimeoutError:
-                        run_process.kill()
-                        await run_process.wait()
-                        return {
-                            'stdout': '',
-                            'stderr': 'Execution timed out after 10 seconds.',
-                            'exit_code': 124,
-                            'error': 'Timeout',
-                            'execution_time': (datetime.now() - start_time).total_seconds()
-                        }
-                    
-                    return {
-                        'stdout': stdout.decode('utf-8', errors='replace'),
-                        'stderr': stderr.decode('utf-8', errors='replace'),
-                        'exit_code': run_process.returncode or 0,
-                        'error': None,
-                        'execution_time': (datetime.now() - start_time).total_seconds()
-                    }
-                except FileNotFoundError:
-                    return {
-                        'stdout': '',
-                        'stderr': 'TypeScript execution requires ts-node or tsc+node. Please install: npm install -g ts-node typescript',
-                        'exit_code': 1,
-                        'error': 'TypeScript tools not found',
-                        'execution_time': (datetime.now() - start_time).total_seconds()
-                    }
-                finally:
-                    # Cleanup
-                    for path in [ts_path, js_path, ts_path.replace('.ts', '.d.ts')]:
-                        try:
-                            if os.path.exists(path):
-                                os.unlink(path)
-                        except:
-                            pass
-            except Exception as e:
-                return {
-                    'stdout': '',
-                    'stderr': f'Execution error: {str(e)}',
-                    'exit_code': 1,
-                    'error': str(e),
-                    'execution_time': (datetime.now() - start_time).total_seconds()
-                }
-        
-        # For SQL and other languages that require Docker
-        if language == 'sql':
+        # JavaScript runs in browser, not backend
+        if language == 'javascript':
             return {
                 'stdout': '',
-                'stderr': 'SQL execution requires Docker and a database connection. Please use Docker for secure SQL execution.',
+                'stderr': 'JavaScript execution should happen in the browser.',
                 'exit_code': 1,
-                'error': 'SQL requires Docker',
+                'error': 'JavaScript runs client-side',
                 'execution_time': 0
             }
         
@@ -396,12 +282,13 @@ async def execute_code(language: str, code: str) -> Dict[str, any]:
             'execution_time': 0
         }
     
-    if language not in LANGUAGE_CONFIGS:
+    # Only Python and Java use Docker (JavaScript runs in browser)
+    if language not in ['python', 'java']:
         return {
             'stdout': '',
-            'stderr': f'Language "{language}" is not supported for execution.',
+            'stderr': f'Run feature not supported for {language} yet. Currently supported: Python, Java, JavaScript.',
             'exit_code': 1,
-            'error': f'Unsupported language: {language}',
+            'error': f'Language {language} not supported',
             'execution_time': 0
         }
     
@@ -501,22 +388,12 @@ async def _execute_compiled(language: str, config: Dict, code_file: str) -> Dict
         with open(code_file, 'r') as f:
             code_content = f.read()
         
-        # Create a script that compiles and runs
+        # Create a script that compiles and runs (only Java supported)
         if language == 'java':
             script = f"""cat > /tmp/Main.java << 'EOF'
 {code_content}
 EOF
 javac /tmp/Main.java && java -cp /tmp Main"""
-        elif language == 'cpp':
-            script = f"""cat > /tmp/main.cpp << 'EOF'
-{code_content}
-EOF
-g++ /tmp/main.cpp -o /tmp/main && /tmp/main"""
-        elif language == 'c':
-            script = f"""cat > /tmp/main.c << 'EOF'
-{code_content}
-EOF
-gcc /tmp/main.c -o /tmp/main && /tmp/main"""
         else:
             script = code_content
         
