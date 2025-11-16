@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MultipleChoice, { MultipleChoiceOption } from '@/components/MultipleChoice'
 import { useGameFlow } from '@/hooks/useGameFlow'
@@ -177,6 +177,7 @@ const TechnicalTheoryRound: React.FC = () => {
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [showFeedback, setShowFeedback] = useState(false)
   const [isCorrect, setIsCorrect] = useState(false)
+  const hasRequestedQuestionsRef = useRef(false)
   
   // Helper function to convert backend question format to frontend format
   const convertQuestionToFrontendFormat = (
@@ -215,9 +216,15 @@ const TechnicalTheoryRound: React.FC = () => {
     onKicked: () => {},
     currentPlayerId: playerId || null,
     onGameMessage: (message: any) => {
+      console.log('[TECHNICAL_THEORY] Received WebSocket message:', message.type, message)
+      
       // Handle all questions loaded at once
       if (message.type === 'technical_theory_questions_loaded') {
-        console.log('[TECHNICAL_THEORY] Received questions from backend:', message.questions.length)
+        console.log('[TECHNICAL_THEORY] Received questions from backend:', message.questions?.length || 0)
+        if (!message.questions || message.questions.length === 0) {
+          console.error('[TECHNICAL_THEORY] Received empty questions array!')
+          return
+        }
         // Sort questions by question_index to ensure correct order
         const sortedBackendQuestions = [...message.questions].sort((a: any, b: any) => 
           (a.question_index || 0) - (b.question_index || 0)
@@ -231,6 +238,8 @@ const TechnicalTheoryRound: React.FC = () => {
         )
         setQuestions(convertedQuestions)
         setIsLoading(false)
+        hasRequestedQuestionsRef.current = true // Mark as successfully requested
+        console.log('[TECHNICAL_THEORY] Successfully loaded', convertedQuestions.length, 'questions')
       }
       // Handle individual question received (fallback)
       else if (message.type === 'question_received' && message.phase === 'technical_theory') {
@@ -279,11 +288,35 @@ const TechnicalTheoryRound: React.FC = () => {
 
   // Request questions from backend when component mounts
   useEffect(() => {
-    if (!lobbyId || !playerId || !wsRef.current) return
+    // Don't request if questions are already loaded
+    if (questions.length > 0) {
+      console.log('[TECHNICAL_THEORY] Questions already loaded, skipping request')
+      hasRequestedQuestionsRef.current = true // Mark as requested since we have questions
+      return
+    }
     
-    const ws = wsRef.current
-    if (ws.readyState === WebSocket.OPEN) {
+    if (!lobbyId || !playerId) return
+    
+    // Reset request flag if we don't have questions yet (allows retry)
+    if (hasRequestedQuestionsRef.current && questions.length === 0 && !isLoading) {
+      console.log('[TECHNICAL_THEORY] No questions received after request, resetting flag for retry')
+      hasRequestedQuestionsRef.current = false
+    }
+    
+    if (hasRequestedQuestionsRef.current) return
+    
+    const requestQuestions = () => {
+      const ws = wsRef.current
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        return false
+      }
+      
+      if (hasRequestedQuestionsRef.current) {
+        return true // Already requested
+      }
+      
       console.log('[TECHNICAL_THEORY] Requesting question 0 (will trigger loading all 10 questions)')
+      hasRequestedQuestionsRef.current = true
       ws.send(JSON.stringify({
         type: 'request_question',
         player_id: playerId,
@@ -291,26 +324,107 @@ const TechnicalTheoryRound: React.FC = () => {
         phase: 'technical_theory',
         question_index: 0
       }))
-    } else {
-      // Wait for connection
-      const checkConnection = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          console.log('[TECHNICAL_THEORY] WebSocket connected, requesting questions')
-          ws.send(JSON.stringify({
-            type: 'request_question',
-            player_id: playerId,
-            lobby_id: lobbyId,
-            phase: 'technical_theory',
-            question_index: 0
-          }))
-          clearInterval(checkConnection)
+      return true
+    }
+    
+    // Wait for connection with retry logic
+    let checkInterval: ReturnType<typeof setInterval> | null = null
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null
+    let questionRetryTimeout: ReturnType<typeof setTimeout> | null = null
+    let wsOpenHandler: ((event: Event) => void) | null = null
+    
+    const setupRetry = () => {
+      checkInterval = setInterval(() => {
+        if (requestQuestions()) {
+          if (checkInterval) {
+            clearInterval(checkInterval)
+            checkInterval = null
+          }
+          if (retryTimeout) {
+            clearTimeout(retryTimeout)
+            retryTimeout = null
+          }
         }
       }, 100)
       
-      // Cleanup after 10 seconds
-      setTimeout(() => clearInterval(checkConnection), 10000)
+      // Stop checking after 10 seconds
+      retryTimeout = setTimeout(() => {
+        if (checkInterval) {
+          clearInterval(checkInterval)
+          checkInterval = null
+        }
+        if (!hasRequestedQuestionsRef.current) {
+          console.warn('[TECHNICAL_THEORY] Failed to request questions after 10 seconds')
+          // Reset flag to allow retry
+          hasRequestedQuestionsRef.current = false
+        }
+      }, 10000)
     }
-  }, [lobbyId, playerId, wsRef])
+    
+    // Set up a timeout to retry if no questions received after 3 seconds
+    questionRetryTimeout = setTimeout(() => {
+      if (questions.length === 0 && hasRequestedQuestionsRef.current && isLoading) {
+        console.warn('[TECHNICAL_THEORY] No questions received after 3 seconds, retrying request')
+        hasRequestedQuestionsRef.current = false
+        // The effect will re-run and retry the request
+      }
+    }, 3000)
+    
+    // Also listen for WebSocket open event
+    const ws = wsRef.current
+    if (ws) {
+      wsOpenHandler = () => {
+        console.log('[TECHNICAL_THEORY] WebSocket opened, requesting questions')
+        if (requestQuestions()) {
+          if (checkInterval) {
+            clearInterval(checkInterval)
+            checkInterval = null
+          }
+          if (retryTimeout) {
+            clearTimeout(retryTimeout)
+            retryTimeout = null
+          }
+        }
+      }
+      
+      if (ws.readyState === WebSocket.OPEN) {
+        // Already open, request immediately
+        if (requestQuestions()) {
+          // Request sent successfully, but still set up retry timeout in case response doesn't come
+        }
+      } else if (ws.readyState === WebSocket.CONNECTING) {
+        // Still connecting, wait for open event
+        ws.addEventListener('open', wsOpenHandler, { once: true })
+        setupRetry() // Also set up interval as backup
+      } else {
+        // Not connected, set up retry
+        setupRetry()
+      }
+    } else {
+      // WebSocket ref not available yet, set up retry
+      setupRetry()
+    }
+    
+    // Single cleanup function for all timeouts/intervals
+    return () => {
+      if (checkInterval) {
+        clearInterval(checkInterval)
+        checkInterval = null
+      }
+      if (retryTimeout) {
+        clearTimeout(retryTimeout)
+        retryTimeout = null
+      }
+      if (questionRetryTimeout) {
+        clearTimeout(questionRetryTimeout)
+        questionRetryTimeout = null
+      }
+      if (ws && wsOpenHandler) {
+        ws.removeEventListener('open', wsOpenHandler)
+        wsOpenHandler = null
+      }
+    }
+  }, [lobbyId, playerId, wsRef, questions.length, isLoading])
 
   // Update total players count from lobby
   useEffect(() => {
