@@ -912,17 +912,71 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                 print(f"[SUBMIT] Technical practical completion status: {phase_complete} ({len(phase_state.player_submissions)}/{total_players} players)")
                                 
                                 if phase_complete:
-                                    print(f"[SUBMIT] Technical practical COMPLETE! All players submitted. Getting pre-calculated scores.")
+                                    print(f"[SUBMIT] Technical practical COMPLETE! All players submitted. Ensuring all scores are generated before broadcasting.")
                                     
                                     # Get pre-calculated scores (scored incrementally as submissions were submitted)
                                     try:
                                         from game.technical_practical_scoring import get_technical_practical_total_score
                                         player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
                                         scores = {}
-                                        for pid in player_ids:
-                                            score = await get_technical_practical_total_score(match_id, pid)
-                                            scores[pid] = score
-                                            print(f"[TECHNICAL_PRACTICAL] Player {pid} total score: {score}")
+                                        
+                                        # Ensure all scores are generated: Poll until all players have score records
+                                        # This handles race conditions when both players submit simultaneously
+                                        max_attempts = 10  # Maximum attempts (safety limit)
+                                        attempt = 0
+                                        
+                                        while attempt < max_attempts:
+                                            attempt += 1
+                                            all_scores_ready = True
+                                            scores = {}
+                                            
+                                            # Use fresh database session to see latest commits
+                                            db_scores = SessionLocal()
+                                            try:
+                                                match_record_scores = db_scores.query(OngoingMatch).filter(
+                                                    OngoingMatch.match_id == match_id
+                                                ).first()
+                                                
+                                                if not match_record_scores:
+                                                    print(f"[TECHNICAL_PRACTICAL] Match not found, retrying...")
+                                                    all_scores_ready = False
+                                                else:
+                                                    game_state_scores = match_record_scores.game_state or {}
+                                                    if not isinstance(game_state_scores, dict):
+                                                        print(f"[TECHNICAL_PRACTICAL] Invalid game_state, retrying...")
+                                                        all_scores_ready = False
+                                                    else:
+                                                        practical_scores = game_state_scores.get("technical_practical_scores", {})
+                                                        
+                                                        # Check each player has a score record
+                                                        for pid in player_ids:
+                                                            player_scores = practical_scores.get(pid, {})
+                                                            if not isinstance(player_scores, dict) or "_total" not in player_scores:
+                                                                all_scores_ready = False
+                                                                print(f"[TECHNICAL_PRACTICAL] Player {pid} score not ready yet (attempt {attempt})")
+                                                                break
+                                                            else:
+                                                                total_score = player_scores.get("_total", 0)
+                                                                scores[pid] = int(total_score) if isinstance(total_score, (int, float)) else 0
+                                                                print(f"[TECHNICAL_PRACTICAL] Player {pid} score ready: {scores[pid]}")
+                                            finally:
+                                                db_scores.close()
+                                            
+                                            if all_scores_ready:
+                                                print(f"[TECHNICAL_PRACTICAL] ✓ All scores generated and ready after {attempt} attempt(s)")
+                                                break
+                                            
+                                            # Wait briefly before retrying (only if not all scores ready)
+                                            if attempt < max_attempts:
+                                                await asyncio.sleep(0.2)  # Short poll interval
+                                        
+                                        if not all_scores_ready:
+                                            print(f"[TECHNICAL_PRACTICAL] WARNING: Not all scores ready after {max_attempts} attempts, using available scores")
+                                            # Fill in missing scores with 0
+                                            for pid in player_ids:
+                                                if pid not in scores:
+                                                    scores[pid] = 0
+                                                    print(f"[TECHNICAL_PRACTICAL] Using fallback score 0 for player {pid}")
                                         
                                         # Store scores in database for consistency
                                         final_scores, previous_scores = await calculate_and_store_scores(match_id, "technical_practical", player_ids)
@@ -1038,10 +1092,49 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                         print(f"[TECHNICAL_PRACTICAL] Error getting scores: {e}")
                                         import traceback
                                         traceback.print_exc()
-                                        # Fallback: use RNG scores
-                                        import random
+                                        
+                                        # Fallback: Try to get pre-calculated scores from database, or use 0
                                         player_ids = [p.get("id") if isinstance(p, dict) else str(p) for p in lobby.players]
-                                        scores = {pid: random.randint(50, 100) for pid in player_ids}
+                                        scores = {}
+                                        phase_scores_for_round = {}
+                                        
+                                        # Try to read scores directly from database as last resort
+                                        db_fallback = SessionLocal()
+                                        try:
+                                            match_record_fallback = db_fallback.query(OngoingMatch).filter(
+                                                OngoingMatch.match_id == match_id
+                                            ).first()
+                                            if match_record_fallback and match_record_fallback.game_state:
+                                                game_state_fallback = match_record_fallback.game_state
+                                                if isinstance(game_state_fallback, dict):
+                                                    # Try to get technical_practical_scores
+                                                    practical_scores = game_state_fallback.get("technical_practical_scores", {})
+                                                    if isinstance(practical_scores, dict):
+                                                        for pid in player_ids:
+                                                            player_scores = practical_scores.get(pid, {})
+                                                            if isinstance(player_scores, dict):
+                                                                total = player_scores.get("_total", 0)
+                                                                scores[pid] = int(total) if isinstance(total, (int, float)) else 0
+                                                                phase_scores_for_round[pid] = int(total) if isinstance(total, (int, float)) else 0
+                                                    
+                                                    # If still no scores, try cumulative scores
+                                                    if not scores:
+                                                        cumulative_scores = game_state_fallback.get("scores", {})
+                                                        if isinstance(cumulative_scores, dict):
+                                                            for pid in player_ids:
+                                                                scores[pid] = int(cumulative_scores.get(pid, 0))
+                                        except Exception as fallback_error:
+                                            print(f"[TECHNICAL_PRACTICAL] Fallback score retrieval also failed: {fallback_error}")
+                                        finally:
+                                            db_fallback.close()
+                                        
+                                        # If we still don't have scores, use 0 (deterministic, not random)
+                                        for pid in player_ids:
+                                            if pid not in scores:
+                                                scores[pid] = 0
+                                                phase_scores_for_round[pid] = 0
+                                        
+                                        print(f"[TECHNICAL_PRACTICAL] Using fallback scores (0 or from database): {scores}")
                                         
                                         # Broadcast scores even on error
                                         await lobby_manager.broadcast_game_message(
@@ -1050,6 +1143,8 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                                 "type": "scores_ready",
                                                 "phase": "technical_practical",
                                                 "scores": scores,
+                                                "phase_scores": phase_scores_for_round,
+                                                "previous_scores": {},
                                                 "serverTime": datetime.utcnow().timestamp() * 1000
                                             }
                                         )
