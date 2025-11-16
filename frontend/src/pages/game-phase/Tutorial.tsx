@@ -209,7 +209,7 @@ const Tutorial: React.FC = () => {
                 background: "#ff6600",
                 border: "6px solid #000",
                 color: "#fff",
-                boxShadow: "6px 6px 0 #2d2d2d",
+                boxShadow: "6px 6px 0 rgba(0, 0, 0, 0.3)",
               }}
               onClick={() => navigate("/landing")}
             >
@@ -221,7 +221,7 @@ const Tutorial: React.FC = () => {
                 background: "#9966ff",
                 border: "6px solid #000",
                 color: "#fff",
-                boxShadow: "6px 6px 0 #2d2d2d",
+                boxShadow: "6px 6px 0 rgba(0, 0, 0, 0.3)",
                 opacity: currentStep > 0 ? 1 : 0.5,
               }}
               onClick={() => {
@@ -243,7 +243,7 @@ const Tutorial: React.FC = () => {
                 background: "#138a36",
                 border: "6px solid #000",
                 color: "#fff",
-                boxShadow: "6px 6px 0 #2d2d2d",
+                boxShadow: "6px 6px 0 rgba(0, 0, 0, 0.3)",
                 opacity: currentStep < tutorialSteps.length - 1 ? 1 : 0.5,
               }}
               onClick={() => {

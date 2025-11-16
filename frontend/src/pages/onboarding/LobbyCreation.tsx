@@ -18,7 +18,13 @@ const LobbyCreation: React.FC = () => {
       <div className="text-center space-y-20 w-full max-w-5xl">
         {/* Title with hand-drawn style */}
         <div className="relative inline-block">
-          <div className="game-paper px-16 py-10 game-shadow-hard-lg game-hand-drawn">
+          <div className="px-16 py-10 game-shadow-hard-lg game-hand-drawn"
+            style={{
+              backgroundColor: '#ffe63b',
+              border: '6px solid var(--game-text-primary)',
+              transform: 'rotate(-2deg)'
+            }}
+          >
             <h1 className="game-title text-7xl">
               CHOOSE MODE
             </h1>
@@ -31,16 +37,20 @@ const LobbyCreation: React.FC = () => {
             className="game-sharp game-block-blue px-10 py-6 text-xl font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover"
             style={{
               border: '6px solid var(--game-text-primary)',
-              color: 'var(--game-text-white)',
-              transform: 'rotate(-1deg)'
+              color: 'var(--game-text-white)'
             }}
             onClick={handleJoinLobby}
           >
             JOIN LOBBY
           </button>
           
-          {/* Label maker "OR" */}
-          <div className="game-label-text text-3xl game-shadow-hard-sm">
+          {/* Regular black OR */}
+          <div className="text-3xl font-black"
+            style={{
+              color: 'var(--game-text-primary)',
+              fontFamily: 'Impact, sans-serif'
+            }}
+          >
             OR
           </div>
           
@@ -48,21 +58,12 @@ const LobbyCreation: React.FC = () => {
             className="game-sharp game-block-red px-10 py-6 text-xl font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover"
             style={{
               border: '6px solid var(--game-text-primary)',
-              color: 'var(--game-text-white)',
-              transform: 'rotate(1deg)'
+              color: 'var(--game-text-white)'
             }}
             onClick={handleCreateLobby}
           >
             CREATE LOBBY
           </button>
-        </div>
-
-        {/* Decorative sticky notes */}
-        <div className="absolute top-32 left-8 game-sticky-note px-6 py-4 game-shadow-hard-sm opacity-85">
-          <div className="text-sm font-bold uppercase">Note</div>
-        </div>
-        <div className="absolute bottom-32 right-8 game-sticky-note-alt px-6 py-4 game-shadow-hard-sm opacity-85">
-          <div className="text-sm font-bold uppercase">Tip</div>
         </div>
       </div>
     </div>
