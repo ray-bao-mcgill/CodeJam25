@@ -7,7 +7,7 @@ import { PulseCard } from "@/components/analytics/PulseCard";
 
 const Analytics: React.FC = () => {
   const navigate = useNavigate();
-  const { lobbyId } = useLobby();
+  const { lobbyId, playerId } = useLobby();
   const [gameHistory, setGameHistory] = useState<GameHistory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -23,20 +23,71 @@ const Analytics: React.FC = () => {
 
   // Fetch game history from backend
   useEffect(() => {
-    // TODO: Replace with actual API call when backend is ready
-    // fetch(`http://localhost:8000/api/lobby/${lobbyId}/history`)
-    //   .then(res => res.json())
-    //   .then(data => {
-    //     setGameHistory(data);
-    //     setIsLoading(false);
-    //   });
+    const fetchPlayerScore = async () => {
+      if (!lobbyId || !playerId) {
+        // Fallback to mock data if no lobby/player
+        setTimeout(() => {
+          setGameHistory(createMockGameHistory());
+          setIsLoading(false);
+        }, 500);
+        return;
+      }
 
-    // For now, use mock data
-    setTimeout(() => {
-      setGameHistory(createMockGameHistory());
-      setIsLoading(false);
-    }, 500);
-  }, [lobbyId]);
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://127.0.0.1:8000' : window.location.origin);
+        const response = await fetch(`${API_URL}/api/lobby/${lobbyId}/match-rankings`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.rankings && data.rankings.length > 0) {
+            // Find current player's ranking
+            const playerRanking = data.rankings.find((r: any) => r.player_id === playerId);
+            
+            if (playerRanking) {
+              // Create game history with actual player score
+              const mockHistory = createMockGameHistory();
+              mockHistory.player.totalScore = playerRanking.score;
+              mockHistory.player.finalResult = playerRanking.rank === 1 ? "HIRED" : "FIRED";
+              mockHistory.player.id = playerId;
+              mockHistory.player.name = playerRanking.name || "You";
+              
+              // Update overall rating based on actual score
+              const getRatingFromScore = (score: number): { letter: string; score: number } => {
+                if (score >= 5400) return { letter: "A+", score };
+                if (score >= 4800) return { letter: "A", score };
+                if (score >= 4200) return { letter: "B+", score };
+                if (score >= 3600) return { letter: "B", score };
+                if (score >= 3000) return { letter: "C+", score };
+                if (score >= 2400) return { letter: "C", score };
+                if (score >= 1800) return { letter: "D", score };
+                return { letter: "F", score };
+              };
+              
+              const rating = getRatingFromScore(playerRanking.score);
+              mockHistory.overallRating.letter = rating.letter as any;
+              mockHistory.overallRating.score = Math.round((playerRanking.score / 6000) * 100);
+              
+              setGameHistory(mockHistory);
+              setIsLoading(false);
+              return;
+            }
+          }
+        }
+        
+        // Fallback to mock data if API fails or no ranking found
+        console.warn('[ANALYTICS] Could not fetch player score, using mock data');
+        setGameHistory(createMockGameHistory());
+        setIsLoading(false);
+      } catch (error) {
+        console.error('[ANALYTICS] Error fetching player score:', error);
+        // Fallback to mock data on error
+        setGameHistory(createMockGameHistory());
+        setIsLoading(false);
+      }
+    };
+
+    fetchPlayerScore();
+  }, [lobbyId, playerId]);
 
   if (isLoading) {
     return (
