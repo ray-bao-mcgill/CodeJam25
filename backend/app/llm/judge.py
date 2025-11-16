@@ -1,5 +1,6 @@
 import json
 import re
+import sys
 from .schemas import BehaviouralJudgeResult, TheoreticalJudgeResult, IDEJudgeResult, TextJudgeResult
 from .client import LLMTextRequest
 from .prompts.renderer import render as render_prompt
@@ -31,44 +32,42 @@ class BehaviouralJudge:
             raise ValueError(f"LLM did not produce valid JSON judge output (sanitized attempt failed). Raw snippet: {snippet}")
 
     def _parse_llm_json(self, text: str) -> dict:
-        """Attempt to extract a JSON object from an LLM response that may include
-        markdown code fences, extra commentary, or multiple JSON blocks.
-
-        Strategy:
-        1. Strip leading/trailing whitespace
-        2. Remove ```json / ``` fences if present
-        3. Find the first balanced JSON object via regex
-        4. Fallback to direct json.loads 
-        5. Raise if all parsing attempts fail 
-        """
+        """Attempt to extract a JSON object from an LLM response with aggressive clean-up"""
         cleaned = text.strip()
-
-        # Remove markdown fences if present
+        # Remove markdown code fences if present
         if cleaned.startswith("```"):
-            # Remove opening fence (``` or ```json)
-            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
-            # Remove closing fence
+            cleaned = re.sub(r"^```(?:json)?\\s*", "", cleaned, flags=re.IGNORECASE)
             cleaned = re.sub(r"```$", "", cleaned.strip())
-
-        # Quick attempt direct
+        # Debug: always print the raw cleaned LLM output in full
+        print("[DEBUG] Raw LLM output:")
+        print(cleaned)
+        sys.stdout.flush()
+        with open("llm_judge_debug.log", "a", encoding="utf-8") as debug_log:
+            debug_log.write("\n--- LLM Output ---\n" + cleaned + "\n")
+        # Quick json.loads attempt
         try:
-            return json.loads(cleaned)
+            result = json.loads(cleaned)
+            if isinstance(result, dict):
+                return result
+            if isinstance(result, list) and result and isinstance(result[0], dict):
+                return result[0]
         except Exception:
             pass
-
-        # Regex to capture first JSON object (handles nested braces crudely)
-        match = re.search(r"{[\s\S]*}" , cleaned)
+        # Regex: find first JSON object
+        match = re.search(r"{[\s\S]*}", cleaned)
         if match:
             candidate = match.group(0)
-            # Try progressively trimming trailing junk after last closing brace
             last_brace = candidate.rfind("}")
             candidate = candidate[: last_brace + 1]
             try:
-                return json.loads(candidate)
+                result2 = json.loads(candidate)
+                if isinstance(result2, dict):
+                    return result2
+                if isinstance(result2, list) and result2 and isinstance(result2[0], dict):
+                    return result2[0]
             except Exception:
                 pass
-
-        # Attempt to extract fenced content line by line
+        # Line by line brace-block fallback as before
         lines = [l for l in cleaned.splitlines() if l.strip()]
         json_lines = []
         in_obj = False
@@ -85,11 +84,16 @@ class BehaviouralJudge:
         if json_lines:
             candidate2 = "\n".join(json_lines).strip()
             try:
-                return json.loads(candidate2)
+                result3 = json.loads(candidate2)
+                if isinstance(result3, dict):
+                    return result3
+                if isinstance(result3, list) and result3 and isinstance(result3[0], dict):
+                    return result3[0]
             except Exception:
                 pass
-
-        raise ValueError("Failed to parse JSON from LLM response after multiple strategies")
+        # On failure, print raw for debug
+        print("[DEBUG] Could not parse LLM output with any strategy! - See llm_judge_debug.log for the full text.")
+        raise ValueError(f"Failed to parse JSON from LLM response after multiple strategies.\nRaw output was:\n{text}")
 
 class TheoreticalJudge:
     def judge(self, question_data: dict, user_answer: str) -> TheoreticalJudgeResult:
@@ -121,13 +125,14 @@ class PracticalJudge:
         return results
 
     async def judge_ide(self, question: dict, ide_code: str, score_max: int) -> IDEJudgeResult:
-        system = render_prompt("role/technical_practical/system_prompt.jinja")
+        # Use the dedicated technical_practical judge prompts
+        system = render_prompt("role/technical_practical/judge/system_prompt.jinja")
         prompt = render_prompt(
-            "role/technical_practical/user_prompt.jinja",
+            "role/technical_practical/judge/user_prompt.jinja",
             question=question,
             user_code=ide_code,
             evaluation_type="ide",
-            score_max=score_max
+            score_max=score_max,
         )
         llm_resp = await self.client.generate_text(
             LLMTextRequest(
@@ -142,13 +147,14 @@ class PracticalJudge:
         return IDEJudgeResult(**data)
 
     async def judge_text(self, question: dict, text_answer: str, score_max: int) -> TextJudgeResult:
-        system = render_prompt("role/technical_practical/system_prompt.jinja")
+        # Use the dedicated technical_practical judge prompts
+        system = render_prompt("role/technical_practical/judge/system_prompt.jinja")
         prompt = render_prompt(
-            "role/technical_practical/user_prompt.jinja",
+            "role/technical_practical/judge/user_prompt.jinja",
             question=question,
             text_answer=text_answer,
             evaluation_type="text",
-            score_max=score_max
+            score_max=score_max,
         )
         llm_resp = await self.client.generate_text(
             LLMTextRequest(
@@ -163,26 +169,43 @@ class PracticalJudge:
         return TextJudgeResult(**data)
 
     def _parse_llm_json(self, text: str) -> dict:
-        """Copy of BehaviouralJudge._parse_llm_json pattern for extracting a JSON object"""
+        """Attempt to extract a JSON object from an LLM response with aggressive clean-up.
+
+        This mirrors the BehaviouralJudge parser so both judges behave consistently.
+        """
         cleaned = text.strip()
-        # Remove markdown fences
+        # Remove markdown code fences if present
         if cleaned.startswith("```"):
             cleaned = re.sub(r"^```(?:json)?\\s*", "", cleaned, flags=re.IGNORECASE)
             cleaned = re.sub(r"```$", "", cleaned.strip())
+        # Debug: always print the raw cleaned LLM output in full
+        print("[DEBUG] PracticalJudge raw LLM output:")
+        print(cleaned)
+        sys.stdout.flush()
+        # Quick json.loads attempt
         try:
-            return json.loads(cleaned)
+            result = json.loads(cleaned)
+            if isinstance(result, dict):
+                return result
+            if isinstance(result, list) and result and isinstance(result[0], dict):
+                return result[0]
         except Exception:
             pass
+        # Regex: find first JSON object
         match = re.search(r"{[\s\S]*}", cleaned)
         if match:
             candidate = match.group(0)
             last_brace = candidate.rfind("}")
             candidate = candidate[: last_brace + 1]
             try:
-                return json.loads(candidate)
+                result2 = json.loads(candidate)
+                if isinstance(result2, dict):
+                    return result2
+                if isinstance(result2, list) and result2 and isinstance(result2[0], dict):
+                    return result2[0]
             except Exception:
                 pass
-        # Fallback: extract lines within first brace block
+        # Line by line brace-block fallback
         lines = [l for l in cleaned.splitlines() if l.strip()]
         json_lines = []
         in_obj = False
@@ -199,9 +222,14 @@ class PracticalJudge:
         if json_lines:
             candidate2 = "\n".join(json_lines).strip()
             try:
-                return json.loads(candidate2)
+                result3 = json.loads(candidate2)
+                if isinstance(result3, dict):
+                    return result3
+                if isinstance(result3, list) and result3 and isinstance(result3[0], dict):
+                    return result3[0]
             except Exception:
                 pass
+        print("[DEBUG] PracticalJudge could not parse LLM output with any strategy!")
         raise ValueError("Failed to parse JSON from LLM response after multiple strategies")
 
     def _calculate_total_score(self, results: dict) -> int:
