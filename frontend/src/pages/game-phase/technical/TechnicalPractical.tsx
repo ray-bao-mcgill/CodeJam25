@@ -698,8 +698,18 @@ const TechnicalPractical: React.FC = () => {
                       setCopySuccess(true); setTimeout(()=>setCopySuccess(false),1650);
                     } catch{}
                   }}
-                  style={{fontWeight:600,background:'#f8f8ff',color:'#205568',padding:'0.29em 1.08em',borderRadius:5,border:'1px solid #e0e0e0',fontSize:'1em',cursor:'pointer'}}
-                >Copy</button>
+                  style={{
+                    fontWeight:600,
+                    background: copySuccess ? '#27c379' : '#f8f8ff',
+                    color: copySuccess ? '#fff' : '#205568',
+                    padding:'0.29em 1.08em',
+                    borderRadius:5,
+                    border:'1px solid #e0e0e0',
+                    fontSize:'1em',
+                    cursor:'pointer',
+                    transition: 'background 0.2s, color 0.2s'
+                  }}
+                >{copySuccess ? 'Copied!' : 'Copy'}</button>
                 <button
                   type="button"
                   onClick={()=>{
@@ -711,7 +721,6 @@ const TechnicalPractical: React.FC = () => {
                   }}
                   style={{fontWeight:600,background:'#f8f8ff',color:'#205568',padding:'0.29em 1.08em',borderRadius:5,border:'1px solid #e0e0e0',fontSize:'1em',cursor:'pointer'}}
                 >Download</button>
-                {copySuccess && <span style={{color:'#27c379',fontWeight:700,marginLeft:7,fontSize:'0.95em'}}>Copied!</span>}
               </div>
             </div>
             <div style={{width:'100%', minWidth:0, flex: '1 1 auto', display: 'flex', flexDirection: 'column', minHeight: 0}}>
