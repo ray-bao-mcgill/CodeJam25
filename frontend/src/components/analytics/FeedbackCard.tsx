@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { PhaseFeedback } from "@/types/analytics";
 import { PulseCard } from "./PulseCard";
 import { ProgressBar } from "./ProgressBar";
@@ -12,7 +12,7 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({
   feedback,
   delay = 0,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  // Dropdown removed: content always visible
 
   const phaseIcons = {
     behavioural: "💬",
@@ -40,10 +40,7 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({
 
   return (
     <div className="animate-stamp-in" style={{ animationDelay: `${delay}ms` }}>
-      <PulseCard
-        color={toneColors[feedback.feedback.tone]}
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
+      <PulseCard color={toneColors[feedback.feedback.tone]}>
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -58,9 +55,7 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({
               </div>
             </div>
           </div>
-          <div className="text-2xl game-label-text">
-            {isExpanded ? "▼" : "▶"}
-          </div>
+          {/* Arrow removed (always expanded) */}
         </div>
 
         {/* Score */}
@@ -142,42 +137,40 @@ export const FeedbackCard: React.FC<FeedbackCardProps> = ({
           </div>
         )}
 
-        {/* Expanded Feedback */}
-        {isExpanded && (
-          <div className="mt-6 pt-6 border-t-4 border-black space-y-4 animate-fade-in">
-            {/* Strengths */}
+        {/* Feedback (always visible) */}
+        <div className="mt-6 pt-6 border-t-4 border-black space-y-4 animate-fade-in">
+          {/* Strengths */}
+          <div>
+            <div className="game-label-text text-lg mb-2 flex items-center gap-2">
+              ✅ STRENGTHS
+            </div>
+            <ul className="space-y-2">
+              {feedback.feedback.strengths.map((strength, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-sm">
+                  <span className="text-green-600 font-bold">•</span>
+                  <span className="text-gray-800">{strength}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Improvements */}
+          {feedback.feedback.improvements.length > 0 && (
             <div>
               <div className="game-label-text text-lg mb-2 flex items-center gap-2">
-                ✅ STRENGTHS
+                💡 AREAS TO IMPROVE
               </div>
               <ul className="space-y-2">
-                {feedback.feedback.strengths.map((strength, idx) => (
+                {feedback.feedback.improvements.map((improvement, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-sm">
-                    <span className="text-green-600 font-bold">•</span>
-                    <span className="text-gray-800">{strength}</span>
+                    <span className="text-yellow-600 font-bold">•</span>
+                    <span className="text-gray-800">{improvement}</span>
                   </li>
                 ))}
               </ul>
             </div>
-
-            {/* Improvements */}
-            {feedback.feedback.improvements.length > 0 && (
-              <div>
-                <div className="game-label-text text-lg mb-2 flex items-center gap-2">
-                  💡 AREAS TO IMPROVE
-                </div>
-                <ul className="space-y-2">
-                  {feedback.feedback.improvements.map((improvement, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm">
-                      <span className="text-yellow-600 font-bold">•</span>
-                      <span className="text-gray-800">{improvement}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </PulseCard>
     </div>
   );
