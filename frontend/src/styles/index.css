@@ -276,11 +276,11 @@
 
   /* Asymmetric positioning */
   .game-skew-left {
-    transform: rotate(-1deg);
+    transform: rotate(-0.5deg);
   }
 
   .game-skew-right {
-    transform: rotate(1deg);
+    transform: rotate(0.5deg);
   }
 
   /* TV Game Show Style */

@@ -5,47 +5,43 @@ const Winner: React.FC = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const totalScore = parseInt(searchParams.get('score') || '0')
+  const rank = parseInt(searchParams.get('rank') || '1')
   const [showConfetti, setShowConfetti] = useState(false)
   
-  // Determine if hired or fired based on score (threshold: 3000 points)
-  const isHired = totalScore >= 3000
+  // You're only hired if you're ranked #1
+  const isHired = rank === 1
   const resultText = isHired ? 'HIRED!' : 'FIRED!'
+
+  // Play sound immediately when component renders
+  const soundFile = isHired ? '/sounds/hired.mp3' : '/sounds/fired.mp3'
+  const stampSound = new Audio(soundFile)
+  stampSound.volume = 1.0
+  
+  // Trigger play attempt immediately
+  stampSound.play().catch(err => {
+    console.log('Audio play failed (browser may block autoplay):', err.message)
+  })
 
   useEffect(() => {
     setShowConfetti(true)
+
+    // Navigate to podium after showing result
+    const navigationTimer = setTimeout(() => {
+      navigate(`/podium?score=${totalScore}&rank=${rank}`)
+    }, 4000) // Show winner screen for 4 seconds
     
-    // Play different sound effect based on hired/fired with delay to match animation
-    const timer = setTimeout(() => {
-      try {
-        const soundFile = isHired ? '/sounds/hired.mp3' : '/sounds/fired.mp3'
-        const stampSound = new Audio(soundFile)
-        stampSound.volume = 1.0
-        
-        // Try to play, handle browser autoplay restrictions
-        const playPromise = stampSound.play()
-        
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              console.log('Sound played successfully')
-            })
-            .catch(err => {
-              console.log('Audio play failed (browser may block autoplay):', err.message)
-            })
-        }
-      } catch (error) {
-        console.error('Error creating audio:', error)
-      }
-    }, 300) // Matches the stamp animation delay
-    
-    return () => clearTimeout(timer)
-  }, [isHired])
+    return () => {
+      clearTimeout(navigationTimer)
+      stampSound.pause()
+      stampSound.currentTime = 0
+    }
+  }, [isHired, totalScore, rank, navigate])
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg relative overflow-hidden">
+    <div className="flex items-center justify-center min-h-screen game-bg relative overflow-hidden">
       {/* Confetti Effect - Only for Hired */}
       {showConfetti && isHired && (
-        <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 pointer-events-none z-20">
           {[...Array(50)].map((_, i) => (
             <div
               key={i}
@@ -60,7 +56,7 @@ const Winner: React.FC = () => {
               <div
                 className="w-4 h-4 game-sharp"
                 style={{
-                  background: ['var(--game-yellow)', 'var(--game-blue)', 'var(--game-red)', 'var(--game-green)', 'var(--game-orange)'][Math.floor(Math.random() * 5)],
+                  background: ['var(--game-yellow)', 'var(--game-blue)', 'var(--game-red)', 'var(--game-green)', '#ff6600'][Math.floor(Math.random() * 5)],
                   transform: `rotate(${Math.random() * 360}deg)`
                 }}
               />
@@ -71,15 +67,14 @@ const Winner: React.FC = () => {
 
       {/* Winner Announcement */}
       <div className="relative z-10 text-center space-y-12">
-        {/* Result Title - Stamp Style */}
+        {/* Result Title - Stamp Style matching game aesthetic */}
         <div className="relative animate-stamp-in" style={{ animationDelay: '0.3s' }}>
           <div 
-            className="px-20 py-12 inline-block relative"
+            className={`px-20 py-12 inline-block relative game-sharp game-shadow-hard-lg border-8 ${
+              isHired ? 'bg-[var(--game-green)] border-[var(--game-text-primary)]' : 'bg-[var(--game-red)] border-[var(--game-text-primary)]'
+            }`}
             style={{
-              backgroundColor: isHired ? 'var(--game-green)' : 'var(--game-red)',
-              border: `8px solid ${isHired ? 'var(--game-green)' : 'var(--game-red)'}`,
-              transform: 'rotate(-5deg)',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)'
+              transform: 'rotate(-5deg)'
             }}
           >
             <h1 
@@ -99,7 +94,7 @@ const Winner: React.FC = () => {
 
         {/* Total Score Display */}
         <div className="space-y-4 animate-stamp-in" style={{ animationDelay: '0.8s' }}>
-          <div className="game-label-text text-2xl game-shadow-hard-sm inline-block">
+          <div className="game-label-text text-2xl game-shadow-hard-sm">
             FINAL SCORE
           </div>
           <div 
@@ -112,25 +107,10 @@ const Winner: React.FC = () => {
           >
             {totalScore}
           </div>
-          <div className="game-label-text text-xl game-shadow-hard-sm inline-block">
+          <div className="game-label-text text-xl game-shadow-hard-sm">
             {isHired ? 'WELCOME TO THE TEAM!' : 'BETTER LUCK NEXT TIME'}
           </div>
         </div>
-
-        {/* View Analytics Button */}
-        <button
-          onClick={() => navigate('/analytics')}
-          className="game-sharp game-block-blue px-16 py-6 text-2xl font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover animate-fade-in-up"
-          style={{
-            border: '6px solid var(--game-text-primary)',
-            color: 'var(--game-text-white)',
-            letterSpacing: '0.15em',
-            marginTop: '3rem',
-            animationDelay: '1.8s'
-          }}
-        >
-          VIEW ANALYTICS
-        </button>
       </div>
 
       <style>{`
