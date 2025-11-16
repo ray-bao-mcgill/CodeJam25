@@ -405,17 +405,27 @@ const TechnicalPractical: React.FC = () => {
     };
     updateOverlaySize();
     
+    // Cache canvas rect to avoid recalculating on every mouse move
+    let cachedCanvasRect: DOMRect | null = null;
+    let rectCacheTime = 0;
+    const RECT_CACHE_DURATION = 100; // Refresh rect cache every 100ms
+    
+    const getCanvasRect = () => {
+      const now = Date.now();
+      if (!cachedCanvasRect || (now - rectCacheTime) > RECT_CACHE_DURATION) {
+        cachedCanvasRect = canvas.getBoundingClientRect();
+        rectCacheTime = now;
+      }
+      return cachedCanvasRect;
+    };
+    
     const handleMouseMove = (e: MouseEvent) => {
-      const containerRect = container.getBoundingClientRect();
-      const canvasRect = canvas.getBoundingClientRect();
-      
-      // Calculate position relative to the canvas (accounting for scaling)
+      const canvasRect = getCanvasRect();
       const x = e.clientX - canvasRect.left;
       const y = e.clientY - canvasRect.top;
       
-      setMousePosition({ x, y });
+      setMousePosition({ x: e.clientX, y: e.clientY });
       
-      // Draw cursor circle - radius matches eraser size (30px = 15px radius)
       // Scale the radius based on canvas scaling
       const scaleX = canvasRect.width / canvas.width;
       const scaleY = canvasRect.height / canvas.height;
@@ -424,6 +434,7 @@ const TechnicalPractical: React.FC = () => {
       
       const ctx = overlay.getContext('2d');
       if (ctx) {
+        // Use clearRect with the exact bounds we need to clear
         ctx.clearRect(0, 0, overlay.width, overlay.height);
         ctx.strokeStyle = '#666';
         ctx.lineWidth = 2;
@@ -435,6 +446,7 @@ const TechnicalPractical: React.FC = () => {
     };
     
     const handleMouseLeave = () => {
+      cachedCanvasRect = null;
       setMousePosition(null);
       const ctx = overlay.getContext('2d');
       if (ctx) {
@@ -442,7 +454,7 @@ const TechnicalPractical: React.FC = () => {
       }
     };
     
-    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('mousemove', handleMouseMove, { passive: true });
     container.addEventListener('mouseleave', handleMouseLeave);
     window.addEventListener('resize', updateOverlaySize);
     
