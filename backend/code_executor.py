@@ -131,8 +131,6 @@ async def execute_code(language: str, code: str) -> Dict[str, any]:
         if language == 'python':
             start_time = datetime.now()
             try:
-                import subprocess
-                import asyncio
                 process = await asyncio.create_subprocess_exec(
                     'python', '-c', code,
                     stdout=asyncio.subprocess.PIPE,
@@ -169,6 +167,296 @@ async def execute_code(language: str, code: str) -> Dict[str, any]:
                     'error': str(e),
                     'execution_time': execution_time
                 }
+        
+        elif language == 'java':
+            start_time = datetime.now()
+            try:
+                # Extract class name from code (required for Java file naming)
+                import re
+                class_name = 'Main'  # Default fallback
+                
+                # Try to find public class first
+                public_match = re.search(r'public\s+class\s+(\w+)', code)
+                if public_match:
+                    class_name = public_match.group(1)
+                else:
+                    # Try to find any class declaration
+                    class_match = re.search(r'class\s+(\w+)', code)
+                    if class_match:
+                        class_name = class_match.group(1)
+                
+                # Create temporary directory for Java file (to avoid name conflicts)
+                temp_dir = tempfile.mkdtemp()
+                java_path = os.path.join(temp_dir, f'{class_name}.java')
+                
+                try:
+                    # Write code to correctly named file
+                    with open(java_path, 'w', encoding='utf-8') as java_file:
+                        java_file.write(code)
+                    
+                    # Compile Java
+                    compile_process = await asyncio.create_subprocess_exec(
+                        'javac', java_path,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        cwd=temp_dir
+                    )
+                    compile_stdout, compile_stderr = await asyncio.wait_for(compile_process.communicate(), timeout=10)
+                    
+                    if compile_process.returncode != 0:
+                        execution_time = (datetime.now() - start_time).total_seconds()
+                        result = {
+                            'stdout': '',
+                            'stderr': compile_stderr.decode('utf-8', errors='replace'),
+                            'exit_code': compile_process.returncode,
+                            'error': 'Java compilation failed',
+                            'execution_time': execution_time
+                        }
+                        # Cleanup
+                        if os.path.exists(java_path):
+                            os.unlink(java_path)
+                        if os.path.exists(temp_dir):
+                            try:
+                                os.rmdir(temp_dir)
+                            except:
+                                pass
+                        return result
+                    
+                    # Run Java (from the temp directory)
+                    run_process = await asyncio.create_subprocess_exec(
+                        'java', '-cp', temp_dir, class_name,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        cwd=temp_dir
+                    )
+                    try:
+                        stdout, stderr = await asyncio.wait_for(run_process.communicate(), timeout=10)
+                    except asyncio.TimeoutError:
+                        run_process.kill()
+                        await run_process.wait()
+                        execution_time = (datetime.now() - start_time).total_seconds()
+                        result = {
+                            'stdout': '',
+                            'stderr': 'Execution timed out after 10 seconds.',
+                            'exit_code': 124,
+                            'error': 'Timeout',
+                            'execution_time': execution_time
+                        }
+                        # Cleanup
+                        if os.path.exists(java_path):
+                            os.unlink(java_path)
+                        class_file = os.path.join(temp_dir, f'{class_name}.class')
+                        if os.path.exists(class_file):
+                            os.unlink(class_file)
+                        try:
+                            os.rmdir(temp_dir)
+                        except:
+                            pass
+                        return result
+                    
+                    execution_time = (datetime.now() - start_time).total_seconds()
+                    result = {
+                        'stdout': stdout.decode('utf-8', errors='replace'),
+                        'stderr': stderr.decode('utf-8', errors='replace'),
+                        'exit_code': run_process.returncode or 0,
+                        'error': None,
+                        'execution_time': execution_time
+                    }
+                    
+                    # Cleanup
+                    if os.path.exists(java_path):
+                        os.unlink(java_path)
+                    class_file = os.path.join(temp_dir, f'{class_name}.class')
+                    if os.path.exists(class_file):
+                        os.unlink(class_file)
+                    try:
+                        os.rmdir(temp_dir)
+                    except:
+                        pass
+                    
+                    return result
+                except FileNotFoundError:
+                    execution_time = (datetime.now() - start_time).total_seconds()
+                    if os.path.exists(java_path):
+                        os.unlink(java_path)
+                    if os.path.exists(temp_dir):
+                        try:
+                            os.rmdir(temp_dir)
+                        except:
+                            pass
+                    return {
+                        'stdout': '',
+                        'stderr': 'Java execution requires javac and java. Please install JDK.',
+                        'exit_code': 1,
+                        'error': 'Java tools not found',
+                        'execution_time': execution_time
+                    }
+            except Exception as e:
+                execution_time = (datetime.now() - start_time).total_seconds() if 'start_time' in locals() else 0
+                if 'temp_dir' in locals() and os.path.exists(temp_dir):
+                    if 'java_path' in locals() and os.path.exists(java_path):
+                        os.unlink(java_path)
+                    if 'class_name' in locals():
+                        class_file = os.path.join(temp_dir, f'{class_name}.class')
+                        if os.path.exists(class_file):
+                            os.unlink(class_file)
+                    try:
+                        os.rmdir(temp_dir)
+                    except:
+                        pass
+                return {
+                    'stdout': '',
+                    'stderr': f'Execution error: {str(e)}',
+                    'exit_code': 1,
+                    'error': str(e),
+                    'execution_time': execution_time
+                }
+        
+        elif language == 'typescript':
+            start_time = datetime.now()
+            try:
+                # Try ts-node first (if available)
+                try:
+                    process = await asyncio.create_subprocess_exec(
+                        'ts-node', '-e', code,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE
+                    )
+                    try:
+                        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10)
+                    except asyncio.TimeoutError:
+                        process.kill()
+                        await process.wait()
+                        execution_time = (datetime.now() - start_time).total_seconds()
+                        return {
+                            'stdout': '',
+                            'stderr': 'Execution timed out after 10 seconds.',
+                            'exit_code': 124,
+                            'error': 'Timeout',
+                            'execution_time': execution_time
+                        }
+                    
+                    execution_time = (datetime.now() - start_time).total_seconds()
+                    return {
+                        'stdout': stdout.decode('utf-8', errors='replace'),
+                        'stderr': stderr.decode('utf-8', errors='replace'),
+                        'exit_code': process.returncode or 0,
+                        'error': None,
+                        'execution_time': execution_time
+                    }
+                except FileNotFoundError:
+                    # Fallback: Try tsc + node
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.ts', delete=False) as ts_file:
+                        ts_file.write(code)
+                        ts_path = ts_file.name
+                    
+                    try:
+                        # Compile TypeScript
+                        compile_process = await asyncio.create_subprocess_exec(
+                            'tsc', ts_path,
+                            '--target', 'ES2020',
+                            '--module', 'commonjs',
+                            '--esModuleInterop',
+                            '--skipLibCheck',
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.PIPE
+                        )
+                        compile_stdout, compile_stderr = await asyncio.wait_for(compile_process.communicate(), timeout=5)
+                        
+                        if compile_process.returncode != 0:
+                            execution_time = (datetime.now() - start_time).total_seconds()
+                            result = {
+                                'stdout': '',
+                                'stderr': compile_stderr.decode('utf-8', errors='replace'),
+                                'exit_code': compile_process.returncode,
+                                'error': 'TypeScript compilation failed',
+                                'execution_time': execution_time
+                            }
+                            if os.path.exists(ts_path):
+                                os.unlink(ts_path)
+                            return result
+                        
+                        # Run compiled JavaScript
+                        js_path = ts_path.replace('.ts', '.js')
+                        if not os.path.exists(js_path):
+                            execution_time = (datetime.now() - start_time).total_seconds()
+                            result = {
+                                'stdout': '',
+                                'stderr': 'Compiled JavaScript file not found.',
+                                'exit_code': 1,
+                                'error': 'Compilation output missing',
+                                'execution_time': execution_time
+                            }
+                            if os.path.exists(ts_path):
+                                os.unlink(ts_path)
+                            return result
+                        
+                        run_process = await asyncio.create_subprocess_exec(
+                            'node', js_path,
+                            stdout=asyncio.subprocess.PIPE,
+                            stderr=asyncio.subprocess.PIPE
+                        )
+                        try:
+                            stdout, stderr = await asyncio.wait_for(run_process.communicate(), timeout=10)
+                        except asyncio.TimeoutError:
+                            run_process.kill()
+                            await run_process.wait()
+                            execution_time = (datetime.now() - start_time).total_seconds()
+                            result = {
+                                'stdout': '',
+                                'stderr': 'Execution timed out after 10 seconds.',
+                                'exit_code': 124,
+                                'error': 'Timeout',
+                                'execution_time': execution_time
+                            }
+                            # Cleanup
+                            if os.path.exists(ts_path):
+                                os.unlink(ts_path)
+                            if os.path.exists(js_path):
+                                os.unlink(js_path)
+                            if os.path.exists(ts_path.replace('.ts', '.d.ts')):
+                                os.unlink(ts_path.replace('.ts', '.d.ts'))
+                            return result
+                        
+                        execution_time = (datetime.now() - start_time).total_seconds()
+                        result = {
+                            'stdout': stdout.decode('utf-8', errors='replace'),
+                            'stderr': stderr.decode('utf-8', errors='replace'),
+                            'exit_code': run_process.returncode or 0,
+                            'error': None,
+                            'execution_time': execution_time
+                        }
+                        
+                        # Cleanup
+                        if os.path.exists(ts_path):
+                            os.unlink(ts_path)
+                        if os.path.exists(js_path):
+                            os.unlink(js_path)
+                        if os.path.exists(ts_path.replace('.ts', '.d.ts')):
+                            os.unlink(ts_path.replace('.ts', '.d.ts'))
+                        
+                        return result
+                    except FileNotFoundError:
+                        execution_time = (datetime.now() - start_time).total_seconds()
+                        if os.path.exists(ts_path):
+                            os.unlink(ts_path)
+                        return {
+                            'stdout': '',
+                            'stderr': 'TypeScript execution requires ts-node or tsc+node. Please install: npm install -g ts-node typescript',
+                            'exit_code': 1,
+                            'error': 'TypeScript tools not found',
+                            'execution_time': execution_time
+                        }
+            except Exception as e:
+                execution_time = (datetime.now() - start_time).total_seconds() if 'start_time' in locals() else 0
+                return {
+                    'stdout': '',
+                    'stderr': f'Execution error: {str(e)}',
+                    'exit_code': 1,
+                    'error': str(e),
+                    'execution_time': execution_time
+                }
+        
         return {
             'stdout': '',
             'stderr': f'Docker is not available. Code execution for {language} requires Docker.',
