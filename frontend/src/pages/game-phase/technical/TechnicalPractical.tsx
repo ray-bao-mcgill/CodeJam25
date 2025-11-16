@@ -949,18 +949,39 @@ const TechnicalPractical: React.FC = () => {
             const textAnswer = textEditorRef.current?.innerHTML || textValue || '';
             const hasTextAnswer = textAnswer.trim() !== '';
             
-            // Build submission: prefer JSON format with both IDE and text if available
-            // Otherwise send whichever is available
+            // Build submission
             let answer = '';
-            if (hasIdeCode && hasTextAnswer) {
-              // Both available - send as JSON with both fields
+            if (activeTab === TAB_IDE && hasIdeCode) {
+              // IDE is enabled/active - submit raw text from IDE files (concatenated)
+              const rawCodeText = ideFiles
+                .filter(f => f.code.trim() !== '')
+                .map(f => `// ${f.name}\n${f.code}`)
+                .join('\n\n');
+              answer = rawCodeText;
+              
+              // If there's also text answer, include it
+              if (hasTextAnswer) {
+                answer = JSON.stringify({
+                  ide_code: rawCodeText,
+                  text_answer: textAnswer
+                });
+              }
+            } else if (hasIdeCode && hasTextAnswer) {
+              // Both available but IDE tab not active - send as JSON with both fields
+              const rawCodeText = ideFiles
+                .filter(f => f.code.trim() !== '')
+                .map(f => `// ${f.name}\n${f.code}`)
+                .join('\n\n');
               answer = JSON.stringify({
-                ide_files: ideFiles,
+                ide_code: rawCodeText,
                 text_answer: textAnswer
               });
             } else if (hasIdeCode) {
-              // Only IDE code - send as JSON array (backward compatible)
-              answer = JSON.stringify(ideFiles);
+              // Only IDE code - send raw text (concatenated)
+              answer = ideFiles
+                .filter(f => f.code.trim() !== '')
+                .map(f => `// ${f.name}\n${f.code}`)
+                .join('\n\n');
             } else if (hasTextAnswer) {
               // Only text answer - send as HTML string
               answer = textAnswer;

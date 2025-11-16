@@ -23,7 +23,8 @@ const WinLose: React.FC = () => {
         const urlParams = new URLSearchParams(window.location.search)
         const urlScore = parseInt(urlParams.get('score') || '0')
         const urlRank = parseInt(urlParams.get('rank') || '1')
-        if (urlScore > 0 || urlRank > 0) {
+        // Always set score and rank from URL params if available (even if 0)
+        if (!isNaN(urlScore)) {
           console.log(`[WINLOSE] Using URL params: rank=${urlRank}, score=${urlScore}`)
           setTotalScore(urlScore)
           setRank(urlRank)
@@ -56,7 +57,8 @@ const WinLose: React.FC = () => {
       const urlParams = new URLSearchParams(window.location.search)
       const urlScore = parseInt(urlParams.get('score') || '0')
       const urlRank = parseInt(urlParams.get('rank') || '1')
-      if (urlScore > 0 || urlRank > 0) {
+      // Always set score and rank from URL params if available (even if 0)
+      if (!isNaN(urlScore)) {
         console.log(`[WINLOSE] Using URL params fallback: rank=${urlRank}, score=${urlScore}`)
         setTotalScore(urlScore)
         setRank(urlRank)
@@ -91,13 +93,9 @@ const WinLose: React.FC = () => {
   });
 
   const handleContinueToPodium = useCallback(() => {
-    // Navigate to podium page with score and rank
-    // Ensure we have valid values before navigating
-    const finalScore = totalScore > 0 ? totalScore : (parseInt(new URLSearchParams(window.location.search).get('score') || '0'))
-    const finalRank = rank > 0 ? rank : (parseInt(new URLSearchParams(window.location.search).get('rank') || '1'))
-    console.log(`[WINLOSE] Navigating to podium with score=${finalScore}, rank=${finalRank}`)
-    navigate(`/podium?score=${finalScore}&rank=${finalRank}`)
-  }, [navigate, totalScore, rank])
+    // Navigate to comparison page first, which will then go to podium
+    navigate('/comparison')
+  }, [navigate])
 
   useEffect(() => {
     // Determine result based on rank (rank 1 = HIRED, rank > 1 = FIRED)
@@ -261,7 +259,7 @@ const WinLose: React.FC = () => {
               textTransform: 'uppercase'
             }}
           >
-            {totalScore || 3000}
+            {totalScore ?? 0}
           </div>
           <div className="game-label-text text-xl game-shadow-hard-sm inline-block">
             {isHired ? 'WELCOME TO THE TEAM!' : 'BETTER LUCK NEXT TIME'}
@@ -271,7 +269,7 @@ const WinLose: React.FC = () => {
         {/* Timer indicator */}
         {showButtons && (
           <div className="text-sm text-gray-600 mb-4">
-            Auto-advancing to podium in {timeRemaining}s...
+            Auto-advancing to answer comparison in {timeRemaining}s...
           </div>
         )}
 
@@ -288,7 +286,7 @@ const WinLose: React.FC = () => {
               animationDelay: '1.8s'
             }}
           >
-            VIEW RANKINGS
+            VIEW ANSWER COMPARISON
           </button>
         )}
       </div>
