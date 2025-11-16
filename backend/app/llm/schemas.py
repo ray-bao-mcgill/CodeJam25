@@ -1,11 +1,23 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, root_validator
 from typing import Dict, Optional
+
 
 class RoleQuestionsRequest(BaseModel):
     role: str
     level: Optional[str] = None
     max_questions: int = 10
     question_type: str = "behavioural"
+
+    @root_validator
+    def ensure_min_questions_for_technical_theory(cls, values):
+        """
+        For technical theory, always request exactly 10 questions per role/level
+        when generating `technical_theory.json`, regardless of the requested max.
+        """
+        qtype = values.get("question_type")
+        if qtype == "technical_theory":
+            values["max_questions"] = 10
+        return values
 
 class RoleQuestionsResponse(BaseModel):
     role: str
