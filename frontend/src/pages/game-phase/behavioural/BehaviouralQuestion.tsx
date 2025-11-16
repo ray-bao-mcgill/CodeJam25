@@ -443,14 +443,7 @@ const BehaviouralQuestion: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* Decorative elements */}
-          <div className="absolute -top-6 -left-6 game-sticky-note px-4 py-2 game-shadow-hard-sm" style={{ transform: 'rotate(-8deg)' }}>
-            <div className="text-xs font-bold" style={{ color: 'var(--game-blue)' }}>THINKING</div>
-          </div>
-          <div className="absolute -bottom-6 -right-6 game-sticky-note-alt px-4 py-2 game-shadow-hard-sm" style={{ transform: 'rotate(5deg)' }}>
-            <div className="text-xs font-bold" style={{ color: 'var(--game-purple)' }}>ANALYZING</div>
-          </div>
+         
         </div>
       </div>
     );
