@@ -50,53 +50,64 @@ async def score_technical_theory_answer(
             print(f"[TECHNICAL_THEORY_SCORING] Question {question_index} not found in cache")
             return None
         
-        # Get correct answer from question data
-        correct_answer = question_data.get("correct_answer")
-        if not correct_answer:
-            print(f"[TECHNICAL_THEORY_SCORING] No correct_answer in question data")
-            return None
+        # Get correct option ID from question data (more reliable than string comparison)
+        correct_option_id = question_data.get("correct_option_id")
+        correct_answer = question_data.get("correct_answer")  # Keep for logging/debugging
         
         # The answer from frontend is an option ID (A, B, C, D)
-        # Use the stored option_mapping if available (deterministic shuffle from backend)
-        # Otherwise fall back to reconstructing the mapping
-        option_mapping = question_data.get("option_mapping")
-        if option_mapping:
-            # Use pre-computed deterministic mapping
-            player_answer_text = option_mapping.get(answer.upper())
-            if not player_answer_text:
-                print(f"[TECHNICAL_THEORY_SCORING] Invalid option ID: {answer}")
-                return None
+        player_option_id = answer.upper().strip()
+        
+        # Compare option IDs directly (most reliable method)
+        if correct_option_id:
+            is_correct = player_option_id == correct_option_id.upper().strip()
+            score = 200 if is_correct else 0
+            
+            # Get answer text for logging/debugging
+            option_mapping = question_data.get("option_mapping", {})
+            player_answer_text = option_mapping.get(player_option_id, "Unknown")
+            correct_answer_text = option_mapping.get(correct_option_id.upper().strip(), correct_answer or "Unknown")
+            
+            print(f"[TECHNICAL_THEORY_SCORING] Player {player_id}, Q{question_index}: Option {player_option_id} ({player_answer_text}) | Correct Option: {correct_option_id} ({correct_answer_text}) | IsCorrect: {is_correct} | Score: {score}")
         else:
-            # Fallback: reconstruct mapping (shouldn't happen if questions loaded correctly)
-            print(f"[TECHNICAL_THEORY_SCORING] WARNING: No option_mapping found, reconstructing (may be inconsistent)")
-            incorrect_answers = question_data.get("incorrect_answers", [])
-            all_answers = [correct_answer] + incorrect_answers
-            
-            # Map option IDs to answers (same logic as frontend)
-            # Frontend maps: A=0, B=1, C=2, D=3
-            option_map = {}
-            for idx, ans in enumerate(all_answers):
-                option_id = chr(65 + idx)  # A, B, C, D
-                option_map[option_id] = ans
-            
-            # Get the actual answer text from the option ID
-            player_answer_text = option_map.get(answer.upper())
-            if not player_answer_text:
-                print(f"[TECHNICAL_THEORY_SCORING] Invalid option ID: {answer}")
+            # Fallback: Use string comparison if correct_option_id not available
+            print(f"[TECHNICAL_THEORY_SCORING] WARNING: No correct_option_id found, falling back to string comparison")
+            if not correct_answer:
+                print(f"[TECHNICAL_THEORY_SCORING] No correct_answer in question data")
                 return None
-        
-        # Score using TheoreticalJudge (200 points per correct answer, 0 for incorrect)
-        judge = TheoreticalJudge()
-        question_for_judge = {
-            "correct": correct_answer
-        }
-        result = judge.judge(question_for_judge, player_answer_text)
-        
-        # Score is 200 if correct, 0 if incorrect (defined in TheoreticalJudge)
-        score = result.score
-        is_correct = result.is_correct
-        
-        print(f"[TECHNICAL_THEORY_SCORING] Player {player_id}, Q{question_index}: {answer} -> {player_answer_text} | Correct: {correct_answer} | IsCorrect: {is_correct} | Score: {score}")
+            
+            option_mapping = question_data.get("option_mapping")
+            if option_mapping:
+                player_answer_text = option_mapping.get(player_option_id)
+                if not player_answer_text:
+                    print(f"[TECHNICAL_THEORY_SCORING] Invalid option ID: {answer}")
+                    return None
+            else:
+                # Fallback: reconstruct mapping (shouldn't happen if questions loaded correctly)
+                print(f"[TECHNICAL_THEORY_SCORING] WARNING: No option_mapping found, reconstructing (may be inconsistent)")
+                incorrect_answers = question_data.get("incorrect_answers", [])
+                all_answers = [correct_answer] + incorrect_answers
+                
+                option_map = {}
+                for idx, ans in enumerate(all_answers):
+                    option_id = chr(65 + idx)  # A, B, C, D
+                    option_map[option_id] = ans
+                
+                player_answer_text = option_map.get(player_option_id)
+                if not player_answer_text:
+                    print(f"[TECHNICAL_THEORY_SCORING] Invalid option ID: {answer}")
+                    return None
+            
+            # Score using TheoreticalJudge (200 points per correct answer, 0 for incorrect)
+            judge = TheoreticalJudge()
+            question_for_judge = {
+                "correct": correct_answer
+            }
+            result = judge.judge(question_for_judge, player_answer_text)
+            
+            score = result.score
+            is_correct = result.is_correct
+            
+            print(f"[TECHNICAL_THEORY_SCORING] Player {player_id}, Q{question_index}: {answer} -> {player_answer_text} | Correct: {correct_answer} | IsCorrect: {is_correct} | Score: {score}")
         
         # Track answer with feedback in game_state
         # Initialize answer_tracking structure: {phase: {player_id: {question_index: {answer, feedback, attempted, ...}}}}
@@ -149,17 +160,33 @@ async def score_technical_theory_answer(
             "scored_at": datetime.utcnow().isoformat()
         }
         
+        # Commit the score we just stored BEFORE counting
+        # This ensures the database has the latest data
+        from sqlalchemy.orm.attributes import flag_modified
+        match_record.game_state = game_state
+        flag_modified(match_record, "game_state")
+        db.commit()
+        
         # Calculate total score: count correct answers and multiply by 200
         # This ensures we're using the Python logic: correct_answers * 200
-        player_scores = game_state["technical_theory_scores"][player_id]
         
-        # Get question count from phase_metadata to iterate through all questions
-        # This ensures we count correctly even if some questions aren't answered yet
-        # Refresh game_state again right before counting to ensure we have latest phase_metadata
+        # CRITICAL: Refresh game_state right before counting to ensure we have the latest data
+        # including the score we just stored and the phase_metadata
         db.refresh(match_record)
         game_state_for_count = match_record.game_state or {}
         if not isinstance(game_state_for_count, dict):
             game_state_for_count = game_state
+        
+        # Get player_scores from the REFRESHED game_state to ensure we see the score we just stored
+        technical_theory_scores_refreshed = game_state_for_count.get("technical_theory_scores", {})
+        if not isinstance(technical_theory_scores_refreshed, dict):
+            technical_theory_scores_refreshed = {}
+        
+        player_scores = technical_theory_scores_refreshed.get(player_id, {})
+        if not isinstance(player_scores, dict):
+            player_scores = {}
+        
+        print(f"[TECHNICAL_THEORY_SCORING] DEBUG: After refresh, player_scores keys: {list(player_scores.keys())}")
         
         question_count = 10  # Default fallback
         phase_metadata = game_state_for_count.get("phase_metadata", {})
@@ -204,13 +231,22 @@ async def score_technical_theory_answer(
         # This is robust and handles unanswered questions correctly
         correct_count = 0
         correct_questions = []  # Debug: track which questions are counted
+        print(f"[TECHNICAL_THEORY_SCORING] DEBUG: Counting correct answers for question_count={question_count}")
         for q_idx in range(question_count):
             q_idx_str = str(q_idx)
             score_data = player_scores.get(q_idx_str)
+            # Debug: Log what we find for each question index
+            if score_data:
+                is_correct_val = score_data.get("is_correct") if isinstance(score_data, dict) else None
+                print(f"[TECHNICAL_THEORY_SCORING] DEBUG: Q{q_idx} (key='{q_idx_str}'): found={score_data is not None}, is_correct={is_correct_val}")
+            else:
+                print(f"[TECHNICAL_THEORY_SCORING] DEBUG: Q{q_idx} (key='{q_idx_str}'): not found in player_scores")
+            
             # Only count if question was answered AND is correct
             if isinstance(score_data, dict) and score_data.get("is_correct", False):
                 correct_count += 1
                 correct_questions.append(q_idx)
+                print(f"[TECHNICAL_THEORY_SCORING] DEBUG: Q{q_idx} counted as correct (total so far: {correct_count})")
         
         # Debug: Log all keys in player_scores to see what's there
         all_keys = list(player_scores.keys())
@@ -218,13 +254,15 @@ async def score_technical_theory_answer(
         print(f"[TECHNICAL_THEORY_SCORING] DEBUG: Correct questions found: {correct_questions}")
         
         cumulative_score = correct_count * 200
-        game_state["technical_theory_scores"][player_id]["_total"] = cumulative_score
+        
+        # Update the _total in the refreshed game_state
+        game_state_for_count["technical_theory_scores"][player_id]["_total"] = cumulative_score
         
         print(f"[TECHNICAL_THEORY_SCORING] Player {player_id}: {correct_count}/{question_count} correct answers = {cumulative_score} points (correct_count * 200)")
         
         # Use flag_modified to ensure SQLAlchemy tracks the change
         from sqlalchemy.orm.attributes import flag_modified
-        match_record.game_state = game_state
+        match_record.game_state = game_state_for_count
         flag_modified(match_record, "game_state")
         db.commit()
         
