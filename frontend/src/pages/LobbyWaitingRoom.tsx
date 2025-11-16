@@ -349,7 +349,7 @@ export default function LobbyWaitingRoom({
       style={{
         border: '3px solid var(--game-text-primary)',
         color: 'var(--game-text-primary)',
-        background: isCurrentPlayer ? 'var(--game-yellow)' : isPlayerOwner ? '#ff3366' : 'var(--game-bg-alt)',
+        background:  isPlayerOwner ? '#ff3366' : 'var(--game-bg-alt)',
         transform: `rotate(${idx % 2 === 0 ? '-0.5deg' : '0.5deg'})`,
         height: '48px',
         width: '100%'
