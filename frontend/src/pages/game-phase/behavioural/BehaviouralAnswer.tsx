@@ -1,106 +1,293 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useGameFlow } from '@/hooks/useGameFlow'
-import { useGameSync } from '@/hooks/useGameSync'
-import { useLobby } from '@/hooks/useLobby'
+import { useGameFlow } from "@/hooks/useGameFlow";
+import { useGameSync } from "@/hooks/useGameSync";
+import { useLobby } from "@/hooks/useLobby";
+import { useLobbyWebSocket } from "@/hooks/useLobbyWebSocket";
+import { API_URL } from "@/config";
 
-const ANSWER_SECONDS = 60; // Z seconds for answer phase
+const ANSWER_SECONDS = 60;
 
 const BehaviouralAnswer: React.FC = () => {
   const navigate = useNavigate();
-  const { submitAnswer, submitFollowUpAnswer } = useGameFlow()
-  const { lobby } = useLobby()
-  const { gameState, timeRemaining, submitAnswer: syncSubmitAnswer, isWaitingForOthers, showResults } = useGameSync()
+  const { submitAnswer, submitFollowUpAnswer } = useGameFlow();
+  const { lobby, lobbyId, playerId } = useLobby();
+  const {
+    gameState,
+    timeRemaining,
+    submitAnswer: syncSubmitAnswer,
+    isWaitingForOthers,
+    showResults,
+  } = useGameSync();
   const [remaining, setRemaining] = useState(ANSWER_SECONDS);
   const [answer, setAnswer] = useState("");
   const [currentQuestion, setCurrentQuestion] = useState("");
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0); // 0 = first question, 1 = follow-up
+  // Initialize questionIndex from sessionStorage if Q0 is already complete
+  const initialQuestionIndex = sessionStorage.getItem("behavioural_q0_complete") === "true" ? 1 : 0;
+  const [questionIndex, setQuestionIndex] = useState(initialQuestionIndex); // 0 = Q0, 1 = Q1
   const [isLoading, setIsLoading] = useState(true);
-  const [hasSubmittedQ0, setHasSubmittedQ0] = useState(false);
+  const [hasSubmittedCurrent, setHasSubmittedCurrent] = useState(false);
+  const hasRequestedRef = useRef<Record<number, boolean>>({})
+  
+  console.log(`[BEHAVIOURAL_A] Component mounted with initial questionIndex=${initialQuestionIndex}`)
+  
+  // Set up WebSocket for receiving questions
+  const wsRef = useLobbyWebSocket({
+    lobbyId: lobbyId || null,
+    enabled: !!lobbyId,
+    onLobbyUpdate: () => {},
+    onGameStarted: () => {},
+    onDisconnect: () => {},
+    onKicked: () => {},
+    currentPlayerId: playerId || null,
+    onGameMessage: (message: any) => {
+      // Receive question from server
+      if (message.type === 'question_received' && message.phase === 'behavioural') {
+        const receivedIndex = message.question_index ?? 0
+        
+        // For Q1 (follow-up), check if it's personalized for this player
+        if (receivedIndex === 1 && message.player_id) {
+          // Personalized follow-up - only process if it's for this player
+          if (message.player_id === playerId) {
+            console.log('[BEHAVIOURAL_A] Received personalized follow-up question:', message.question)
+            setCurrentQuestion(message.question)
+            setIsLoading(false)
+          } else {
+            console.log('[BEHAVIOURAL_A] Ignoring follow-up for different player:', message.player_id)
+          }
+        } else if (receivedIndex === questionIndex) {
+          // Q0 question (shared) - process if it matches current index
+          // Update question even if not in loading state (in case of remount or refresh)
+          if (message.question !== currentQuestion) {
+            console.log('[BEHAVIOURAL_A] Received question from server:', message.question, 'index:', receivedIndex)
+            setCurrentQuestion(message.question)
+            setIsLoading(false)
+          } else {
+            console.log('[BEHAVIOURAL_A] Question already matches current question')
+            setIsLoading(false)
+          }
+        } else {
+          console.log('[BEHAVIOURAL_A] Ignoring question for different index:', receivedIndex, 'current:', questionIndex)
+        }
+      }
+      
+      // When all follow-ups are ready, allow navigation
+      if (message.type === 'all_followups_ready' && message.phase === 'behavioural' && questionIndex === 1) {
+        console.log('[BEHAVIOURAL_A] All follow-ups ready - synchronization complete')
+        // This allows the component to proceed - the question should already be loaded
+      }
+    },
+  });
 
-  // Determine current question index based on gameState
+  // Determine question index: Q0 initially, Q1 after Q0 is complete
   useEffect(() => {
-    // If Q0 is complete (showResults=true, phaseComplete=false), we're on Q1
-    if (showResults && !gameState?.phaseComplete && hasSubmittedQ0) {
-      setCurrentQuestionIndex(1)
-    } else {
-      setCurrentQuestionIndex(0)
+    // If phase is complete, don't change question index - navigation will handle moving to results
+    if (showResults && gameState?.phaseComplete) {
+      console.log('[BEHAVIOURAL_A] Phase complete, not changing question index')
+      return
     }
-  }, [showResults, gameState?.phaseComplete, hasSubmittedQ0])
+    
+    // Check if Q0 is complete by looking at gameState and sessionStorage
+    const q0Complete =
+      showResults &&
+      !gameState?.phaseComplete &&
+      (gameState?.submittedPlayers?.length || 0) >=
+        (lobby?.players.length || 0);
+    const storedQ0Complete =
+      sessionStorage.getItem("behavioural_q0_complete") === "true";
 
+    const newIndex = (q0Complete || storedQ0Complete) ? 1 : 0
+    
+    console.log(`[BEHAVIOURAL_A] Question index determination: q0Complete=${q0Complete}, storedQ0Complete=${storedQ0Complete}, showResults=${showResults}, submittedPlayers=${gameState?.submittedPlayers?.length || 0}/${lobby?.players.length || 0}, currentIndex=${questionIndex}, newIndex=${newIndex}`)
+    
+    // Only allow indices 0 and 1
+    if (newIndex > 1) {
+      console.warn('[BEHAVIOURAL_A] Attempted to set question index > 1, blocking')
+      return
+    }
+    
+    // Always update if newIndex is different (including on initial mount)
+    if (newIndex !== questionIndex) {
+      // Don't go backwards unless we're resetting to 0
+      if (newIndex < questionIndex && newIndex !== 0) {
+        console.log(`[BEHAVIOURAL_A] Ignoring backward index change (${questionIndex} -> ${newIndex})`)
+        return
+      }
+      
+      console.log(`[BEHAVIOURAL_A] Question index changing from ${questionIndex} to ${newIndex}`)
+      setQuestionIndex(newIndex)
+      setHasSubmittedCurrent(false) // Reset for new question
+      // Reset the requested flag for the new index so we can request it
+      hasRequestedRef.current[newIndex] = false
+    }
+  }, [
+    showResults,
+    gameState?.phaseComplete,
+    gameState?.submittedPlayers,
+    lobby?.players.length,
+    questionIndex,
+  ]);
+
+  // Fetch question from database when questionIndex changes
   useEffect(() => {
-    // Set question based on current index
-    if (currentQuestionIndex === 0) {
-      // First question - use the initial behavioural question
-      setTimeout(() => {
-        setCurrentQuestion("Describe a time you overcame a challenge at work.");
-        setIsLoading(false);
-      }, 500);
-    } else {
-      // Follow-up question - use from game state or placeholder
-      if (gameState?.question) {
-        setCurrentQuestion(gameState.question)
+    // Don't fetch if phase is complete
+    if (showResults && gameState?.phaseComplete) {
+      console.log('[BEHAVIOURAL_A] Phase complete, not fetching questions')
+      return
+    }
+    
+    // Only allow question indices 0 and 1
+    if (questionIndex > 1) {
+      console.warn(`[BEHAVIOURAL_A] Invalid question index ${questionIndex}, not fetching`)
+      return
+    }
+    
+    // Don't fetch if we've already fetched this question index
+    if (hasRequestedRef.current[questionIndex]) {
+      console.log(`[BEHAVIOURAL_A] Already fetched question index ${questionIndex}, skipping`)
+      return
+    }
+    
+    console.log(`[BEHAVIOURAL_A] Starting fetch for question index ${questionIndex}`)
+    
+    // Reset loading state when questionIndex changes
+    setIsLoading(true)
+    setCurrentQuestion("Loading question...")
+    hasRequestedRef.current[questionIndex] = true
+    
+    // Fetch question from API
+    const fetchQuestion = async () => {
+      if (!lobbyId) {
+        console.warn('[BEHAVIOURAL_A] No lobbyId, cannot fetch question')
         setIsLoading(false)
-      } else {
-        setTimeout(() => {
-          setCurrentQuestion("Now, describe how you handled the follow-up situation.");
-          setIsLoading(false);
-        }, 500);
+        return
+      }
+      
+      try {
+        // Build query params - include player_id for Q1 (follow-up)
+        const params = new URLSearchParams({
+          phase: 'behavioural',
+          question_index: questionIndex.toString()
+        })
+        if (questionIndex === 1 && playerId) {
+          params.append('player_id', playerId)
+        }
+        
+        console.log(`[BEHAVIOURAL_A] Fetching ${questionIndex === 0 ? 'first' : 'follow-up'} question from API (index=${questionIndex})`)
+        const response = await fetch(`${API_URL}/api/lobby/${lobbyId}/question?${params.toString()}`)
+        const data = await response.json()
+        
+        if (data.success && data.question) {
+          console.log('[BEHAVIOURAL_A] Fetched question from API:', data.question)
+          setCurrentQuestion(data.question)
+          setIsLoading(false)
+        } else {
+          console.warn('[BEHAVIOURAL_A] Question not found in database, falling back to WebSocket request')
+          // Fallback to WebSocket request if question not in database yet
+          const wsConnection = wsRef.current
+          if (wsConnection && wsConnection.readyState === WebSocket.OPEN && playerId) {
+            wsConnection.send(JSON.stringify({
+              type: 'request_question',
+              player_id: playerId,
+              lobby_id: lobbyId,
+              phase: 'behavioural',
+              question_index: questionIndex
+            }))
+          } else {
+            setIsLoading(false)
+          }
+        }
+      } catch (error) {
+        console.error('[BEHAVIOURAL_A] Error fetching question from API:', error)
+        // Fallback to WebSocket request on error
+        const wsConnection = wsRef.current
+        if (wsConnection && wsConnection.readyState === WebSocket.OPEN && playerId) {
+          wsConnection.send(JSON.stringify({
+            type: 'request_question',
+            player_id: playerId,
+            lobby_id: lobbyId,
+            phase: 'behavioural',
+            question_index: questionIndex
+          }))
+        } else {
+          setIsLoading(false)
+        }
       }
     }
-  }, [gameState?.question, currentQuestionIndex]);
+    
+    fetchQuestion()
+  }, [questionIndex, lobbyId, playerId, showResults, gameState?.phaseComplete, wsRef])
 
-  // Use server-synced timer ONLY - no local timer conflicts
+  // Use server-synced timer
   useEffect(() => {
     if (timeRemaining !== undefined) {
       setRemaining(timeRemaining);
     }
   }, [timeRemaining]);
 
-  // Navigate when Q0 is complete - go back to question display for follow-up
+  // Navigation logic
   useEffect(() => {
-    console.log('[BEHAVIOURAL_A] Navigation check:', {
-      showResults,
-      phaseComplete: gameState?.phaseComplete,
-      submittedPlayers: gameState?.submittedPlayers?.length,
-      totalPlayers: lobby?.players.length,
-      currentQuestionIndex,
-      hasSubmittedQ0
-    })
-    
-    // If Q0 is complete (all players submitted Q0), navigate to show follow-up question
-    if (showResults && !gameState?.phaseComplete && currentQuestionIndex === 0 && hasSubmittedQ0) {
-      console.log('[BEHAVIOURAL_A] Q0 complete, navigating to show follow-up question')
+    // PRIORITY: Check phase complete FIRST (both Q0 and Q1 done) - navigate to results
+    if (showResults && gameState?.phaseComplete && hasSubmittedCurrent) {
+      console.log("[BEHAVIOURAL_A] Phase complete (both Q0 and Q1 done), navigating to results");
+      sessionStorage.setItem("currentRound", "behavioural");
+      sessionStorage.removeItem("behavioural_q0_complete"); // Clean up
       setTimeout(() => {
-        navigate('/behavioural-question') // Go back to question display for follow-up
-      }, 1000)
+        navigate("/current-score");
+      }, 1000);
+      return; // Exit early to prevent Q0->Q1 navigation
     }
-    
-    // Navigate when phase is complete (both Q0 and Q1 are done)
-    if (showResults && gameState?.phaseComplete) {
-      console.log('[BEHAVIOURAL_A] ✓ Phase complete, navigating to current-score')
-      sessionStorage.setItem('currentRound', 'behavioural')
+
+    // If Q0 is complete (all players submitted Q0), mark it and navigate to show Q1
+    // Only navigate if we're on Q0 and haven't already navigated
+    if (
+      showResults &&
+      !gameState?.phaseComplete &&
+      questionIndex === 0 &&
+      hasSubmittedCurrent
+    ) {
+      console.log(
+        "[BEHAVIOURAL_A] Q0 complete, marking and navigating to show Q1"
+      );
+      sessionStorage.setItem("behavioural_q0_complete", "true");
       setTimeout(() => {
-        navigate('/current-score')
-      }, 1000)
+        navigate("/behavioural-question"); // Show Q1
+      }, 1000);
     }
-  }, [showResults, gameState?.phaseComplete, navigate, currentQuestionIndex, hasSubmittedQ0, lobby?.players.length])
+  }, [
+    showResults,
+    gameState?.phaseComplete,
+    questionIndex,
+    hasSubmittedCurrent,
+    navigate,
+  ]);
 
   const handleSubmit = async () => {
-    if (!answer.trim()) return
-    
-    if (currentQuestionIndex === 0) {
-      // Submit first answer (Q0)
-      console.log('[BEHAVIOURAL_A] Submitting first answer (Q0)')
-      await submitAnswer(answer)
-      syncSubmitAnswer(answer, gameState?.questionId || 'behavioural_q0', 'behavioural', 0)
-      setHasSubmittedQ0(true)
-      setAnswer("") // Clear answer
+    if (!answer.trim() || hasSubmittedCurrent) return;
+
+    if (questionIndex === 0) {
+      // Submit Q0 answer
+      console.log("[BEHAVIOURAL_A] Submitting Q0 answer");
+      await submitAnswer(answer);
+      syncSubmitAnswer(
+        answer,
+        gameState?.questionId || "behavioural_q0",
+        "behavioural",
+        0
+      );
+      setHasSubmittedCurrent(true);
+      setAnswer(""); // Clear answer
     } else {
-      // Submit follow-up answer (Q1)
-      console.log('[BEHAVIOURAL_A] Submitting follow-up answer (Q1)')
-      await submitFollowUpAnswer(answer)
-      syncSubmitAnswer(answer, gameState?.questionId || 'behavioural_q1', 'behavioural', 1)
+      // Submit Q1 answer
+      console.log("[BEHAVIOURAL_A] Submitting Q1 answer");
+      await submitFollowUpAnswer(answer);
+      syncSubmitAnswer(
+        answer,
+        gameState?.questionId || "behavioural_q1",
+        "behavioural",
+        1
+      );
+      setHasSubmittedCurrent(true);
     }
   };
 
@@ -110,17 +297,16 @@ const BehaviouralAnswer: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg">
         <div className="game-paper px-8 py-4 game-shadow-hard-lg">
-          <div className="text-lg font-bold">Loading follow-up question...</div>
+          <div className="text-lg font-bold">Loading question...</div>
         </div>
       </div>
     );
   }
 
   return (
-    // Use a fixed viewport height so the outer container actually scrolls
     <div className="game-bg h-[100dvh] w-full p-8 overflow-y-auto overflow-x-hidden">
       <div className="w-full max-w-4xl lg:max-w-5xl mx-auto space-y-8 relative pb-24">
-        {/* Header and Timer (no overlap) */}
+        {/* Header and Timer */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] items-start gap-4">
           <div className="space-y-2 text-center md:text-left">
             <div className="inline-flex items-center gap-2">
@@ -155,7 +341,7 @@ const BehaviouralAnswer: React.FC = () => {
           </div>
         </div>
 
-        {/* Top: Smaller Question (top half emphasis) */}
+        {/* Question Display */}
         <div
           className="game-paper px-6 sm:px-8 py-5 game-shadow-hard"
           style={{ border: "4px solid var(--game-text-primary)" }}
@@ -208,7 +394,7 @@ const BehaviouralAnswer: React.FC = () => {
               letterSpacing: "0.01em",
               resize: "vertical",
             }}
-            disabled={isWaitingForOthers}
+            disabled={isWaitingForOthers || hasSubmittedCurrent}
           />
         </section>
 
@@ -216,15 +402,18 @@ const BehaviouralAnswer: React.FC = () => {
         {isWaitingForOthers && (
           <div className="game-paper px-6 py-4 game-shadow-hard-lg">
             <div className="text-center">
-              <div className="game-label-text text-sm mb-2">WAITING FOR OTHER PLAYERS...</div>
+              <div className="game-label-text text-sm mb-2">
+                WAITING FOR OTHER PLAYERS...
+              </div>
               <div className="text-lg font-bold">
-                {gameState?.submittedPlayers.length || 0} / {lobby?.players.length || 0} players submitted
+                {gameState?.submittedPlayers?.length || 0} /{" "}
+                {lobby?.players.length || 0} players submitted
               </div>
             </div>
           </div>
         )}
 
-        {/* Actions */}
+        {/* Submit Button */}
         <div className="flex items-center justify-center gap-6 flex-wrap pt-2">
           <button
             className="game-sharp game-block-blue px-10 py-4 text-base font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover"
@@ -232,17 +421,29 @@ const BehaviouralAnswer: React.FC = () => {
               border: "6px solid var(--game-text-primary)",
               color: "var(--game-text-white)",
               minWidth: "220px",
-              opacity: (!answer.trim() || isWaitingForOthers) ? 0.5 : 1,
-              cursor: (!answer.trim() || isWaitingForOthers) ? 'not-allowed' : 'pointer',
+              opacity:
+                !answer.trim() || isWaitingForOthers || hasSubmittedCurrent
+                  ? 0.5
+                  : 1,
+              cursor:
+                !answer.trim() || isWaitingForOthers || hasSubmittedCurrent
+                  ? "not-allowed"
+                  : "pointer",
             }}
             onClick={handleSubmit}
-            disabled={!answer.trim() || isWaitingForOthers}
+            disabled={
+              !answer.trim() || isWaitingForOthers || hasSubmittedCurrent
+            }
           >
-            {isWaitingForOthers ? 'WAITING FOR OTHERS...' : 'Submit Answer'}
+            {hasSubmittedCurrent
+              ? "SUBMITTED"
+              : isWaitingForOthers
+              ? "WAITING FOR OTHERS..."
+              : "Submit Answer"}
           </button>
         </div>
 
-        {/* Decorative sticky notes (bottom, non-overlapping) */}
+        {/* Decorative sticky notes */}
         <div className="flex justify-end">
           <div
             className="game-sticky-note-alt px-4 py-2 game-shadow-hard-sm"
@@ -257,5 +458,3 @@ const BehaviouralAnswer: React.FC = () => {
 };
 
 export default BehaviouralAnswer;
-
-

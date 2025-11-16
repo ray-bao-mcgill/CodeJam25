@@ -36,6 +36,41 @@ export default function LobbyWaitingRoom({
     return `${baseUrl}/lobby-join/${lobby.id}`;
   };
 
+  const copyLobbyId = async () => {
+    if (!lobby?.id) return;
+    
+    try {
+      // Check if clipboard API is available
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(lobby.id);
+      } else {
+        // Fallback for browsers without clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = lobby.id;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand('copy');
+        } catch (err) {
+          console.error('Failed to copy using fallback method:', err);
+          setError('Failed to copy lobby ID. Please copy manually: ' + lobby.id);
+          return;
+        }
+        document.body.removeChild(textArea);
+      }
+      
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy lobby ID:', err);
+      setError('Failed to copy lobby ID. Please copy manually: ' + lobby.id);
+    }
+  };
+
   const copyInviteUrl = async (fromModal: boolean = false) => {
     const inviteUrl = getInviteUrl();
     if (inviteUrl) {
@@ -265,7 +300,7 @@ export default function LobbyWaitingRoom({
           <div className="game-label-text text-xs sm:text-sm">LOBBY ID</div>
           <div 
             className="game-sharp px-2.5 py-1 sm:px-3 sm:py-1.5 text-base sm:text-lg font-black uppercase tracking-widest game-shadow-hard-sm flex items-center gap-2 cursor-pointer game-button-hover"
-            onClick={() => copyInviteUrl(false)}
+            onClick={copyLobbyId}
             style={{
               background: 'var(--game-yellow)',
               color: 'var(--game-text-primary)',
@@ -274,11 +309,11 @@ export default function LobbyWaitingRoom({
               letterSpacing: '0.15em',
               transition: 'all 0.2s ease'
             }}
-            title="Click to copy invite link"
+            title="Click to copy lobby ID"
           >
             <span>{lobby.id}</span>
             <span className="text-xs sm:text-sm flex-shrink-0" style={{ opacity: copied ? 1 : 0.7 }}>
-              {copied ? '✓' : '🔗'}
+              {copied ? '✓' : '📋'}
             </span>
           </div>
         </div>

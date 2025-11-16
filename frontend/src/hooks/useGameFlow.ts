@@ -8,8 +8,8 @@ export type GamePhase =
   | 'behavioural_question'
   | 'behavioural_followup'
   | 'behavioural_score'
-  | 'quickfire'
-  | 'quickfire_score'
+  | 'technical_theory'
+  | 'technical_theory_score'
   | 'technical'
   | 'technical_score'
   | 'game_end'
@@ -21,9 +21,9 @@ export interface GameState {
   followUpQuestion?: string
   scores: Record<string, number>
   answers: string[]
-  quickFireQuestions: string[]
-  quickFireAnswers: string[]
-  quickFireCurrentIndex: number
+    technicalTheoryQuestions: string[]
+    technicalTheoryAnswers: string[]
+    technicalTheoryCurrentIndex: number
 }
 
 export function useGameFlow() {
@@ -35,9 +35,9 @@ export function useGameFlow() {
     questionIndex: 0,
     scores: {},
     answers: [],
-    quickFireQuestions: [],
-    quickFireAnswers: [],
-    quickFireCurrentIndex: 0,
+    technicalTheoryQuestions: [],
+    technicalTheoryAnswers: [],
+    technicalTheoryCurrentIndex: 0,
   })
 
   // Note: Navigation is handled by ReadyScreen component
@@ -50,8 +50,8 @@ export function useGameFlow() {
         'behavioural_question',
         'behavioural_followup',
         'behavioural_score',
-        'quickfire',
-        'quickfire_score',
+        'technical_theory',
+        'technical_theory_score',
         'technical',
         'technical_score',
         'game_end',
@@ -71,10 +71,10 @@ export function useGameFlow() {
         case 'behavioural_score':
           navigate('/current-score')
           break
-        case 'quickfire':
-          navigate('/quickfire-round')
+        case 'technical_theory':
+          navigate('/technical-theory-round')
           break
-        case 'quickfire_score':
+        case 'technical_theory_score':
           navigate('/current-score')
           break
         case 'technical':
@@ -121,14 +121,14 @@ export function useGameFlow() {
     return Promise.resolve()
   }, [])
 
-  const submitQuickFireAnswer = useCallback(async (answer: string, questionIndex: number) => {
+  const submitTechnicalTheoryAnswer = useCallback(async (answer: string, questionIndex: number) => {
     setGameState((prev) => {
-      const newAnswers = [...prev.quickFireAnswers]
+      const newAnswers = [...prev.technicalTheoryAnswers]
       newAnswers[questionIndex] = answer
       return {
         ...prev,
-        quickFireAnswers: newAnswers,
-        quickFireCurrentIndex: questionIndex + 1,
+        technicalTheoryAnswers: newAnswers,
+        technicalTheoryCurrentIndex: questionIndex + 1,
       }
     })
 
@@ -152,7 +152,7 @@ export function useGameFlow() {
     proceedToNextPhase,
     submitAnswer,
     submitFollowUpAnswer,
-    submitQuickFireAnswer,
+    submitTechnicalTheoryAnswer,
     submitTechnicalAnswer,
   }
 }

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styles from './TechnicalPractical.module.css';
 import { useGameSync } from '@/hooks/useGameSync';
+import { useGameFlow } from '@/hooks/useGameFlow';
 import { API_URL } from '@/config';
 
 const TAB_IDE = 'IDE' as const;
@@ -106,7 +108,9 @@ const initialFile: CodeFile = {
 };
 
 const TechnicalPractical: React.FC = () => {
-  const { gameState } = useGameSync();
+  const navigate = useNavigate();
+  const { submitTechnicalAnswer } = useGameFlow();
+  const { gameState, submitAnswer: syncSubmitAnswer, showResults } = useGameSync();
   const [activeTab, setActiveTab] = useState<TabType>(TAB_IDE);
   const [files, setFiles] = useState<CodeFile[]>([initialFile]);
   const [currentFileIdx, setCurrentFileIdx] = useState(0);
@@ -150,6 +154,23 @@ const TechnicalPractical: React.FC = () => {
   
   // Get question text
   const question = gameState?.question || 'Outline a production ML architecture including data ingestion, training, inference, and monitoring, with example configs.';
+
+  // Navigate when phase is complete (both players submitted practical answers)
+  useEffect(() => {
+    if (showResults && gameState?.showResults && gameState?.phaseComplete) {
+      // Phase complete, navigate to score display
+      sessionStorage.setItem('currentRound', 'technical')
+      setTimeout(() => {
+        navigate('/current-score')
+      }, 1000)
+    }
+  }, [showResults, gameState?.showResults, gameState?.phaseComplete, navigate])
+
+  const handleSubmit = async (answer: string) => {
+    await submitTechnicalAnswer(answer)
+    // Submit via sync with phase information
+    syncSubmitAnswer(answer, gameState?.questionId, 'technical_practical', 0)
+  }
 
   // Effect to focus input when modal shown
   useEffect(() => {
@@ -835,6 +856,25 @@ const TechnicalPractical: React.FC = () => {
         {/* Submit Button - Top Right */}
         <button
           type="button"
+          onClick={() => {
+            let answer = '';
+            if (activeTab === TAB_IDE) {
+              // Submit all files as JSON or concatenated code
+              answer = JSON.stringify(files.map(f => ({ name: f.name, code: f.code, language: f.language })));
+            } else if (activeTab === TAB_TEXT) {
+              // Submit rich text content
+              answer = textEditorRef.current?.innerHTML || textValue || '';
+            } else if (activeTab === TAB_DRAW) {
+              // Submit canvas as data URL
+              const canvas = canvasRef.current;
+              if (canvas) {
+                answer = canvas.toDataURL('image/png');
+              }
+            }
+            if (answer) {
+              handleSubmit(answer);
+            }
+          }}
           className="game-sharp game-block-blue px-8 py-3 text-base font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover"
           style={{ 
             border: '4px solid var(--game-text-primary)', 

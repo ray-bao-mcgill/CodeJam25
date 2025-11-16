@@ -3,11 +3,20 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useLobby } from "@/hooks/useLobby";
 import { useLobbyWebSocket } from "@/hooks/useLobbyWebSocket";
 
-const COUNTDOWN_SECONDS = 60;
+const COUNTDOWN_SECONDS = 5;
 
 const nextRouteForType: Record<string, string> = {
   behavioural: "/behavioural-question",
-  technical: "/technical-theory",
+  "technical-theory": "/technical-theory-round",
+  "technical-practical": "/technical-practical",
+};
+
+const getRoundTitle = (type: string): string => {
+  const normalized = type.toLowerCase();
+  if (normalized === "behavioural") return "BEHAVIOURAL ROUND";
+  if (normalized === "technical-theory") return "TECHNICAL THEORY ROUND";
+  if (normalized === "technical-practical") return "PRACTICAL ROUND";
+  return "ROUND";
 };
 
 const RoundStartCounter: React.FC = () => {
@@ -19,7 +28,7 @@ const RoundStartCounter: React.FC = () => {
   const serverTimeOffsetRef = useRef<number>(0);
 
   const roundType = (type || "").toLowerCase();
-  const isValidType = roundType === "behavioural" || roundType === "technical";
+  const isValidType = roundType === "behavioural" || roundType === "technical-theory" || roundType === "technical-practical";
 
   // Set up WebSocket for synchronization
   const wsRef = useLobbyWebSocket({
@@ -111,7 +120,7 @@ const RoundStartCounter: React.FC = () => {
           <h1 className="text-large" style={{ fontSize: "2rem" }}>
             Unknown round type
           </h1>
-          <p className="text-dimmed">Valid types: behavioural, technical.</p>
+          <p className="text-dimmed">Valid types: behavioural, technical-theory, technical-practical.</p>
           <button className="btn" onClick={() => navigate("/landing")}>
             Return Home
           </button>
@@ -120,43 +129,59 @@ const RoundStartCounter: React.FC = () => {
     );
   }
 
-  const titleClass =
-    roundType === "behavioural" ? "game-text-glow-cyan" : "game-text-glow-red";
-  const borderClass =
-    roundType === "behavioural" ? "game-border-glow-cyan" : "game-border-glow-red";
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg">
-      <div className="w-full max-w-4xl space-y-8">
-        {/* Title */}
-        <div className="text-center">
-          <div className={`game-paper px-8 py-4 game-shadow-hard-lg game-hand-drawn inline-block ${borderClass}`}>
-            <h1 className={`game-title text-3xl sm:text-4xl ${titleClass}`}>
-              {roundType.charAt(0).toUpperCase() + roundType.slice(1)} ROUND
+    <div className="flex flex-col items-center justify-center min-h-screen p-8 game-bg">
+      <div className="w-full max-w-3xl space-y-10 relative">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <div className="game-paper px-10 py-6 game-shadow-hard-lg game-hand-drawn inline-block">
+            <h1 className="game-title text-4xl">
+              {getRoundTitle(roundType)}
             </h1>
+          </div>
+          <div className="game-label-text text-sm">
+            GET READY — QUESTION STARTS SOON
           </div>
         </div>
 
-        {/* Countdown */}
-        <div className="game-paper px-8 py-10 game-shadow-hard-lg text-center">
+        {/* Countdown Card */}
+        <div
+          className="game-paper px-10 py-8 game-shadow-hard-lg game-hand-drawn text-center"
+          style={{ border: "6px solid var(--game-text-primary)" }}
+        >
           <div className="game-label-text text-sm mb-4">NEXT PHASE BEGINS IN</div>
           <div
-            className={`text-7xl sm:text-8xl font-black tracking-widest ${titleClass}`}
+            className="text-7xl sm:text-8xl font-black tracking-widest"
             aria-live="polite"
-            style={{ lineHeight: 1 }}
+            style={{
+              lineHeight: 1,
+              color: "var(--game-text-primary)",
+            }}
           >
             {remaining}
           </div>
           <div className="game-label-text text-xs mt-2 opacity-70">seconds</div>
         </div>
 
-        {/* Info Message */}
-        <div className="text-center">
-          <div className="game-label-text text-sm opacity-70 mb-4">
-            Automatically advancing to the question phase...
+        {/* Timer + Skip Button */}
+        <div className="flex items-center justify-center gap-6 flex-wrap">
+          <div className="text-center">
+            <div className="game-label-text text-xs mb-2">TIME LEFT</div>
+            <div
+              aria-live="polite"
+              className="game-sharp game-block-yellow px-6 py-3 game-shadow-hard-sm"
+              style={{
+                border: "3px solid var(--game-text-primary)",
+                color: "var(--game-text-primary)",
+                minWidth: "140px",
+              }}
+            >
+              <span className="text-4xl font-black tracking-widest">
+                {remaining}s
+              </span>
+            </div>
           </div>
-          
-          {/* Skip Button */}
+
           <button
             className="game-sharp game-block-blue px-8 py-4 text-base font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover"
             style={{
@@ -175,8 +200,26 @@ const RoundStartCounter: React.FC = () => {
               }
             }}
           >
-            Skip ({remaining}s)
+            Skip
           </button>
+        </div>
+
+        {/* Decorative sticky notes */}
+        <div
+          className="absolute -top-4 left-0 game-sticky-note px-4 py-2 game-shadow-hard-sm"
+          style={{ transform: "rotate(-3deg)" }}
+        >
+          <div className="text-xs font-bold uppercase">
+            {roundType === "behavioural" ? "Round 1" : roundType === "technical-theory" ? "Round 2" : "Round 3"}
+          </div>
+        </div>
+        <div
+          className="absolute -bottom-4 right-0 game-sticky-note-alt px-4 py-2 game-shadow-hard-sm"
+          style={{ transform: "rotate(2deg)" }}
+        >
+          <div className="text-xs font-bold uppercase">
+            {roundType === "behavioural" ? "Behavioural" : roundType === "technical-theory" ? "Technical Theory" : "Practical"}
+          </div>
         </div>
       </div>
     </div>

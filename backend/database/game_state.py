@@ -30,19 +30,23 @@ def update_game_state(
             print(f"Match {match_id} not found in database")
             return False
         
+        import copy
+        from sqlalchemy.orm.attributes import flag_modified
+        
         if merge:
             # Merge updates with existing game_state
             current_state = match_record.game_state or {}
             if isinstance(current_state, dict):
                 current_state.update(updates)
-                match_record.game_state = current_state
+                match_record.game_state = copy.deepcopy(current_state)
             else:
                 # If game_state is not a dict, replace it
-                match_record.game_state = updates
+                match_record.game_state = copy.deepcopy(updates)
         else:
             # Replace game_state entirely
-            match_record.game_state = updates
+            match_record.game_state = copy.deepcopy(updates)
         
+        flag_modified(match_record, "game_state")
         db.commit()
         return True
     except Exception as e:
@@ -71,7 +75,7 @@ def record_answer(
         player_id: The player who answered
         question_id: The question ID
         answer: The answer text
-        phase: The game phase (behavioural, quickfire, technical_theory, technical_practical)
+        phase: The game phase (behavioural, technical_theory, technical_practical)
         question_index: Optional index of the question in the phase
     
     Returns:
@@ -100,14 +104,41 @@ def record_answer(
         if not isinstance(current_state, dict):
             current_state = {}
         
-        # Initialize answers dict if it doesn't exist
+        # Initialize player_responses structure: {player_id: {phase: {question_index: response_data}}}
+        if "player_responses" not in current_state:
+            current_state["player_responses"] = {}
+        
+        if player_id not in current_state["player_responses"]:
+            current_state["player_responses"][player_id] = {}
+        
+        if phase not in current_state["player_responses"][player_id]:
+            current_state["player_responses"][player_id][phase] = {}
+        
+        # Store response per player per phase per question_index
+        response_data = {
+            "question_id": question_id,
+            "answer": answer,
+            "question_index": question_index,
+            "answered_at": datetime.utcnow().isoformat(),
+            "phase": phase
+        }
+        
+        current_state["player_responses"][player_id][phase][str(question_index)] = response_data
+        
+        # Also maintain answers dict for backward compatibility and quick lookup
         if "answers" not in current_state:
             current_state["answers"] = {}
         
-        # Merge answer
-        current_state["answers"][question_id] = updates["answers"][question_id]
+        # Store answer keyed by question_id (for quick lookup)
+        current_state["answers"][question_id] = {
+            "player_id": player_id,
+            "answer": answer,
+            "phase": phase,
+            "question_index": question_index,
+            "answered_at": datetime.utcnow().isoformat()
+        }
         
-        # Update phase-specific answer tracking
+        # Update phase-specific answer tracking (backward compatibility)
         phase_key = f"{phase}_answers"
         if phase_key not in current_state:
             current_state[phase_key] = {}
@@ -122,7 +153,15 @@ def record_answer(
             "answered_at": datetime.utcnow().isoformat()
         })
         
-        match_record.game_state = current_state
+        # CRITICAL: Create a new dict to ensure SQLAlchemy detects the change
+        # SQLAlchemy JSON columns need a new object reference to detect changes
+        import copy
+        match_record.game_state = copy.deepcopy(current_state)
+        
+        # Mark the column as modified to ensure SQLAlchemy tracks the change
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(match_record, "game_state")
+        
         db.commit()
         return True
     except Exception as e:
@@ -145,7 +184,7 @@ def update_phase(
     
     Args:
         match_id: The match ID
-        phase: The current phase (tutorial, behavioural, quickfire, technical_theory, technical_practical, score)
+        phase: The current phase (tutorial, behavioural, technical_theory, technical_practical, score)
         phase_data: Optional additional phase-specific data
     
     Returns:
@@ -202,13 +241,226 @@ def update_player_submission_status(
             "submitted_at": datetime.utcnow().isoformat() if submitted else None
         }
         
-        match_record.game_state = current_state
+        # CRITICAL: Create a new dict to ensure SQLAlchemy detects the change
+        import copy
+        match_record.game_state = copy.deepcopy(current_state)
+        
+        # Mark the column as modified to ensure SQLAlchemy tracks the change
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(match_record, "game_state")
+        
         db.commit()
         return True
     except Exception as e:
         db.rollback()
         print(f"Error updating submission status for match {match_id}: {e}")
         return False
+    finally:
+        db.close()
+
+
+def store_question(
+    match_id: str,
+    phase: str,
+    question_index: int,
+    question_data: Dict[str, Any],
+    is_followup: bool = False,
+    parent_question_index: Optional[int] = None,
+    player_id: Optional[str] = None
+) -> bool:
+    """
+    Store a question in game_state for game history tracking
+    Stores questions per-player for personalized questions, shared for common questions
+    
+    Args:
+        match_id: The match ID
+        phase: The game phase (e.g., "behavioural", "technical_practical")
+        question_index: The index of the question within the phase
+        question_data: Dictionary containing question details:
+            - question: The question text
+            - question_id: Database ID of the question (if from pool)
+            - role: Role associated with question
+            - level: Level associated with question
+            - generated_at: Timestamp when question was generated/selected
+        is_followup: Whether this is a follow-up question (e.g., behavioural Q1)
+        parent_question_index: If followup, the index of the parent question
+        player_id: Optional player ID for personalized questions (e.g., Q1 follow-ups)
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    db: Session = SessionLocal()
+    try:
+        match_record = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
+        if not match_record:
+            print(f"Match {match_id} not found for question storage")
+            return False
+        
+        current_state = match_record.game_state or {}
+        if not isinstance(current_state, dict):
+            print(f"[QUESTION_STORE] WARNING: game_state is not a dict, type: {type(current_state)}")
+            current_state = {}
+        
+        print(f"[QUESTION_STORE] Current game_state keys before storage: {list(current_state.keys())}")
+        print(f"[QUESTION_STORE] Current questions cache exists: {'questions' in current_state}")
+        if "questions" in current_state:
+            print(f"[QUESTION_STORE] Current questions cache keys: {list(current_state['questions'].keys())}")
+        
+        # Initialize player_questions structure: {player_id: {phase: {question_index: question_data}}}
+        if "player_questions" not in current_state:
+            current_state["player_questions"] = {}
+        
+        # Initialize questions structure for backward compatibility and quick lookup
+        if "questions" not in current_state:
+            print(f"[QUESTION_STORE] Initializing 'questions' key in game_state")
+            current_state["questions"] = {}
+        else:
+            print(f"[QUESTION_STORE] 'questions' key already exists with {len(current_state['questions'])} entries")
+        
+        # Prepare question record with metadata
+        question_record = {
+            "question": question_data.get("question"),
+            "question_id": question_data.get("question_id"),
+            "role": question_data.get("role"),
+            "level": question_data.get("level"),
+            "phase": phase,
+            "question_index": question_index,
+            "is_followup": is_followup,
+            "parent_question_index": parent_question_index,
+            "stored_at": datetime.utcnow().isoformat(),
+            "generated_at": question_data.get("generated_at", datetime.utcnow().isoformat())
+        }
+        
+        # If player_id is provided, store per-player (for personalized questions)
+        if player_id:
+            if player_id not in current_state["player_questions"]:
+                current_state["player_questions"][player_id] = {}
+            if phase not in current_state["player_questions"][player_id]:
+                current_state["player_questions"][player_id][phase] = {}
+            
+            current_state["player_questions"][player_id][phase][str(question_index)] = question_record
+            question_record["player_id"] = player_id
+            
+            # Also store in questions cache with player-specific key
+            personalized_key = f"{phase}_{question_index}_{player_id}"
+            current_state["questions"][personalized_key] = question_record
+        else:
+            # Shared question - store for all players
+            # Get all player IDs from match
+            # players can be stored as JSON in OngoingMatch, so it might be a list of dicts
+            players = match_record.players or []
+            if isinstance(players, list):
+                for p in players:
+                    # Handle both dict format {"id": "..."} and direct string format
+                    if isinstance(p, dict):
+                        player_id_str = p.get("id") or p.get("player_id") or str(p)
+                    else:
+                        player_id_str = str(p)
+                    
+                    if player_id_str and player_id_str not in ["None", "null"]:
+                        if player_id_str not in current_state["player_questions"]:
+                            current_state["player_questions"][player_id_str] = {}
+                        if phase not in current_state["player_questions"][player_id_str]:
+                            current_state["player_questions"][player_id_str][phase] = {}
+                        
+                        current_state["player_questions"][player_id_str][phase][str(question_index)] = question_record
+            
+            # Also store in questions cache with shared key
+            shared_key = f"{phase}_{question_index}"
+            current_state["questions"][shared_key] = question_record
+            print(f"[QUESTION_STORE] Stored question with shared key '{shared_key}'")
+            print(f"[QUESTION_STORE] Questions cache now has {len(current_state['questions'])} entries")
+            print(f"[QUESTION_STORE] Questions cache keys after storage: {list(current_state['questions'].keys())}")
+        
+        # Also maintain a phase-specific list for easier access (backward compatibility)
+        phase_questions_key = f"{phase}_questions"
+        if phase_questions_key not in current_state:
+            current_state[phase_questions_key] = []
+        
+        # Check if this question_index already exists in the list
+        existing_index = None
+        for idx, q in enumerate(current_state[phase_questions_key]):
+            if q.get("question_index") == question_index and q.get("player_id") == player_id:
+                existing_index = idx
+                break
+        
+        if existing_index is not None:
+            # Update existing entry
+            current_state[phase_questions_key][existing_index] = question_record
+        else:
+            # Add new entry
+            current_state[phase_questions_key].append(question_record)
+            # Sort by question_index to maintain order
+            current_state[phase_questions_key].sort(key=lambda x: (x.get("question_index", 0), x.get("player_id", "")))
+        
+        print(f"[QUESTION_STORE] Final game_state keys before commit: {list(current_state.keys())}")
+        print(f"[QUESTION_STORE] Final questions cache has {len(current_state.get('questions', {}))} entries")
+        
+        # CRITICAL: Create a new dict to ensure SQLAlchemy detects the change
+        # SQLAlchemy JSON columns need a new object reference to detect changes
+        import copy
+        match_record.game_state = copy.deepcopy(current_state)
+        
+        # Mark the column as modified to ensure SQLAlchemy tracks the change
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(match_record, "game_state")
+        
+        db.commit()
+        
+        print(f"[QUESTION_STORE] Committed to database. Verifying after commit...")
+        # Verify after commit - use a fresh query to ensure we get the latest data
+        db.expire(match_record)
+        db.refresh(match_record)
+        verify_state = match_record.game_state or {}
+        verify_questions = verify_state.get("questions", {})
+        print(f"[QUESTION_STORE] After commit - game_state keys: {list(verify_state.keys())}")
+        print(f"[QUESTION_STORE] After commit - questions cache keys: {list(verify_questions.keys())}")
+        
+        if player_id:
+            print(f"[QUESTION_STORE] Stored {phase} question (index={question_index}, followup={is_followup}) for player {player_id} in match {match_id}")
+        else:
+            print(f"[QUESTION_STORE] Stored shared {phase} question (index={question_index}, followup={is_followup}) for match {match_id}")
+        return True
+    except Exception as e:
+        db.rollback()
+        print(f"Error storing question for match {match_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+    finally:
+        db.close()
+
+
+def get_question_from_game_state(
+    match_id: str,
+    phase: str,
+    question_index: int
+) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve a question from game_state
+    
+    Args:
+        match_id: The match ID
+        phase: The game phase
+        question_index: The question index
+    
+    Returns:
+        Question data dictionary or None if not found
+    """
+    db: Session = SessionLocal()
+    try:
+        match_record = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
+        if not match_record:
+            return None
+        
+        game_state = match_record.game_state or {}
+        questions_cache = game_state.get("questions", {})
+        question_key = f"{phase}_{question_index}"
+        
+        return questions_cache.get(question_key)
+    except Exception as e:
+        print(f"Error retrieving question for match {match_id}: {e}")
+        return None
     finally:
         db.close()
 
@@ -262,7 +514,14 @@ def update_scores(
         # Update timestamp
         current_state["scores_updated_at"] = datetime.utcnow().isoformat()
         
-        match_record.game_state = current_state
+        # CRITICAL: Create a new dict to ensure SQLAlchemy detects the change
+        import copy
+        match_record.game_state = copy.deepcopy(current_state)
+        
+        # Mark the column as modified to ensure SQLAlchemy tracks the change
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(match_record, "game_state")
+        
         db.commit()
         
         print(f"[SCORES] Updated scores for match {match_id}: {merged_scores}")
@@ -337,7 +596,7 @@ def get_scores_for_phase(match_id: str, phase: str) -> Dict[str, int]:
     
     Args:
         match_id: The match ID
-        phase: The phase name (e.g., 'behavioural_score', 'quickfire_score', 'technical_score')
+        phase: The phase name (e.g., 'behavioural_score', 'technical_theory_score', 'technical_score')
     
     Returns:
         Dictionary mapping player_id to cumulative score, or empty dict if not found
@@ -478,7 +737,7 @@ def calculate_and_store_scores(match_id: str, phase: str, player_ids: List[str])
         from game.scoring import calculate_phase_scores
         player_answers = get_player_answers_for_phase(match_id, phase, player_ids)
         
-        # Calculate phase scores using scoring module
+        # Calculate phase scores using standard scoring module
         phase_scores = calculate_phase_scores(
             match_id=match_id,
             phase=phase,
@@ -511,7 +770,14 @@ def calculate_and_store_scores(match_id: str, phase: str, player_ids: List[str])
         current_state[phase_scores_key] = scores.copy()
         current_state["scores_updated_at"] = datetime.utcnow().isoformat()
         
-        match_record.game_state = current_state
+        # CRITICAL: Create a new dict to ensure SQLAlchemy detects the change
+        import copy
+        match_record.game_state = copy.deepcopy(current_state)
+        
+        # Mark the column as modified to ensure SQLAlchemy tracks the change
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(match_record, "game_state")
+        
         db.commit()
         
         print(f"[SCORES] Calculated and stored scores for {phase}: {merged_scores}")

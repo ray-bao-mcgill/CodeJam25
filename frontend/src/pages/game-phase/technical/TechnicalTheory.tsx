@@ -31,9 +31,9 @@ const TechnicalTheory: React.FC = () => {
   // Navigate to practical question when theory is complete (not phase complete yet)
   useEffect(() => {
     if (showResults && gameState?.showResults && !gameState?.phaseComplete) {
-      // Theory question complete, navigate to practical
+      // Theory question complete, navigate to round start counter for practical
       setTimeout(() => {
-        navigate('/technical-practical')
+        navigate('/round-start-counter/technical-practical')
       }, 1000)
     }
   }, [showResults, gameState?.showResults, gameState?.phaseComplete, navigate])

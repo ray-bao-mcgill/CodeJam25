@@ -2,6 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 import json
 import asyncio
+import os
 from datetime import datetime
 from typing import Dict, Set, Optional
 from sqlalchemy.orm import Session
@@ -14,7 +15,9 @@ from database.game_state import (
     get_match_by_lobby_id,
     calculate_and_store_scores,
     get_scores_for_phase,
-    get_player_answers_for_phase
+    get_player_answers_for_phase,
+    store_question,
+    get_question_from_game_state
 )
 from database import SessionLocal, OngoingMatch
 from game.phase_manager import phase_manager
@@ -32,10 +35,17 @@ except ImportError as import_error:
             'error': 'Code executor not available',
             'execution_time': 0
         }
+from game.question_manager import question_manager
+from app.llm.openai import OpenAIClient
+from app.llm.followup_generator import FollowUpQuestionGenerator
+
+# Initialize LLM client and generators
+llm_client = OpenAIClient(api_key=os.environ.get("OPENAI_API_KEY"))
+followup_generator = FollowUpQuestionGenerator(llm_client)
 
 router = APIRouter()
 
-COUNTDOWN_SECONDS = 60  # For round start counter
+COUNTDOWN_SECONDS = 5  # For round start counter
 
 # Track ready players per lobby and phase (for scores display)
 # Structure: {lobby_id: {phase: set(player_ids)}}
@@ -48,6 +58,10 @@ ready_to_continue_tracker: Dict[str, Dict[str, Set[str]]] = {}
 # Track players who completed round start countdown
 # Structure: {lobby_id: {round_type: set(player_ids)}}
 round_start_completed_tracker: Dict[str, Dict[str, Set[str]]] = {}
+
+# Lock for question requests to prevent race conditions
+# Structure: {match_id: {phase: {question_index: asyncio.Lock}}}
+question_request_locks: Dict[str, Dict[str, Dict[int, asyncio.Lock]]] = {}
 
 
 class JoinLobbyRequest(BaseModel):
@@ -246,6 +260,102 @@ async def get_lobby(lobby_id: str):
     return {"success": False, "message": "Lobby not found"}
 
 
+@router.get("/api/lobby/{lobby_id}/question")
+async def get_question(lobby_id: str, phase: str, question_index: int, player_id: str = None):
+    """Get a question from the match record for a specific phase and question index"""
+    db: Session = SessionLocal()
+    try:
+        # Get match by lobby_id
+        match_record = get_match_by_lobby_id(lobby_id)
+        if not match_record:
+            print(f"[API_QUESTION] Match not found for lobby_id: {lobby_id}")
+            return {"success": False, "message": "Match not found"}
+        
+        # Print match information
+        print(f"[API_QUESTION] ===== MATCH INFORMATION =====")
+        print(f"[API_QUESTION] Match ID: {match_record.match_id}")
+        print(f"[API_QUESTION] Lobby ID: {match_record.lobby_id}")
+        print(f"[API_QUESTION] Match Type: {match_record.match_type}")
+        print(f"[API_QUESTION] Match Config: {match_record.match_config}")
+        print(f"[API_QUESTION] Created At: {match_record.created_at}")
+        print(f"[API_QUESTION] Started At: {match_record.started_at}")
+        
+        game_state = match_record.game_state or {}
+        print(f"[API_QUESTION] Game State Type: {type(game_state)}")
+        print(f"[API_QUESTION] Game State Keys: {list(game_state.keys()) if isinstance(game_state, dict) else 'Not a dict'}")
+        
+        questions_cache = game_state.get("questions", {})
+        print(f"[API_QUESTION] Questions Cache Type: {type(questions_cache)}")
+        print(f"[API_QUESTION] Questions Cache Keys: {list(questions_cache.keys())}")
+        print(f"[API_QUESTION] Total Questions in Cache: {len(questions_cache)}")
+        
+        # Print all question keys and their basic info
+        for key, value in questions_cache.items():
+            if isinstance(value, dict):
+                print(f"[API_QUESTION]   - Key: '{key}' -> Question: '{value.get('question', 'N/A')[:50]}...', Phase: {value.get('phase')}, Index: {value.get('question_index')}, Player: {value.get('player_id')}")
+            else:
+                print(f"[API_QUESTION]   - Key: '{key}' -> Value Type: {type(value)}")
+        
+        # For Q1 (follow-up), use player-specific key
+        if phase == "behavioural" and question_index == 1 and player_id:
+            question_key = f"{phase}_{question_index}_{player_id}"
+        else:
+            question_key = f"{phase}_{question_index}"
+        
+        print(f"[API_QUESTION] Request Parameters:")
+        print(f"[API_QUESTION]   - Phase: {phase}")
+        print(f"[API_QUESTION]   - Question Index: {question_index}")
+        print(f"[API_QUESTION]   - Player ID: {player_id}")
+        print(f"[API_QUESTION]   - Looking for key: '{question_key}'")
+        
+        question_data = questions_cache.get(question_key)
+        
+        if not question_data:
+            print(f"[API_QUESTION] ✗ Question not found with key '{question_key}'")
+            print(f"[API_QUESTION] Available keys that might match:")
+            # Try to find similar keys
+            for key in questions_cache.keys():
+                if phase in key and str(question_index) in key:
+                    print(f"[API_QUESTION]   - Similar key found: '{key}'")
+            return {"success": False, "message": "Question not found"}
+        
+        print(f"[API_QUESTION] ✓ Question found!")
+        print(f"[API_QUESTION] Question Data: {question_data}")
+        print(f"[API_QUESTION] =================================")
+        
+        return {
+            "success": True,
+            "question": question_data.get("question"),
+            "question_id": question_data.get("question_id"),
+            "phase": phase,
+            "question_index": question_index,
+            "role": question_data.get("role"),
+            "level": question_data.get("level"),
+            "player_id": question_data.get("player_id")  # For personalized questions
+        }
+    except Exception as e:
+        print(f"[API_QUESTION] Error fetching question: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "message": str(e)}
+    finally:
+        db.close()
+
+
+async def safe_send_json(websocket: WebSocket, message: dict):
+    """Safely send JSON message to WebSocket, handling closed connections gracefully"""
+    try:
+        await websocket.send_json(message)
+    except RuntimeError as e:
+        if "close message has been sent" in str(e):
+            print(f"[WS] Cannot send message - WebSocket already closed: {message.get('type', 'unknown')}")
+        else:
+            raise
+    except Exception as e:
+        print(f"[WS] Error sending message: {e}")
+        raise
+
+
 @router.websocket("/ws/lobby/{lobby_id}")
 async def websocket_lobby(websocket: WebSocket, lobby_id: str):
     """WebSocket endpoint for real-time lobby updates. Case-insensitive lobby ID matching."""
@@ -275,7 +385,7 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
         # Send current lobby state immediately
         lobby = lobby_manager.get_lobby(lobby_id)
         if lobby:
-            await websocket.send_json({
+            await safe_send_json(websocket, {
                 "type": "lobby_update",
                 "lobby": lobby.to_dict()
             })
@@ -286,9 +396,14 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
             try:
                 data = await websocket.receive_text()
                 message = json.loads(data)
+                
+                # Log all incoming messages for debugging
+                msg_type = message.get("type")
+                if msg_type == "request_question" or msg_type == "ping" or msg_type == "submit_answer":
+                    print(f"[WS_MSG] Received message type: {msg_type}, full message: {message}")
 
                 if message.get("type") == "ping":
-                    await websocket.send_json({"type": "pong"})
+                    await safe_send_json(websocket, {"type": "pong"})
                 elif message.get("type") == "submit_answer":
                     # Player submitted an answer - track and check phase completion
                     player_id = message.get("player_id")
@@ -344,11 +459,11 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             print(f"[SUBMIT] Phase state player_submissions: {phase_state.player_submissions}")
                             print(f"[SUBMIT] Phase state question_submissions: {phase_state.question_submissions}")
                             
-                            # For quickfire: players work independently, only check completion when all 10 questions are done
-                            if phase == "quickfire":
+                            # For technical_theory: players work independently, only check completion when all 10 questions are done
+                            if phase == "technical_theory":
                                 player_submissions = phase_state.player_submissions.get(player_id, set())
                                 finished_all = len(player_submissions) >= 10
-                                print(f"[QUICKFIRE] Player {player_id} has submitted {len(player_submissions)}/10 questions. Finished all: {finished_all}")
+                                print(f"[TECHNICAL_THEORY] Player {player_id} has submitted {len(player_submissions)}/10 questions. Finished all: {finished_all}")
                                 
                                 if finished_all:
                                     # Player finished all questions - broadcast to show waiting status
@@ -356,7 +471,7 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                     await lobby_manager.broadcast_game_message(
                                         lobby_id,
                                         {
-                                            "type": "player_finished_quickfire",
+                                            "type": "player_finished_technical_theory",
                                             "player_id": player_id,
                                             "total_finished": len(finished_players),
                                             "total_players": total_players
@@ -365,12 +480,12 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                     
                                     # Check if all players finished
                                     if len(finished_players) >= total_players:
-                                        print(f"[QUICKFIRE] All players finished! Phase complete.")
+                                        print(f"[TECHNICAL_THEORY] All players finished! Phase complete.")
                                         await lobby_manager.broadcast_game_message(
                                             lobby_id,
                                             {
                                                 "type": "show_results",
-                                                "phase": "quickfire",
+                                                "phase": "technical_theory",
                                                 "reason": "phase_complete",
                                                 "phaseComplete": True,
                                                 "forceShow": True
@@ -448,10 +563,30 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                             "forceShow": True
                                         }
                                     )
+                            elif phase == "technical_practical":
+                                # Technical practical is standalone (technical_theory handled separately)
+                                # Check if practical phase is complete (both players submitted)
+                                phase_complete = phase_manager.check_phase_complete(match_id, phase, total_players)
+                                
+                                print(f"[SUBMIT] Technical practical completion status: {phase_complete} ({len(phase_state.player_submissions)}/{total_players} players)")
+                                
+                                if phase_complete:
+                                    print(f"[SUBMIT] Technical practical COMPLETE! All players submitted. Broadcasting show_results")
+                                    # Phase is complete - broadcast show_results
+                                    await lobby_manager.broadcast_game_message(
+                                        lobby_id,
+                                        {
+                                            "type": "show_results",
+                                            "phase": phase,
+                                            "reason": "phase_complete",
+                                            "phaseComplete": True,
+                                            "forceShow": True
+                                        }
+                                    )
                             else:
                                 # For other phases, check phase completion
                                 check_phase = phase
-                                if phase in ["technical_practical"]:
+                                if phase in ["technical_theory"]:
                                     # Check parent "technical" phase completion
                                     check_phase = "technical"
                                 
@@ -489,10 +624,10 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                         }
                     )
                     print(f"[SUBMIT] Broadcast player_submitted to all players for player {player_id}")
-                elif message.get("type") == "quickfire_finished":
-                    # Player finished all quickfire questions - track and check completion
+                elif message.get("type") == "technical_theory_finished":
+                    # Player finished all technical theory questions - track and check completion
                     player_id = message.get("player_id")
-                    print(f"[QUICKFIRE] Player {player_id} finished all quickfire questions in lobby {lobby_id}")
+                    print(f"[TECHNICAL_THEORY] Player {player_id} finished all technical theory questions in lobby {lobby_id}")
                     
                     lobby = lobby_manager.get_lobby(lobby_id)
                     if lobby:
@@ -507,7 +642,7 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                         if match_id:
                             # Record that player finished all questions (if not already recorded)
                             # This is a backup in case submit_answer didn't catch it
-                            phase_state = phase_manager.get_phase_state(match_id, "quickfire")
+                            phase_state = phase_manager.get_phase_state(match_id, "technical_theory")
                             player_submissions = phase_state.player_submissions.get(player_id, set())
                             
                             # If player hasn't submitted all 10 yet, this message might be premature
@@ -515,13 +650,13 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             total_players = len(lobby.players)
                             finished_players = [p for p in phase_state.player_submissions.keys() if len(phase_state.player_submissions.get(p, set())) >= 10]
                             
-                            print(f"[QUICKFIRE] Finished players: {len(finished_players)}/{total_players}")
+                            print(f"[TECHNICAL_THEORY] Finished players: {len(finished_players)}/{total_players}")
                             
                             # Broadcast player finished status
                             await lobby_manager.broadcast_game_message(
                                 lobby_id,
                                 {
-                                    "type": "player_finished_quickfire",
+                                    "type": "player_finished_technical_theory",
                                     "player_id": player_id,
                                     "total_finished": len(finished_players),
                                     "total_players": total_players
@@ -530,12 +665,12 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             
                             # Check if all players finished
                             if len(finished_players) >= total_players:
-                                print(f"[QUICKFIRE] All players finished! Phase complete.")
+                                print(f"[TECHNICAL_THEORY] All players finished! Phase complete.")
                                 await lobby_manager.broadcast_game_message(
                                     lobby_id,
                                     {
                                         "type": "show_results",
-                                        "phase": "quickfire",
+                                        "phase": "technical_theory",
                                         "reason": "phase_complete",
                                         "phaseComplete": True,
                                         "forceShow": True
@@ -670,6 +805,8 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                     else:
                                         # Calculate new scores (this uses database locking to prevent race conditions)
                                         print(f"[SCORES] Calculating new scores for {phase}")
+                                        
+                                        # Calculate scores using standard scoring
                                         scores = calculate_and_store_scores(match_id, phase, player_ids)
                                 else:
                                     # No game state yet, calculate scores
@@ -924,6 +1061,447 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                             }
                         )
                         print(f"[SKIP] Broadcast behavioural question skip to all players")
+                elif message.get("type") == "request_question":
+                    # Client requests a question for a specific phase
+                    # All clients should receive the SAME question - cache it in game_state
+                    player_id = message.get("player_id")
+                    phase = message.get("phase", "behavioural")
+                    question_index = message.get("question_index", 0)
+                    print(f"[QUESTION] ===== REQUEST QUESTION HANDLER CALLED =====")
+                    print(f"[QUESTION] Player {player_id} requested {phase} question (index={question_index}) in lobby {lobby_id}")
+                    print(f"[QUESTION] Full message: {message}")
+                    
+                    lobby = lobby_manager.get_lobby(lobby_id)
+                    if lobby:
+                        match_id = None
+                        match_record = None
+                        db = SessionLocal()
+                        try:
+                            if lobby.match:
+                                match_id = lobby.match.match_id
+                                match_record = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
+                            else:
+                                match_record = get_match_by_lobby_id(lobby_id)
+                                if match_record:
+                                    match_id = match_record.match_id
+                            
+                            if match_record:
+                                match_id = match_record.match_id
+                                
+                                # Initialize locks for this match if needed
+                                if match_id not in question_request_locks:
+                                    question_request_locks[match_id] = {}
+                                if phase not in question_request_locks[match_id]:
+                                    question_request_locks[match_id][phase] = {}
+                                if question_index not in question_request_locks[match_id][phase]:
+                                    question_request_locks[match_id][phase][question_index] = asyncio.Lock()
+                                
+                                # Acquire lock to prevent race conditions
+                                lock = question_request_locks[match_id][phase][question_index]
+                                
+                                async with lock:
+                                    # Double-check cache after acquiring lock (another request might have stored it)
+                                    # Refresh match_record to get latest game_state
+                                    db.refresh(match_record)
+                                    game_state_check = match_record.game_state or {}
+                                    questions_cache_check = game_state_check.get("questions", {})
+                                    question_key_check = f"{phase}_{question_index}"
+                                    cached_question = questions_cache_check.get(question_key_check)
+                                    
+                                    if cached_question:
+                                        # Question already selected and stored - send cached question
+                                        print(f"[QUESTION] Using cached question for {phase}_{question_index} (after lock)")
+                                        await lobby_manager.broadcast_game_message(
+                                            lobby_id,
+                                            {
+                                                "type": "question_received",
+                                                "phase": phase,
+                                                "question_index": question_index,
+                                                "question": cached_question.get("question"),
+                                                "question_id": cached_question.get("question_id"),
+                                                "role": cached_question.get("role"),
+                                                "level": cached_question.get("level")
+                                            }
+                                        )
+                                        continue
+                                    
+                                    # No cached question - proceed to select/generate
+                                    print(f"[QUESTION] No cached question found, selecting/generating for {phase}_{question_index}")
+                                    
+                                    # Re-fetch match_record to ensure we have latest data
+                                    match_record = db.query(OngoingMatch).filter(OngoingMatch.match_id == match_id).first()
+                                    if not match_record:
+                                        print(f"[QUESTION] Match {match_id} not found after lock acquisition")
+                                        continue
+                                    
+                                    # Continue with question selection/generation...
+                                    # First request - select and store question in game_state
+                                    match_type = match_record.match_type
+                                    match_config = match_record.match_config or {}
+                                    
+                                    # For behavioural Q1, generate personalized follow-up question using LLM
+                                    if phase == "behavioural" and question_index == 1:
+                                        print(f"[QUESTION] Q1 requested for behavioural phase - generating personalized LLM follow-up for player {player_id}")
+                                        
+                                        # Get Q0 question from game_state (use already loaded match_record)
+                                        # Q0 is only needed for question_id lookup - not required for follow-up generation
+                                        game_state = match_record.game_state or {}
+                                        questions_cache = game_state.get("questions", {})
+                                        q0_question_key = f"{phase}_0"
+                                        q0_question_data = questions_cache.get(q0_question_key)
+                                        
+                                        # Q0 question_id is helpful but not strictly required
+                                        q0_question_id = ""
+                                        original_question = ""
+                                        if q0_question_data:
+                                            original_question = q0_question_data.get("question", "")
+                                            q0_question_id = q0_question_data.get("question_id", "")
+                                        else:
+                                            print(f"[QUESTION] WARNING: Q0 question not found in game_state for match {match_id}")
+                                            print(f"[QUESTION] Available question keys: {list(questions_cache.keys())}")
+                                            print(f"[QUESTION] Will proceed with answer-only follow-up generation")
+                                        
+                                        print(f"[QUESTION] Found Q0 question: {original_question[:100]}...")
+                                        
+                                        # Check if this player already has a follow-up question stored
+                                        player_followups_key = f"{phase}_followups"
+                                        player_followups = game_state.get(player_followups_key, {})
+                                        
+                                        if player_id in player_followups:
+                                            # Player already has a follow-up - send it
+                                            cached_followup = player_followups[player_id]
+                                            print(f"[QUESTION] Using cached follow-up for player {player_id} from database")
+                                            
+                                            # Verify it's also in questions cache
+                                            personalized_question_key = f"{phase}_{question_index}_{player_id}"
+                                            questions_cache_check = game_state.get("questions", {})
+                                            if personalized_question_key not in questions_cache_check:
+                                                print(f"[QUESTION] WARNING: Follow-up not in questions cache, adding it")
+                                                # Add to questions cache for consistency
+                                                questions_cache_check[personalized_question_key] = {
+                                                    "question": cached_followup.get("question"),
+                                                    "question_id": cached_followup.get("question_id"),
+                                                    "role": cached_followup.get("role"),
+                                                    "level": cached_followup.get("level"),
+                                                    "phase": phase,
+                                                    "question_index": question_index,
+                                                    "is_followup": True,
+                                                    "parent_question_index": 0,
+                                                    "player_id": player_id,
+                                                    "stored_at": cached_followup.get("generated_at", datetime.utcnow().isoformat()),
+                                                    "generated_at": cached_followup.get("generated_at")
+                                                }
+                                                game_state["questions"] = questions_cache_check
+                                                match_record.game_state = game_state
+                                                db.commit()
+                                            
+                                            await safe_send_json(websocket, {
+                                                "type": "question_received",
+                                                "phase": phase,
+                                                "question_index": question_index,
+                                                "question": cached_followup.get("question"),
+                                                "question_id": cached_followup.get("question_id"),
+                                                "role": cached_followup.get("role"),
+                                                "level": cached_followup.get("level"),
+                                                "player_id": player_id  # Indicate this is personalized
+                                            })
+                                            
+                                            # Check if all players have follow-ups by checking questions cache
+                                            # Refresh to get latest state from database
+                                            db.refresh(match_record)
+                                            verify_state = match_record.game_state or {}
+                                            verify_questions = verify_state.get("questions", {})
+                                            
+                                            total_players = len(lobby.players)
+                                            # Count Q1 questions with player_id suffix (personalized follow-ups)
+                                            players_with_followups = 0
+                                            for key in verify_questions.keys():
+                                                if key.startswith(f"{phase}_{question_index}_"):
+                                                    players_with_followups += 1
+                                            
+                                            print(f"[QUESTION] Cached follow-up check - Follow-ups ready: {players_with_followups}/{total_players} players")
+                                            
+                                            if players_with_followups >= total_players:
+                                                print(f"[QUESTION] All {total_players} players have follow-ups - broadcasting sync")
+                                                await lobby_manager.broadcast_game_message(
+                                                    lobby_id,
+                                                    {
+                                                        "type": "all_followups_ready",
+                                                        "phase": phase,
+                                                        "question_index": question_index
+                                                    }
+                                                )
+                                            continue
+                                        
+                                        # Refresh match_record to ensure we have the latest game_state with submitted answers
+                                        db.refresh(match_record)
+                                        game_state = match_record.game_state or {}
+                                        
+                                        # Get the requesting player's answer to Q0 from player_responses structure
+                                        player_responses = game_state.get("player_responses", {})
+                                        player_answer = None
+                                        answers = game_state.get("answers", {})  # Initialize for error reporting
+                                        
+                                        # Try to get from player_responses structure first (per-player storage)
+                                        if player_id in player_responses:
+                                            player_phase_responses = player_responses[player_id].get(phase, {})
+                                            # Try both string "0" and integer 0 as keys
+                                            q0_response = player_phase_responses.get("0") or player_phase_responses.get(0)
+                                            if q0_response:
+                                                player_answer = q0_response.get("answer")
+                                        
+                                        # Fallback: try answers dict (backward compatibility)
+                                        if not player_answer:
+                                            # First, try to find answer by question_id and player_id (if we have Q0 question_id)
+                                            if q0_question_id and q0_question_id in answers:
+                                                answer_data = answers[q0_question_id]
+                                                if isinstance(answer_data, dict):
+                                                    # Check if this answer belongs to the requesting player
+                                                    if answer_data.get("player_id") == player_id:
+                                                        player_answer = answer_data.get("answer", "")
+                                            
+                                            # If not found, search all answers for this player's Q0 answer
+                                            if not player_answer:
+                                                for qid, ans_data in answers.items():
+                                                    if isinstance(ans_data, dict):
+                                                        # Check both integer 0 and string "0" for question_index
+                                                        q_idx = ans_data.get("question_index")
+                                                        if (ans_data.get("player_id") == player_id and
+                                                            ans_data.get("phase") == phase and 
+                                                            (q_idx == 0 or q_idx == "0")):
+                                                            player_answer = ans_data.get("answer", "")
+                                                            break
+                                        
+                                        if not player_answer:
+                                            print(f"[QUESTION] ERROR: Player {player_id} answer to Q0 not found for match {match_id}")
+                                            print(f"[QUESTION] Player responses structure: {player_responses}")
+                                            print(f"[QUESTION] Available answers: {list(answers.keys())}")
+                                            print(f"[QUESTION] Answers data: {answers}")
+                                            print(f"[QUESTION] Looking for player_id={player_id}, phase={phase}, question_index=0")
+                                            await safe_send_json(websocket, {
+                                                "type": "question_error",
+                                                "phase": phase,
+                                                "message": "Your answer to the previous question was not found"
+                                            })
+                                            continue
+                                        
+                                        print(f"[QUESTION] Generating personalized follow-up question for player {player_id}:")
+                                        print(f"[QUESTION]   Player Answer: {player_answer[:200]}...")
+                                        
+                                        # Send a "generating" status message to keep connection alive and inform client
+                                        await safe_send_json(websocket, {
+                                            "type": "question_generating",
+                                            "phase": phase,
+                                            "question_index": question_index,
+                                            "player_id": player_id,
+                                            "message": "Considering your response..."
+                                        })
+                                        
+                                        try:
+                                            # Generate personalized follow-up question using LLM
+                                            # Focus on the player's answer - original question is just for context
+                                            # This can take 5-30 seconds depending on OpenAI API response time
+                                            followup_question = await followup_generator.generate_followup(
+                                                original_question=original_question,  # Context only
+                                                candidate_answer=player_answer,  # Primary input
+                                                role=match_config.get("role"),
+                                                level=match_config.get("level")
+                                            )
+                                            
+                                            print(f"[QUESTION] Generated personalized follow-up for player {player_id}: {followup_question}")
+                                            
+                                            # Create question data structure
+                                            question_data = {
+                                                "question_id": f"behavioural_followup_{match_id}_{question_index}_{player_id}",
+                                                "question": followup_question,
+                                                "phase": "behavioural",
+                                                "question_index": question_index,
+                                                "role": match_config.get("role"),
+                                                "level": match_config.get("level"),
+                                                "is_generated": True,
+                                                "parent_question_id": q0_question_id,
+                                                "player_id": player_id
+                                            }
+                                            
+                                            # Add timestamp
+                                            question_data["generated_at"] = datetime.utcnow().isoformat()
+                                            
+                                            # Store personalized follow-up using store_question helper
+                                            # This ensures proper per-player storage structure
+                                            question_stored = store_question(
+                                                match_id=match_id,
+                                                phase=phase,
+                                                question_index=question_index,
+                                                question_data=question_data,
+                                                is_followup=True,
+                                                parent_question_index=0,
+                                                player_id=player_id  # Personalized question
+                                            )
+                                            
+                                            if question_stored:
+                                                print(f"[QUESTION] ✓ Successfully stored personalized follow-up for player {player_id} in database")
+                                                
+                                                # Also maintain behavioural_followups for quick lookup (backward compatibility)
+                                                if player_followups_key not in game_state:
+                                                    game_state[player_followups_key] = {}
+                                                game_state[player_followups_key][player_id] = question_data
+                                                
+                                                # Refresh match_record to get latest state
+                                                db.refresh(match_record)
+                                            else:
+                                                print(f"[QUESTION] ✗ WARNING: Failed to store personalized follow-up in database")
+                                                # Still store in behavioural_followups for immediate use
+                                                if player_followups_key not in game_state:
+                                                    game_state[player_followups_key] = {}
+                                                game_state[player_followups_key][player_id] = question_data
+                                                match_record.game_state = game_state
+                                                db.commit()
+                                            
+                                            # Send personalized follow-up ONLY to requesting player
+                                            await safe_send_json(websocket, {
+                                                "type": "question_received",
+                                                "phase": phase,
+                                                "question_index": question_index,
+                                                "question": followup_question,
+                                                "question_id": question_data.get("question_id"),
+                                                "role": question_data.get("role"),
+                                                "level": question_data.get("level"),
+                                                "player_id": player_id  # Indicate this is personalized
+                                            })
+                                            
+                                            # Check if all players have follow-ups now by checking questions cache
+                                            # Refresh to get latest state from database
+                                            db.refresh(match_record)
+                                            verify_state = match_record.game_state or {}
+                                            verify_questions = verify_state.get("questions", {})
+                                            
+                                            total_players = len(lobby.players)
+                                            # Count Q1 questions with player_id suffix (personalized follow-ups)
+                                            players_with_followups = 0
+                                            for key in verify_questions.keys():
+                                                if key.startswith(f"{phase}_{question_index}_"):
+                                                    players_with_followups += 1
+                                            
+                                            print(f"[QUESTION] Follow-ups ready: {players_with_followups}/{total_players} players")
+                                            
+                                            # Only broadcast when ALL players have their follow-ups ready
+                                            if players_with_followups >= total_players:
+                                                print(f"[QUESTION] All {total_players} players have follow-ups - broadcasting sync message")
+                                                await lobby_manager.broadcast_game_message(
+                                                    lobby_id,
+                                                    {
+                                                        "type": "all_followups_ready",
+                                                        "phase": phase,
+                                                        "question_index": question_index
+                                                    }
+                                                )
+                                            
+                                        except Exception as e:
+                                            db.rollback()
+                                            print(f"[QUESTION] ERROR: Failed to generate follow-up question: {e}")
+                                            import traceback
+                                            traceback.print_exc()
+                                            
+                                            # Provide user-friendly error message
+                                            error_msg = str(e)
+                                            if "401" in error_msg or "Unauthorized" in error_msg or "api key" in error_msg.lower():
+                                                user_message = "OpenAI API key is missing or invalid. Please configure your API key to generate personalized follow-up questions."
+                                            elif "429" in error_msg or "rate limit" in error_msg.lower():
+                                                user_message = "OpenAI API rate limit exceeded. Please try again in a moment."
+                                            else:
+                                                user_message = f"Failed to generate follow-up question. Please try again."
+                                            
+                                            await safe_send_json(websocket, {
+                                                "type": "question_error",
+                                                "phase": phase,
+                                            })
+                                        continue
+                                    
+                                    # For non-Q1 questions (Q0, technical, etc.), select from database
+                                    print(f"[QUESTION] Calling question_manager.get_question_for_phase for {phase} (index={question_index})")
+                                    print(f"[QUESTION] Match type: {match_type}, Match config: {match_config}")
+                                    question_data = question_manager.get_question_for_phase(
+                                        match_type=match_type,
+                                        phase=phase,
+                                        match_config=match_config,
+                                        question_index=question_index
+                                    )
+                                    
+                                    print(f"[QUESTION] Question manager returned: {question_data is not None}")
+                                    if question_data:
+                                        print(f"[QUESTION] Question data received: {question_data}")
+                                        # Add timestamp for when question was generated/selected
+                                        question_data["generated_at"] = datetime.utcnow().isoformat()
+                                        
+                                        # Determine if this is a follow-up question
+                                        is_followup = (phase == "behavioural" and question_index == 1)
+                                        parent_index = 0 if is_followup else None
+                                        
+                                        # Store question in game_state using helper function
+                                        # This ensures the question is persisted in the database
+                                        # Q0 is shared, so no player_id needed
+                                        print(f"[QUESTION] Attempting to store {phase} question (index={question_index}) for match {match_id}")
+                                        print(f"[QUESTION] Question data before storage: {question_data}")
+                                        
+                                        question_stored = store_question(
+                                            match_id=match_id,
+                                            phase=phase,
+                                            question_index=question_index,
+                                            question_data=question_data,
+                                            is_followup=is_followup,
+                                            parent_question_index=parent_index,
+                                            player_id=None  # Shared question
+                                        )
+                                        
+                                        if question_stored:
+                                            print(f"[QUESTION] ✓ Successfully stored {phase} question (index={question_index}) in database for match {match_id}")
+                                            
+                                            # Verify storage by reading back from database
+                                            db.refresh(match_record)
+                                            verify_state = match_record.game_state or {}
+                                            verify_questions = verify_state.get("questions", {})
+                                            expected_key = f"{phase}_{question_index}"
+                                            print(f"[QUESTION] Verification - Game state keys: {list(verify_state.keys())}")
+                                            print(f"[QUESTION] Verification - Questions cache keys: {list(verify_questions.keys())}")
+                                            print(f"[QUESTION] Verification - Looking for key '{expected_key}': {expected_key in verify_questions}")
+                                            
+                                            if expected_key in verify_questions:
+                                                print(f"[QUESTION] ✓ Verification PASSED - Question stored correctly")
+                                            else:
+                                                print(f"[QUESTION] ✗ Verification FAILED - Question not found after storage!")
+                                                print(f"[QUESTION] Available question keys: {list(verify_questions.keys())}")
+                                        else:
+                                            print(f"[QUESTION] ✗ WARNING: Failed to store question in database")
+                                            # Still broadcast, but log the error
+                                        
+                                        # Broadcast question to all players
+                                        await lobby_manager.broadcast_game_message(
+                                            lobby_id,
+                                            {
+                                                "type": "question_received",
+                                                "phase": phase,
+                                                "question_index": question_index,
+                                                "question": question_data.get("question"),
+                                                "question_id": question_data.get("question_id"),
+                                                "role": question_data.get("role"),
+                                                "level": question_data.get("level")
+                                            }
+                                        )
+                                        print(f"[QUESTION] Broadcast {phase} question to all players")
+                                    else:
+                                        # No question found - log detailed error
+                                        print(f"[QUESTION] ERROR: No question found for {phase} (match_type={match_type}, question_index={question_index})")
+                                        print(f"[QUESTION] Match config: {match_config}")
+                                        print(f"[QUESTION] Role: {match_config.get('role')}, Level: {match_config.get('level')}")
+                                        await safe_send_json(websocket, {
+                                            "type": "question_error",
+                                            "phase": phase,
+                                            "message": "Question not available"
+                                        })
+                            else:
+                                print(f"[QUESTION] Match not found for lobby {lobby_id}")
+                        finally:
+                            db.close()
                 elif message.get("type") == "winlose_started":
                     # Win/Lose screen started - update phase
                     player_id = message.get("player_id")
