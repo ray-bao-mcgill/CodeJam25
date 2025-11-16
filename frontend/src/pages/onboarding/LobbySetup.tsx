@@ -5,10 +5,8 @@ import { useLobby } from '@/hooks/useLobby'
 const LobbySetup: React.FC = () => {
   const navigate = useNavigate()
   const [playerName, setPlayerNameLocal] = useState('')
-  const [mode, setMode] = useState<'role' | 'description' | null>(null)
   const [selectedRole, setSelectedRole] = useState('')
   const [selectedLevel, setSelectedLevel] = useState('')
-  const [jobDescriptionText, setJobDescriptionText] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [nameFieldExpanded, setNameFieldExpanded] = useState(false)
@@ -56,27 +54,14 @@ const LobbySetup: React.FC = () => {
       return
     }
 
-    // Validate mode selection
-    if (!mode) {
-      setError('Please select either Role or Job Posting mode')
+    // Validate role selection
+    if (!selectedRole || !selectedRole.trim()) {
+      setError('Please select a role')
       return
     }
-
-    // Validate based on mode
-    if (mode === 'role') {
-      if (!selectedRole || !selectedRole.trim()) {
-        setError('Please select a role')
-        return
-      }
-      if (!selectedLevel || !selectedLevel.trim()) {
-        setError('Please select a level')
-        return
-      }
-    } else if (mode === 'description') {
-      if (!jobDescriptionText || !jobDescriptionText.trim()) {
-        setError('Please enter a job posting link')
-        return
-      }
+    if (!selectedLevel || !selectedLevel.trim()) {
+      setError('Please select a level')
+      return
     }
 
     setIsLoading(true)
@@ -84,14 +69,9 @@ const LobbySetup: React.FC = () => {
 
     try {
       // Store selections for later use
-      if (mode === 'role') {
-        sessionStorage.setItem('selectedRole', selectedRole)
-        sessionStorage.setItem('selectedLevel', selectedLevel)
-        sessionStorage.setItem('jobMode', 'role')
-      } else {
-        sessionStorage.setItem('jobDescription', jobDescriptionText.trim())
-        sessionStorage.setItem('jobMode', 'description')
-      }
+      sessionStorage.setItem('selectedRole', selectedRole)
+      sessionStorage.setItem('selectedLevel', selectedLevel)
+      sessionStorage.setItem('jobMode', 'role')
       
       // Create a new lobby - pass player name directly (will save to sessionStorage on success)
       const result = await createLobby(playerName.trim())
@@ -117,20 +97,26 @@ const LobbySetup: React.FC = () => {
       {/* Back Button - Fixed to top left of screen */}
       <button
         onClick={() => navigate('/lobby-creation')}
-        className="fixed top-4 left-4 z-50 game-sharp game-paper px-4 py-2 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover"
+        className="fixed top-4 left-4 z-50 game-sharp px-4 py-2 text-sm font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover"
         style={{
+          background: '#ff6600',
           border: '3px solid var(--game-text-primary)',
-          color: 'var(--game-text-primary)',
-          transform: 'rotate(-1deg)'
+          color: '#fff'
         }}
       >
-        ← BACK
+        BACK
       </button>
 
       <div className="w-full max-w-6xl mx-auto relative" style={{ minHeight: 'calc(100vh - 3rem)', paddingBottom: '100px' }}>
         {/* Title - Centered */}
         <div className="relative z-10 flex justify-center mb-6">
-          <div className="game-paper px-12 py-8 game-shadow-hard-lg game-hand-drawn inline-block">
+          <div className="px-12 py-8 game-shadow-hard-lg game-hand-drawn inline-block"
+            style={{
+              backgroundColor: '#ffe63b',
+              border: '6px solid var(--game-text-primary)',
+              transform: 'rotate(-2deg)'
+            }}
+          >
             <h1 className="game-title text-4xl">
               CREATE LOBBY
             </h1>
@@ -138,17 +124,8 @@ const LobbySetup: React.FC = () => {
         </div>
         
         {/* Name Input - Centered, stays in place */}
-        <div 
-          className={`flex flex-col items-center mb-6 ${nameFieldExpanded ? 'expanded' : ''}`}
-          onClick={() => {
-            if (mode && !nameFieldExpanded) {
-              setNameFieldExpanded(true)
-            }
-          }}
-        >
-          <div 
-            className="game-label-text text-lg block mb-2"
-          >
+        <div className={`flex flex-col items-center mb-6 ${nameFieldExpanded ? 'expanded' : ''}`}>
+          <div className="text-lg font-bold block mb-2" style={{ color: 'var(--game-text-primary)' }}>
             YOUR NAME
           </div>
           <input
@@ -159,79 +136,23 @@ const LobbySetup: React.FC = () => {
               setPlayerNameLocal(e.target.value)
               setError('')
             }}
-            onBlur={() => {
-              if (mode && nameFieldExpanded) {
-                setNameFieldExpanded(false)
-              }
-            }}
             className="game-sharp game-paper font-black uppercase tracking-widest game-shadow-hard px-4 text-xl py-4 max-w-xs text-center block"
             style={{
               border: '6px solid var(--game-text-primary)',
               color: 'var(--game-text-primary)',
               letterSpacing: '0.15em',
+              fontFamily: 'Impact, sans-serif',
               cursor: 'text'
             }}
             autoFocus={nameFieldExpanded}
           />
         </div>
 
-        {/* Mode Selection */}
-        <div className="flex justify-center gap-6 flex-wrap lobby-setup-mode-buttons">
-            <button
-              onClick={() => {
-                setMode('role')
-                setJobDescriptionText('')
-                setError('')
-                setNameFieldExpanded(false)
-                setShowCustomRoleInput(false)
-                setCustomRoleText('')
-              }}
-              className={`game-sharp px-6 py-4 text-base font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover ${
-                mode === 'role' ? 'game-block-blue' : 'game-paper'
-              }`}
-              style={{
-                border: '6px solid var(--game-text-primary)',
-                color: mode === 'role' ? 'var(--game-text-white)' : 'var(--game-text-primary)',
-                transform: 'rotate(-1deg)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-              }}
-            >
-              ROLE
-            </button>
-
-            <div className="game-label-text text-lg">OR</div>
-
-            <button
-              onClick={() => {
-                setMode('description')
-                setSelectedRole('')
-                setSelectedLevel('')
-                setError('')
-                setNameFieldExpanded(false)
-                setShowCustomRoleInput(false)
-                setCustomRoleText('')
-              }}
-              className={`game-sharp px-6 py-4 text-base font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover ${
-                mode === 'description' ? 'game-block-red' : 'game-paper'
-              }`}
-              style={{
-                border: '6px solid var(--game-text-primary)',
-                color: mode === 'description' ? 'var(--game-text-white)' : 'var(--game-text-primary)',
-                transform: 'rotate(1deg)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-              }}
-            >
-              JOB POSTING
-            </button>
-          </div>
-
-          {/* Role Mode: Show Role and Level Selection - Row by row */}
-          {mode === 'role' && (
-            <div className="mt-6 space-y-4">
-              {/* Role Selection Row */}
-              <div className="lobby-setup-row" style={{ animationDelay: '0.2s' }}>
-                <div className="game-label-text text-sm text-center mb-2" style={{ animation: 'fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards', opacity: 0 }}>SELECT ROLE</div>
-                <div className="flex flex-wrap justify-center gap-2 items-center">
+          {/* Role Selection Row */}
+          <div className="mt-8 space-y-6">
+            <div className="lobby-setup-row">
+              <div className="text-lg font-bold text-center mb-3" style={{ color: 'var(--game-text-primary)' }}>SELECT ROLE</div>
+                <div className="flex flex-wrap justify-center gap-3 items-center">
                   {defaultRoles.map((role, idx) => (
                     <button
                       key={role}
@@ -239,15 +160,11 @@ const LobbySetup: React.FC = () => {
                         setSelectedRole(role)
                         setShowCustomRoleInput(false)
                       }}
-                      className="game-sharp px-4 py-2.5 text-xs font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover"
+                      className="game-sharp px-6 py-3 text-base font-black uppercase tracking-wider game-shadow-hard-lg game-button-hover"
                       style={{
-                        border: '4px solid var(--game-text-primary)',
+                        border: '6px solid var(--game-text-primary)',
                         color: selectedRole === role ? 'var(--game-text-white)' : 'var(--game-text-primary)',
                         background: selectedRole === role ? 'var(--game-blue)' : 'var(--game-bg-alt)',
-                        transform: `rotate(${idx % 2 === 0 ? '-0.5deg' : '0.5deg'})`,
-                        animation: 'fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards',
-                        opacity: 0,
-                        animationDelay: `${0.3 + idx * 0.03}s`,
                         transition: 'all 0.2s ease'
                       }}
                     >
@@ -261,12 +178,11 @@ const LobbySetup: React.FC = () => {
                         setSelectedRole(role)
                         setShowCustomRoleInput(false)
                       }}
-                      className="game-sharp px-4 py-2.5 text-xs font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover"
+                      className="game-sharp px-6 py-3 text-base font-black uppercase tracking-wider game-shadow-hard-lg game-button-hover"
                       style={{
-                        border: '4px solid var(--game-text-primary)',
+                        border: '6px solid var(--game-text-primary)',
                         color: selectedRole === role ? 'var(--game-text-white)' : 'var(--game-text-primary)',
                         background: selectedRole === role ? 'var(--game-blue)' : 'var(--game-bg-alt)',
-                        transform: `rotate(${(defaultRoles.length + idx) % 2 === 0 ? '-0.5deg' : '0.5deg'})`,
                         transition: 'all 0.2s ease'
                       }}
                     >
@@ -279,12 +195,11 @@ const LobbySetup: React.FC = () => {
                         setShowCustomRoleInput(true)
                         setSelectedRole('')
                       }}
-                      className="game-sharp px-4 py-2.5 text-xs font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover"
+                      className="game-sharp px-6 py-3 text-base font-black uppercase tracking-wider game-shadow-hard-lg game-button-hover"
                       style={{
-                        border: '4px solid var(--game-text-primary)',
+                        border: '6px solid var(--game-text-primary)',
                         color: 'var(--game-text-primary)',
                         background: 'var(--game-bg-alt)',
-                        transform: 'rotate(0.5deg)',
                         transition: 'all 0.2s ease'
                       }}
                     >
@@ -307,7 +222,7 @@ const LobbySetup: React.FC = () => {
                         }}
                         className="game-sharp px-4 py-2.5 text-xs font-black uppercase tracking-wider"
                         style={{
-                          border: 'none',
+                          border: '4px solid var(--game-text-primary)',
                           background: 'white',
                           color: 'var(--game-text-primary)',
                           boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
@@ -322,7 +237,7 @@ const LobbySetup: React.FC = () => {
                         disabled={!customRoleText.trim()}
                         className="game-sharp flex items-center justify-center w-8 h-8"
                         style={{
-                          border: 'none',
+                          border: '4px solid var(--game-text-primary)',
                           background: customRoleText.trim() ? 'var(--game-blue)' : 'var(--game-bg-alt)',
                           color: 'white',
                           cursor: customRoleText.trim() ? 'pointer' : 'not-allowed',
@@ -342,21 +257,18 @@ const LobbySetup: React.FC = () => {
 
               {/* Level Selection Row */}
               <div className="lobby-setup-row" style={{ animationDelay: '0.5s' }}>
-                <div className="game-label-text text-sm text-center mb-2" style={{ animation: 'fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.5s forwards', opacity: 0 }}>SELECT LEVEL</div>
-                <div className="flex flex-wrap justify-center gap-2">
+                <div className="text-lg font-bold text-center mb-3" style={{ color: 'var(--game-text-primary)' }}>SELECT LEVEL</div>
+                <div className="flex flex-wrap justify-center gap-3">
                   {levels.map((level, idx) => (
                     <button
                       key={level}
                       onClick={() => setSelectedLevel(level)}
-                      className={`game-sharp px-3 py-2 text-xs font-black uppercase tracking-wider game-shadow-hard-sm game-button-hover`}
+                      className={`game-sharp px-6 py-3 text-base font-black uppercase tracking-wider game-shadow-hard-lg game-button-hover`}
                       style={{
-                        border: '4px solid var(--game-text-primary)',
+                        border: '6px solid var(--game-text-primary)',
                         color: selectedLevel === level ? 'var(--game-text-white)' : 'var(--game-text-primary)',
                         background: selectedLevel === level ? 'var(--game-red)' : 'var(--game-bg-alt)',
-                        transform: `rotate(${idx % 2 === 0 ? '0.5deg' : '-0.5deg'})`,
-                        animation: 'fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards',
-                        opacity: 0,
-                        animationDelay: `${0.6 + idx * 0.03}s`
+                        transition: 'all 0.2s ease'
                       }}
                     >
                       {level}
@@ -365,38 +277,7 @@ const LobbySetup: React.FC = () => {
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Description Mode: Show Job Posting Input */}
-          {mode === 'description' && (
-            <div className="mt-6 lobby-setup-row">
-              <div 
-                className="game-label-text text-sm mb-2"
-                style={{ 
-                  animation: 'fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards',
-                  opacity: 0
-                }}
-              >
-                PASTE JOB POSTING LINK
-              </div>
-              <textarea
-                placeholder="PASTE JOB POSTING LINK HERE (e.g., https://example.com/job-posting)..."
-                value={jobDescriptionText}
-                onChange={(e) => setJobDescriptionText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && e.ctrlKey && !isLoading && handleCreateLobby()}
-                className="game-sharp game-paper w-full text-left text-sm py-3 px-4 font-bold game-shadow-hard"
-                style={{
-                  border: '6px solid var(--game-text-primary)',
-                  color: 'var(--game-text-primary)',
-                  height: '100px',
-                  resize: 'none',
-                  animation: 'fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards',
-                  opacity: 0
-                }}
-                autoFocus
-              />
-            </div>
-          )}
+          </div>
 
           {/* Create Lobby Button - Fixed bottom */}
           <div className="absolute bottom-6 left-0 right-0 flex justify-center">
@@ -405,36 +286,26 @@ const LobbySetup: React.FC = () => {
               disabled={
                 isLoading || 
                 !playerName?.trim() ||
-                !mode ||
-                (mode === 'role' && (!selectedRole?.trim() || !selectedLevel?.trim())) ||
-                (mode === 'description' && !jobDescriptionText?.trim())
+                !selectedRole?.trim() || 
+                !selectedLevel?.trim()
               }
-              className={`game-sharp px-10 py-4 text-lg font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover ${
-                (!isLoading && 
-                 playerName.trim() &&
-                 ((mode === 'role' && selectedRole && selectedLevel) ||
-                  (mode === 'description' && jobDescriptionText.trim())))
-                  ? 'game-block-green' : 'game-paper'
+              className={`game-sharp px-10 py-4 text-lg font-black uppercase tracking-widest game-shadow-hard-lg ${
+                (!isLoading && playerName.trim() && selectedRole && selectedLevel)
+                  ? 'game-block-green game-button-hover'
+                  : ''
               }`}
               style={{
                 border: '6px solid var(--game-text-primary)',
-                color: (!isLoading && 
-                        playerName.trim() &&
-                        ((mode === 'role' && selectedRole && selectedLevel) ||
-                         (mode === 'description' && jobDescriptionText.trim())))
-                  ? 'var(--game-text-white)' : 'var(--game-text-dim)',
+                backgroundColor: (!isLoading && playerName.trim() && selectedRole && selectedLevel)
+                  ? 'var(--game-green)'
+                  : '#9ca3af',
+                color: (!isLoading && playerName.trim() && selectedRole && selectedLevel)
+                  ? 'var(--game-text-white)'
+                  : '#6b7280',
                 letterSpacing: '0.15em',
-                cursor: (!isLoading && 
-                        playerName.trim() &&
-                        ((mode === 'role' && selectedRole && selectedLevel) ||
-                         (mode === 'description' && jobDescriptionText.trim())))
-                  ? 'pointer' : 'not-allowed',
-                opacity: (isLoading || 
-                         !playerName?.trim() ||
-                         !mode ||
-                         (mode === 'role' && (!selectedRole?.trim() || !selectedLevel?.trim())) ||
-                         (mode === 'description' && !jobDescriptionText?.trim()))
-                  ? 0.5 : 1
+                cursor: (!isLoading && playerName.trim() && selectedRole && selectedLevel)
+                  ? 'pointer'
+                  : 'not-allowed'
               }}
             >
               {isLoading ? 'CREATING...' : 'CREATE LOBBY'}
@@ -449,7 +320,7 @@ const LobbySetup: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+      
   )
 }
 

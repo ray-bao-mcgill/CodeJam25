@@ -7,14 +7,14 @@ const COUNTDOWN_SECONDS = 5;
 
 const nextRouteForType: Record<string, string> = {
   behavioural: "/behavioural-question",
-  "technical-theory": "/quickfire-round",  // technical-theory IS the quickfire round
+  "technical-theory": "/technical-theory-round",
   "technical-practical": "/technical-practical",
 };
 
 const getRoundTitle = (type: string): string => {
   const normalized = type.toLowerCase();
   if (normalized === "behavioural") return "BEHAVIOURAL ROUND";
-  if (normalized === "technical-theory") return "QUICKFIRE ROUND";  // technical-theory IS quickfire
+  if (normalized === "technical-theory") return "TECHNICAL THEORY ROUND";
   if (normalized === "technical-practical") return "PRACTICAL ROUND";
   return "ROUND";
 };
@@ -48,9 +48,6 @@ const RoundStartCounter: React.FC = () => {
         setRemaining(message.remaining || COUNTDOWN_SECONDS)
       } else if (message.type === 'round_start_navigate' && message.round_type === roundType) {
         // Server says all players ready - navigate together
-        navigate(nextRouteForType[roundType])
-      } else if (message.type === 'round_start_skipped' && message.round_type === roundType) {
-        // Server says skip was triggered - navigate together
         navigate(nextRouteForType[roundType])
       }
     },
@@ -163,7 +160,7 @@ const RoundStartCounter: React.FC = () => {
           <div className="game-label-text text-xs mt-2 opacity-70">seconds</div>
         </div>
 
-        {/* Timer + Skip Button */}
+        {/* Timer */}
         <div className="flex items-center justify-center gap-6 flex-wrap">
           <div className="text-center">
             <div className="game-label-text text-xs mb-2">TIME LEFT</div>
@@ -181,27 +178,6 @@ const RoundStartCounter: React.FC = () => {
               </span>
             </div>
           </div>
-
-          <button
-            className="game-sharp game-block-blue px-8 py-4 text-base font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover"
-            style={{
-              border: "6px solid var(--game-text-primary)",
-              color: "var(--game-text-white)",
-            }}
-            onClick={() => {
-              // Send skip request to server - server will broadcast to all clients
-              const wsConnection = wsRef.current
-              if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
-                wsConnection.send(JSON.stringify({
-                  type: 'round_start_skip',
-                  player_id: playerId,
-                  round_type: roundType
-                }))
-              }
-            }}
-          >
-            Skip
-          </button>
         </div>
 
         {/* Decorative sticky notes */}
@@ -218,7 +194,7 @@ const RoundStartCounter: React.FC = () => {
           style={{ transform: "rotate(2deg)" }}
         >
           <div className="text-xs font-bold uppercase">
-            {roundType === "behavioural" ? "Behavioural" : roundType === "technical-theory" ? "Quickfire" : "Practical"}
+            {roundType === "behavioural" ? "Behavioural" : roundType === "technical-theory" ? "Technical Theory" : "Practical"}
           </div>
         </div>
       </div>

@@ -136,15 +136,26 @@ class Lobby:
     
     def add_connection(self, websocket):
         """Add a WebSocket connection to this lobby"""
-        if websocket not in self.connections:
-            self.connections.append(websocket)
-            print(f"Added WebSocket connection. Total connections for {self.id}: {len(self.connections)}")
+        # Check if this websocket is already in the list
+        # Use identity check (is) instead of equality check for WebSocket objects
+        for existing_ws in self.connections:
+            if existing_ws is websocket:
+                print(f"WebSocket connection already exists for {self.id}, skipping duplicate add")
+                return
+        
+        self.connections.append(websocket)
+        print(f"Added WebSocket connection. Total connections for {self.id}: {len(self.connections)}")
     
     def remove_connection(self, websocket):
         """Remove a WebSocket connection from this lobby"""
-        if websocket in self.connections:
-            self.connections.remove(websocket)
-            print(f"Removed WebSocket connection. Total connections for {self.id}: {len(self.connections)}")
+        initial_count = len(self.connections)
+        # Remove all instances of this websocket (should only be one, but be safe)
+        self.connections = [ws for ws in self.connections if ws is not websocket]
+        removed_count = initial_count - len(self.connections)
+        if removed_count > 0:
+            print(f"Removed {removed_count} WebSocket connection(s). Total connections for {self.id}: {len(self.connections)}")
+        else:
+            print(f"WebSocket connection not found in lobby {self.id} (already removed or never added)")
     
     def to_dict(self) -> Dict:
         """Convert lobby to dictionary for JSON serialization"""

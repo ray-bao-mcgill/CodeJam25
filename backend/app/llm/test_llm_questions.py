@@ -23,8 +23,8 @@ if APP_DIR not in sys.path:
 from app.llm.openai import OpenAIClient
 from app.llm.client import LLMTextRequest
 from app.llm.prompts.renderer import render as render_prompt
-from app.llm.judge import BehaviouralJudge, TheoreticalJudge
-from app.llm.schemas import BehaviouralJudgeResult, TheoreticalJudgeResult
+from app.llm.judge import BehaviouralJudge, TheoreticalJudge, PracticalJudge
+from app.llm.schemas import BehaviouralJudgeResult, TheoreticalJudgeResult, IDEJudgeResult, TextJudgeResult
 
 def load_type_file(path):
     if os.path.exists(path):
@@ -64,7 +64,14 @@ def _parse_technical_theory_questions(text, max_questions):
         line = line.strip()
         if not line:
             if current_q and current_q.get("question"):
-                questions.append(current_q)
+                current_q.setdefault("difficulty", 50)
+                ordered_q = {
+                    "question": current_q.get("question", ""),
+                    "difficulty": current_q.get("difficulty", 50),
+                    "correct": current_q.get("correct", ""),
+                    "incorrect": current_q.get("incorrect", []),
+                }
+                questions.append(ordered_q)
                 current_q = None
                 if len(questions) >= max_questions:
                     break
@@ -72,17 +79,37 @@ def _parse_technical_theory_questions(text, max_questions):
         
         if line.startswith("Q:"):
             if current_q and current_q.get("question"):
-                questions.append(current_q)
+                current_q.setdefault("difficulty", 50)
+                ordered_q = {
+                    "question": current_q.get("question", ""),
+                    "difficulty": current_q.get("difficulty", 50),
+                    "correct": current_q.get("correct", ""),
+                    "incorrect": current_q.get("incorrect", []),
+                }
+                questions.append(ordered_q)
                 if len(questions) >= max_questions:
                     break
             current_q = {"question": line[2:].strip(), "correct": "", "incorrect": []}
+        elif line.startswith("Difficulty:") and current_q:
+            diff_str = line.split(":", 1)[1].strip()
+            try:
+                current_q["difficulty"] = int(diff_str)
+            except ValueError:
+                current_q["difficulty"] = 50
         elif line.startswith("Correct:") and current_q:
             current_q["correct"] = line[8:].strip()
         elif line.startswith("Incorrect:") and current_q:
             current_q["incorrect"].append(line[10:].strip())
     
     if current_q and current_q.get("question") and len(questions) < max_questions:
-        questions.append(current_q)
+        current_q.setdefault("difficulty", 50)
+        ordered_q = {
+            "question": current_q.get("question", ""),
+            "difficulty": current_q.get("difficulty", 50),
+            "correct": current_q.get("correct", ""),
+            "incorrect": current_q.get("incorrect", []),
+        }
+        questions.append(ordered_q)
     
     return questions[:max_questions]
 
@@ -299,20 +326,72 @@ async def run_theoretical_scoring():
     print("\nJudge Result:")
     print(json.dumps(result.dict(), indent=2, ensure_ascii=False))
 
+async def run_practical_scoring():
+    print("\n[Practical LLM Judge: Score a code and/or text answer]\n")
+    practical_data = load_type_file(OUTPUT_FILES["technical_practical"])
+    role_lookup = {k.strip().lower(): k for k in practical_data}
+    print("Available roles:", ", ".join(practical_data.keys()))
+    while True:
+        role_input = input("Enter the role group (case/spacing insensitive): ").strip().lower()
+        if role_input in role_lookup:
+            role = role_lookup[role_input]
+            break
+        else:
+            print(f"Input '{role_input}' did not match any available role.")
+            print("Available roles:", ", ".join(practical_data.keys()))
+    level = None
+    valid_levels = ["intern", "junior", "midlevel", "senior", "lead"]
+    level_lookup = {k.strip().lower(): k for k in valid_levels}
+    print(f"Levels for {role}: {', '.join(valid_levels)}")
+    while True:
+        level_input = input("Enter the level (case/spacing insensitive): ").strip().lower()
+        if level_input in level_lookup:
+            level = level_lookup[level_input]
+            break
+        else:
+            print(f"Input '{level_input}' did not match any level for role '{role}'.")
+            print("Available levels:", ", ".join(valid_levels))
+    # Pick a random practical question
+    qlist = practical_data.get(role, {}).get(level, [])
+    if not qlist:
+        print(f"No questions found for role '{role}' / level '{level}'.")
+        return
+    question = random.choice(qlist)
+    # If stored as dict, get 'question' field
+    question_str = question["question"] if isinstance(question, dict) and "question" in question else str(question)
+    print(f"\nPractical Question for {role} / {level}:\n>> {question_str}\n")
+    ide_code = input("Paste the user's code submission (or leave blank to skip): ").strip()
+    text_answer = input("Paste the user's text answer (or leave blank to skip): ").strip()
+    client = OpenAIClient(api_key=os.getenv("OPENAI_API_KEY"))
+    judge = PracticalJudge(client)
+    try:
+        result = await judge.judge_submission(question_str, {"ide_file": ide_code, "text_answer": text_answer})
+    except Exception as e:
+        print("[ERROR] LLM returned invalid output:")
+        print(e)
+        print(repr(e))
+        return
+    print("\nLLM Practical Judge Result:")
+    # Convert result fields to dict if they're Pydantic models
+    print(json.dumps({k: (v.dict() if hasattr(v, 'dict') else v) for k, v in result.items()}, indent=2, ensure_ascii=False))
+
 async def main():
     print("--- LLM Question/Test Utility ---")
     print("g: Generate questions by type and role")
     print("s: Score (judge) a behavioral answer (random question by role)")
     print("t: Score (judge) a theoretical answer (random question by role)")
-    mode = input("Mode ([g]enerate, [s]core behavioural, or [t]score theoretical)? ").strip().lower()
+    print("p: Score (judge) a practical answer (code and/or text, random question)")
+    mode = input("Mode ([g]enerate, [s]core behavioural, [t]score theoretical, [p]score practical)? ").strip().lower()
     if mode in ("g", "generate", ""):  # default
         await run_generation()
     elif mode in ("s", "score"):
         await run_behavioural_scoring()
     elif mode in ("t", "theory", "theoretical"):
         await run_theoretical_scoring()
+    elif mode in ("p", "practical"):
+        await run_practical_scoring()
     else:
-        print(f"Unknown choice '{mode}', use 'g', 's', or 't'.")
+        print(f"Unknown choice '{mode}', use 'g', 's', 't', or 'p'.")
 
 if __name__ == "__main__":
     asyncio.run(main())

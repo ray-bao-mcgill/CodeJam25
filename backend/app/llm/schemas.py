@@ -1,5 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, root_validator
 from typing import Dict, Optional
+
 
 class RoleQuestionsRequest(BaseModel):
     role: str
@@ -7,11 +8,29 @@ class RoleQuestionsRequest(BaseModel):
     max_questions: int = 10
     question_type: str = "behavioural"
 
+    @root_validator(skip_on_failure=True)
+    def ensure_min_questions_for_technical_theory(cls, values):
+        """
+        For technical theory, always request exactly 10 questions per role/level
+        when generating `technical_theory.json`, regardless of the requested max.
+        """
+        qtype = values.get("question_type")
+        if qtype == "technical_theory":
+            values["max_questions"] = 10
+        return values
+
 class RoleQuestionsResponse(BaseModel):
     role: str
     level: Optional[str] = None
     question_type: str
     questions: list[str]
+
+
+class TechnicalTheoryQuestion(BaseModel):
+    question: str
+    difficulty: int
+    correct: str
+    incorrect: list[str]
 
 class BehaviouralJudgeResult(BaseModel):
     """
@@ -36,5 +55,35 @@ class TheoreticalJudgeResult(BaseModel):
     score: int
     is_correct: bool
     correct_answer: str
+
+class IDEJudgeResult(BaseModel):
+    """
+    LLM judge output for practical IDE/code evaluations.
+    When both tabs are present, each field (completeness, correctness, efficiency) is 0-500 (total 1,500/max 3,000). With only IDE, each field is 0-1,000 (total 3,000).
+    Fields:
+        completeness (int): 0-500 or 0-1,000
+        correctness (int): 0-500 or 0-1,000
+        efficiency (int): 0-500 or 0-1,000
+        reasoning (str): Explanation for the scores
+    """
+    completeness: int
+    correctness: int
+    efficiency: int
+    reasoning: str
+
+class TextJudgeResult(BaseModel):
+    """
+    LLM judge output for practical text evaluations.
+    When both tabs are present, each field (completeness, clarity, correctness) is 0-500 (total 1,500/max 3,000). With only Text, each field is 0-1,000 (total 3,000).
+    Fields:
+        completeness (int): 0-500 or 0-1,000
+        clarity (int): 0-500 or 0-1,000
+        correctness (int): 0-500 or 0-1,000
+        reasoning (str): Explanation for the scores
+    """
+    completeness: int
+    clarity: int
+    correctness: int
+    reasoning: str
 
 

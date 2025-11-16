@@ -39,10 +39,10 @@ class PhaseManager:
             mapped_index = 0 if phase == "technical_theory" else 1
             parent_state.record_submission(player_id, mapped_index)
     
-    def check_phase_complete(self, match_id: str, phase: str, total_players: int) -> bool:
+    def check_phase_complete(self, match_id: str, phase: str, total_players: int, player_ids: Optional[List[str]] = None) -> bool:
         """Check if phase completion criteria are met"""
         phase_state = self.get_phase_state(match_id, phase)
-        return phase_state.is_complete(total_players, self)
+        return phase_state.is_complete(total_players, self, player_ids=player_ids)
     
     def get_submission_status(self, match_id: str, phase: str) -> Dict[str, Any]:
         """Get current submission status for a phase"""
@@ -66,7 +66,7 @@ class PhaseState:
             "all_players_must_submit": True,
             "sub_phases": None  # No sub-phases
         },
-        "quickfire": {
+        "technical_theory": {
             "questions_required": 10,
             "all_players_must_submit": True,
             "sub_phases": None
@@ -86,7 +86,7 @@ class PhaseState:
             "questions_required": 1,
             "all_players_must_submit": True,
             "sub_phases": None,
-            "parent_phase": None  # Standalone phase (technical_theory is quickfire, handled separately)
+            "parent_phase": None  # Standalone phase
         }
     }
     
@@ -116,7 +116,7 @@ class PhaseState:
             self.question_submissions[idx] = set()
         self.question_submissions[idx].add(player_id)
     
-    def is_complete(self, total_players: int, phase_manager_instance=None) -> bool:
+    def is_complete(self, total_players: int, phase_manager_instance=None, player_ids: Optional[List[str]] = None) -> bool:
         """Check if phase completion criteria are met"""
         required_questions = self.criteria["questions_required"]
         all_must_submit = self.criteria["all_players_must_submit"]
@@ -127,31 +127,65 @@ class PhaseState:
             # Check if all sub-phases are complete
             for sub_phase in sub_phases:
                 sub_phase_state = phase_manager_instance.get_phase_state(self.match_id, sub_phase)
-                if not sub_phase_state.is_complete(total_players, phase_manager_instance):
+                if not sub_phase_state.is_complete(total_players, phase_manager_instance, player_ids=player_ids):
                     return False
             return True
+        
+        # For technical_theory phase, get dynamic question count and dead players
+        dead_players_set = set()
+        if self.phase == "technical_theory" and hasattr(self, 'match_id'):
+            from database import SessionLocal, OngoingMatch
+            db = SessionLocal()
+            try:
+                match_record = db.query(OngoingMatch).filter(OngoingMatch.match_id == self.match_id).first()
+                if match_record:
+                    game_state = match_record.game_state or {}
+                    if isinstance(game_state, dict):
+                        dead_players_set = set(game_state.get("technical_theory_dead_players", []))
+                        # Get dynamic question count from phase_metadata
+                        phase_metadata = game_state.get("phase_metadata", {})
+                        if "technical_theory" in phase_metadata:
+                            dynamic_count = phase_metadata["technical_theory"].get("question_count")
+                            if dynamic_count is not None:
+                                required_questions = dynamic_count
+                                print(f"[PHASE_MANAGER] Using dynamic question_count for technical_theory: {required_questions}")
+            finally:
+                db.close()
         
         # For regular phases, check question submissions
         # Check if all required questions have been answered
         if len(self.question_submissions) < required_questions:
             return False
         
-        # Check if all players have submitted all required questions
+        # Check if all players have submitted all required questions OR are dead
         if all_must_submit:
-            # All players must have answered all questions
-            for player_id in self.player_submissions.keys():
-                if len(self.player_submissions[player_id]) < required_questions:
-                    return False
+            # Get all player IDs - use provided list or infer from submissions
+            if player_ids:
+                all_player_ids = set(player_ids)
+            else:
+                # Fallback: use players with submissions (less accurate)
+                all_player_ids = set(self.player_submissions.keys())
             
-            # Check if we have submissions from all players
-            if len(self.player_submissions) < total_players:
-                return False
+            # Check each player
+            for player_id in all_player_ids:
+                if player_id in dead_players_set:
+                    # Dead players are considered finished
+                    continue
+                
+                # Non-dead players must have submitted all questions
+                player_submissions = self.player_submissions.get(player_id, set())
+                if len(player_submissions) < required_questions:
+                    return False
         
-        # Verify each required question has all players
+        # Verify each required question has all non-dead players
+        # Dead players don't need to submit questions
+        active_player_count = total_players - len(dead_players_set)
         for q_idx in range(required_questions):
             if q_idx not in self.question_submissions:
                 return False
-            if len(self.question_submissions[q_idx]) < total_players:
+            # Count only non-dead players
+            non_dead_submissions = len([p for p in self.question_submissions[q_idx] if p not in dead_players_set])
+            if non_dead_submissions < active_player_count:
                 return False
         
         return True

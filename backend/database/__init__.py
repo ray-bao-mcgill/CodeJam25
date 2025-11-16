@@ -60,26 +60,66 @@ class OngoingMatch(Base):
         }
 
 
-class InterviewQuestionCache(Base):
-    """Stores LLM-generated interview questions by category"""
-    __tablename__ = "interview_q_cache"
+class BehaviouralPool(Base):
+    """Stores predefined behavioural interview questions"""
+    __tablename__ = "behavioural_pool"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    category = Column(String, nullable=False, index=True)  # e.g., "behavioural", "technical_theory", "technical_practical"
+    role = Column(String, nullable=False, index=True)  # e.g., "software engineering", "consulting"
+    level = Column(String, nullable=False, index=True)  # e.g., "intern", "junior", "midlevel", "senior", "lead"
     question = Column(Text, nullable=False)
-    difficulty = Column(String, nullable=True)  # e.g., "easy", "medium", "hard"
-    tags = Column(JSON, nullable=True)  # Optional tags for filtering
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
     used_count = Column(Integer, default=0)  # Track how many times this question has been used
     
     def to_dict(self):
         return {
             "id": self.id,
-            "category": self.category,
+            "role": self.role,
+            "level": self.level,
             "question": self.question,
-            "difficulty": self.difficulty,
-            "tags": self.tags,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "used_count": self.used_count
+        }
+
+
+class TechnicalTheoryPool(Base):
+    """Stores predefined technical theory questions (multiple choice)"""
+    __tablename__ = "technical_theory_pool"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    role = Column(String, nullable=False, index=True)  # e.g., "software engineering", "backend"
+    level = Column(String, nullable=False, index=True)  # e.g., "intern", "junior", "midlevel", "senior", "lead"
+    question = Column(Text, nullable=False)
+    correct_answer = Column(Text, nullable=False)  # The correct answer
+    incorrect_answers = Column(JSON, nullable=False)  # List of incorrect answer options
+    used_count = Column(Integer, default=0)  # Track how many times this question has been used
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "role": self.role,
+            "level": self.level,
+            "question": self.question,
+            "correct_answer": self.correct_answer,
+            "incorrect_answers": self.incorrect_answers,
+            "used_count": self.used_count
+        }
+
+
+class TechnicalPracticalPool(Base):
+    """Stores predefined technical practical questions"""
+    __tablename__ = "technical_practical_pool"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    role = Column(String, nullable=False, index=True)  # e.g., "software engineering", "backend"
+    level = Column(String, nullable=False, index=True)  # e.g., "intern", "junior", "midlevel", "senior", "lead"
+    question = Column(Text, nullable=False)
+    used_count = Column(Integer, default=0)  # Track how many times this question has been used
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "role": self.role,
+            "level": self.level,
+            "question": self.question,
             "used_count": self.used_count
         }
 
@@ -133,121 +173,53 @@ def init_db():
         traceback.print_exc()
         raise
     
-    # Seed initial interview questions if table is empty
+    # Seed question pools from predefined data
+    from database.question_pools import (
+        get_all_behavioural_questions,
+        get_all_technical_theory_questions,
+        get_all_technical_practical_questions
+    )
+    
     db = SessionLocal()
     try:
-        existing_count = db.query(InterviewQuestionCache).count()
-        print(f"Interview question cache has {existing_count} questions", flush=True)
-        if existing_count == 0:
-            initial_questions = [
-                # Behavioural questions
-                {
-                    "category": "behavioural",
-                    "question": "Tell me about a time when you had to work under pressure to meet a deadline. What was the situation and how did you handle it?",
-                    "difficulty": "medium",
-                    "tags": ["deadline", "pressure", "time-management"]
-                },
-                {
-                    "category": "behavioural",
-                    "question": "Describe a situation where you had to work with a difficult team member. How did you resolve conflicts and ensure the project succeeded?",
-                    "difficulty": "medium",
-                    "tags": ["teamwork", "conflict-resolution", "communication"]
-                },
-                {
-                    "category": "behavioural",
-                    "question": "Give an example of a time when you had to learn a new technology or skill quickly. What was your approach?",
-                    "difficulty": "easy",
-                    "tags": ["learning", "adaptability", "growth"]
-                },
-                {
-                    "category": "behavioural",
-                    "question": "Tell me about a project where you had to take initiative or leadership. What challenges did you face?",
-                    "difficulty": "hard",
-                    "tags": ["leadership", "initiative", "project-management"]
-                },
-                {
-                    "category": "behavioural",
-                    "question": "Describe a time when you made a mistake that impacted your team. How did you handle it and what did you learn?",
-                    "difficulty": "medium",
-                    "tags": ["mistakes", "accountability", "learning"]
-                },
-                
-                # Technical Theory questions
-                {
-                    "category": "technical_theory",
-                    "question": "Explain the difference between REST and GraphQL APIs. When would you choose one over the other?",
-                    "difficulty": "medium",
-                    "tags": ["api", "rest", "graphql", "architecture"]
-                },
-                {
-                    "category": "technical_theory",
-                    "question": "What is the difference between SQL JOIN types (INNER, LEFT, RIGHT, FULL OUTER)? Provide examples of when to use each.",
-                    "difficulty": "medium",
-                    "tags": ["sql", "database", "joins"]
-                },
-                {
-                    "category": "technical_theory",
-                    "question": "Explain the concept of database normalization. What are the normal forms and why are they important?",
-                    "difficulty": "hard",
-                    "tags": ["database", "normalization", "design"]
-                },
-                {
-                    "category": "technical_theory",
-                    "question": "What is the difference between synchronous and asynchronous programming? Give examples of when each is appropriate.",
-                    "difficulty": "medium",
-                    "tags": ["programming", "async", "concurrency"]
-                },
-                {
-                    "category": "technical_theory",
-                    "question": "Explain the CAP theorem and its implications for distributed systems design.",
-                    "difficulty": "hard",
-                    "tags": ["distributed-systems", "theory", "architecture"]
-                },
-                
-                # Technical Practical questions
-                {
-                    "category": "technical_practical",
-                    "question": "Write a function that finds the longest common subsequence between two strings. What is the time complexity of your solution?",
-                    "difficulty": "hard",
-                    "tags": ["algorithms", "dynamic-programming", "strings"]
-                },
-                {
-                    "category": "technical_practical",
-                    "question": "Design a database schema for a blog system with users, posts, comments, and tags. Include relationships and indexes.",
-                    "difficulty": "medium",
-                    "tags": ["database", "schema-design", "relationships"]
-                },
-                {
-                    "category": "technical_practical",
-                    "question": "Implement a function to reverse a linked list. Handle edge cases and explain your approach.",
-                    "difficulty": "medium",
-                    "tags": ["data-structures", "linked-list", "algorithms"]
-                },
-                {
-                    "category": "technical_practical",
-                    "question": "Write code to implement a rate limiter that allows 100 requests per minute per user. How would you scale this?",
-                    "difficulty": "hard",
-                    "tags": ["system-design", "rate-limiting", "scalability"]
-                },
-                {
-                    "category": "technical_practical",
-                    "question": "Debug the following code: A function that should return the sum of all even numbers in an array, but it's returning incorrect results. What could be wrong?",
-                    "difficulty": "easy",
-                    "tags": ["debugging", "arrays", "logic"]
-                }
-            ]
-            
-            for q_data in initial_questions:
-                question = InterviewQuestionCache(**q_data)
+        # Seed behavioural pool
+        behavioural_count = db.query(BehaviouralPool).count()
+        if behavioural_count == 0:
+            behavioural_questions = get_all_behavioural_questions()
+            for q_data in behavioural_questions:
+                question = BehaviouralPool(**q_data)
                 db.add(question)
-            
             db.commit()
-            print(f"Seeded {len(initial_questions)} initial interview questions", flush=True)
+            print(f"Seeded {len(behavioural_questions)} behavioural questions", flush=True)
         else:
-            print(f"Interview question cache already has {existing_count} questions, skipping seed", flush=True)
+            print(f"Behavioural pool already has {behavioural_count} questions, skipping seed", flush=True)
+        
+        # Seed technical theory pool
+        theory_count = db.query(TechnicalTheoryPool).count()
+        if theory_count == 0:
+            theory_questions = get_all_technical_theory_questions()
+            for q_data in theory_questions:
+                question = TechnicalTheoryPool(**q_data)
+                db.add(question)
+            db.commit()
+            print(f"Seeded {len(theory_questions)} technical theory questions", flush=True)
+        else:
+            print(f"Technical theory pool already has {theory_count} questions, skipping seed", flush=True)
+        
+        # Seed technical practical pool
+        practical_count = db.query(TechnicalPracticalPool).count()
+        if practical_count == 0:
+            practical_questions = get_all_technical_practical_questions()
+            for q_data in practical_questions:
+                question = TechnicalPracticalPool(**q_data)
+                db.add(question)
+            db.commit()
+            print(f"Seeded {len(practical_questions)} technical practical questions", flush=True)
+        else:
+            print(f"Technical practical pool already has {practical_count} questions, skipping seed", flush=True)
     except Exception as e:
         db.rollback()
-        print(f"ERROR: Error seeding interview questions: {e}", flush=True)
+        print(f"ERROR: Error seeding question pools: {e}", flush=True)
         import traceback
         traceback.print_exc()
         # Don't raise - seeding is not critical

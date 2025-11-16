@@ -10,11 +10,11 @@ const DevTools: React.FC = () => {
   const questionSections = [
     { to: "/tutorial", label: "Tutorial", description: "Game tutorial slideshow" },
     { to: "/round-start-counter/behavioural", label: "Round Start (Behavioural)", description: "Countdown before behavioural round" },
-    { to: "/round-start-counter/technical-theory", label: "Round Start (Quickfire)", description: "Countdown before quickfire round" },
+    { to: "/round-start-counter/technical-theory", label: "Round Start (Technical Theory)", description: "Countdown before technical theory round" },
     { to: "/round-start-counter/technical-practical", label: "Round Start (Practical)", description: "Countdown before practical round" },
     { to: "/behavioural-question", label: "Behavioural Question", description: "Initial behavioural interview question" },
     { to: "/behavioural-answer", label: "Behavioural Answer", description: "Follow-up behavioural question" },
-    { to: "/technical-theory", label: "⚡ Technical Theory (Rapid Fire)", description: "10 rapid-fire multiple choice questions" },
+    { to: "/technical-theory-round", label: "⚡ Technical Theory", description: "10 technical theory multiple choice questions" },
     { to: "/technical-practical", label: "Technical Practical", description: "Practical coding question" },
     { to: "/current-score", label: "Current Score", description: "View current round scores" },
   ];
