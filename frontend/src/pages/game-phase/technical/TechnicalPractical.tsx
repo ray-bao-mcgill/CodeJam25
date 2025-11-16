@@ -111,6 +111,7 @@ const TechnicalPractical: React.FC = () => {
   const [files, setFiles] = useState<CodeFile[]>([initialFile]);
   const [currentFileIdx, setCurrentFileIdx] = useState(0);
   const [textValue, setTextValue] = useState('');
+  const textEditorRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const monacoEditorRef = useRef<any>(null);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
@@ -123,6 +124,13 @@ const TechnicalPractical: React.FC = () => {
   const [showClearModal, setShowClearModal] = useState(false);
   const [outputLog, setOutputLog] = useState<string[]>([]);
   const [copySuccess, setCopySuccess] = useState(false);
+  
+  // Text formatting state
+  const [fontSize, setFontSize] = useState('16');
+  const [activeFontSize, setActiveFontSize] = useState<string | null>(null); // Track if font size is "on"
+  const [fontColor, setFontColor] = useState('#000000');
+  const [highlightColor, setHighlightColor] = useState('#FFFF00');
+  const [isHighlightActive, setIsHighlightActive] = useState(false); // Track if highlighting is active
   
   // Split panel state
   const [leftPanelWidth, setLeftPanelWidth] = useState(30); // Percentage, default 30% (right gets 70%)
@@ -283,6 +291,223 @@ const TechnicalPractical: React.FC = () => {
     setFileInput('');
   }
   // -- END sidebar logic --
+  
+  // Text formatting functions
+  const formatText = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    if (textEditorRef.current) {
+      textEditorRef.current.focus();
+    }
+  };
+  
+  const handleBold = () => formatText('bold');
+  const handleItalic = () => formatText('italic');
+  const handleUnderline = () => formatText('underline');
+  const handleFontSize = (size: string) => {
+    if (textEditorRef.current) {
+      textEditorRef.current.focus();
+      const selection = window.getSelection();
+      
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        
+        if (!selection.isCollapsed) {
+          // Text is selected, apply font size to selection only
+          const span = document.createElement('span');
+          span.style.fontSize = `${size}px`;
+          try {
+            range.surroundContents(span);
+          } catch (e) {
+            const contents = range.extractContents();
+            span.appendChild(contents);
+            range.insertNode(span);
+          }
+          // Update selection to be inside the new span
+          selection.removeAllRanges();
+          const newRange = document.createRange();
+          newRange.selectNodeContents(span);
+          selection.addRange(newRange);
+        } else {
+          // No selection - toggle font size for subsequent typing
+          const isCurrentlyActive = activeFontSize === size;
+          
+          if (isCurrentlyActive) {
+            // Turn off: move cursor outside any font-size span
+            setActiveFontSize(null);
+            // Find if we're inside a font-size span and move out
+            let node: Node | null = range.startContainer;
+            while (node && node !== textEditorRef.current) {
+              if (node.nodeType === Node.ELEMENT_NODE) {
+                const elem = node as HTMLElement;
+                if (elem.style.fontSize) {
+                  // Move cursor after this element
+                  range.setStartAfter(elem);
+                  range.collapse(true);
+                  selection.removeAllRanges();
+                  selection.addRange(range);
+                  break;
+                }
+              }
+              node = node.parentNode;
+            }
+          } else {
+            // Turn on: insert a span with font size that will contain subsequent text
+            setActiveFontSize(size);
+            setFontSize(size);
+            
+            // Insert an empty span with the font size
+            const span = document.createElement('span');
+            span.style.fontSize = `${size}px`;
+            // Insert a zero-width space so the span exists
+            const textNode = document.createTextNode('\u200B');
+            span.appendChild(textNode);
+            range.insertNode(span);
+            
+            // Move cursor inside the span (after the zero-width space)
+            range.setStart(textNode, 1);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+      }
+    }
+  };
+  
+  const handleFontColor = (color: string) => {
+    setFontColor(color);
+    if (textEditorRef.current) {
+      textEditorRef.current.focus();
+      // execCommand foreColor works for both selected text and subsequent typing
+      document.execCommand('foreColor', false, color);
+    }
+  };
+  
+  const handleHighlight = (color: string) => {
+    if (textEditorRef.current) {
+      textEditorRef.current.focus();
+      
+      // If clicking the same color and highlight is active, turn it off
+      if (isHighlightActive && highlightColor === color) {
+        setIsHighlightActive(false);
+        // Remove highlight by setting transparent background
+        document.execCommand('backColor', false, 'transparent');
+        // Also try removing background color style directly
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          if (!selection.isCollapsed) {
+            // Remove background from selected text
+            const span = document.createElement('span');
+            span.style.backgroundColor = 'transparent';
+            try {
+              range.surroundContents(span);
+            } catch (e) {
+              // If that fails, try removing background styles from elements
+              const walker = document.createTreeWalker(
+                range.commonAncestorContainer,
+                NodeFilter.SHOW_ELEMENT,
+                null
+              );
+              let node;
+              while (node = walker.nextNode()) {
+                const elem = node as HTMLElement;
+                if (elem.style.backgroundColor) {
+                  elem.style.backgroundColor = 'transparent';
+                }
+              }
+            }
+          }
+        }
+      } else {
+        // Turn on or change highlight color
+        setIsHighlightActive(true);
+        setHighlightColor(color);
+        // execCommand backColor works for both selected text and subsequent typing
+        document.execCommand('backColor', false, color);
+      }
+    }
+  };
+  
+  const handleRemoveHighlight = () => {
+    if (textEditorRef.current) {
+      textEditorRef.current.focus();
+      setIsHighlightActive(false);
+      // Remove highlight by setting transparent background
+      document.execCommand('backColor', false, 'transparent');
+    }
+  };
+  
+  const handleTextEditorChange = () => {
+    if (textEditorRef.current) {
+      setTextValue(textEditorRef.current.innerHTML);
+    }
+  };
+  
+  const handleResetText = () => {
+    if (textEditorRef.current) {
+      textEditorRef.current.innerHTML = '';
+      setTextValue('');
+      setActiveFontSize(null);
+      setIsHighlightActive(false);
+    }
+  };
+  
+  const handleCopyText = async () => {
+    try {
+      if (textEditorRef.current) {
+        // Copy HTML content with formatting
+        let htmlContent = textEditorRef.current.innerHTML;
+        // Also copy plain text for better compatibility
+        const textContent = textEditorRef.current.innerText || textEditorRef.current.textContent || '';
+        
+        // Try to copy HTML with formatting (works with Google Docs, Word, etc.)
+        try {
+          // Create a properly formatted HTML string for clipboard
+          const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+          const textBlob = new Blob([textContent], { type: 'text/plain' });
+          
+          const clipboardItem = new ClipboardItem({
+            'text/html': htmlBlob,
+            'text/plain': textBlob
+          });
+          await navigator.clipboard.write([clipboardItem]);
+        } catch {
+          // Fallback to plain text if ClipboardItem API fails
+          await navigator.clipboard.writeText(textContent);
+        }
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 1650);
+      }
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      // Final fallback - try plain text
+      if (textEditorRef.current) {
+        const textContent = textEditorRef.current.innerText || textEditorRef.current.textContent || '';
+        try {
+          await navigator.clipboard.writeText(textContent);
+          setCopySuccess(true);
+          setTimeout(() => setCopySuccess(false), 1650);
+        } catch (e) {
+          console.error('Failed to copy plain text:', e);
+        }
+      }
+    }
+  };
+  
+  const handleDownloadText = () => {
+    if (textEditorRef.current) {
+      // Extract plain text content (without HTML formatting)
+      const textContent = textEditorRef.current.innerText || textEditorRef.current.textContent || '';
+      const blob = new Blob([textContent], { type: 'text/plain' });
+      const link = document.createElement('a');
+      link.download = 'answer.txt';
+      link.href = URL.createObjectURL(blob);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+  };
 
   // Draw tab logic with color support and eraser
   useEffect(() => {
@@ -1069,58 +1294,233 @@ const TechnicalPractical: React.FC = () => {
               >
                 <div className="px-4 py-2" style={{flex:1, minWidth:0, width:'auto', display:'flex', flexDirection:'column', minHeight:0}}>
                   <div style={{flexShrink:0, marginBottom: '0.5rem'}}>
-                    <label className="block font-bold mb-2 text-gray-700" style={{ flexShrink: 0 }}>Text Answer:</label>
-                    <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
+                    {/* Formatting Toolbar */}
+                    <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap', padding:'0.5rem', background:'#f5f5f5', borderRadius:6, border:'1px solid #ddd'}}>
+                      {/* Bold */}
                       <button
                         type="button"
-                        onClick={() => setTextValue('')}
-                        style={{fontWeight:600,background:'#f8f8ff',color:'#cc3400',padding:'0.29em 1.08em',borderRadius:5,border:'1px solid #e0e0e0',fontSize:'1em',cursor:'pointer'}}
-                      >Reset</button>
-                      <button
-                        type="button"
-                        onClick={async()=>{
-                          try {
-                            await navigator.clipboard.writeText(textValue);
-                            setCopySuccess(true); setTimeout(()=>setCopySuccess(false),1650);
-                          } catch{}
-                        }}
+                        onClick={handleBold}
+                        title="Bold"
                         style={{
-                          fontWeight:600,
-                          background: copySuccess ? '#27c379' : '#f8f8ff',
-                          color: copySuccess ? '#fff' : '#205568',
-                          padding:'0.29em 1.08em',
-                          borderRadius:5,
-                          border:'1px solid #e0e0e0',
-                          fontSize:'1em',
+                          fontWeight:700,
+                          background:'#fff',
+                          color:'#222',
+                          padding:'0.35em 0.6em',
+                          borderRadius:4,
+                          border:'1px solid #ccc',
+                          fontSize:'0.95em',
                           cursor:'pointer',
-                          transition: 'background 0.2s, color 0.2s'
+                          minWidth:'36px'
                         }}
-                      >{copySuccess ? 'Copied!' : 'Copy'}</button>
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#e8e8e8'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
+                      ><strong>B</strong></button>
+                      
+                      {/* Italic */}
                       <button
                         type="button"
-                        onClick={()=>{
-                          const blob = new Blob([textValue], {type: 'text/plain'});
-                          const link = document.createElement('a');
-                          link.download = 'answer.txt';
-                          link.href = URL.createObjectURL(blob);
-                          document.body.appendChild(link); link.click(); link.remove();
+                        onClick={handleItalic}
+                        title="Italic"
+                        style={{
+                          fontStyle:'italic',
+                          background:'#fff',
+                          color:'#222',
+                          padding:'0.35em 0.6em',
+                          borderRadius:4,
+                          border:'1px solid #ccc',
+                          fontSize:'0.95em',
+                          cursor:'pointer',
+                          minWidth:'36px'
                         }}
-                        style={{fontWeight:600,background:'#f8f8ff',color:'#205568',padding:'0.29em 1.08em',borderRadius:5,border:'1px solid #e0e0e0',fontSize:'1em',cursor:'pointer'}}
-                      >Download</button>
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#e8e8e8'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
+                      ><em>I</em></button>
+                      
+                      {/* Underline */}
+                      <button
+                        type="button"
+                        onClick={handleUnderline}
+                        title="Underline"
+                        style={{
+                          textDecoration:'underline',
+                          background:'#fff',
+                          color:'#222',
+                          padding:'0.35em 0.6em',
+                          borderRadius:4,
+                          border:'1px solid #ccc',
+                          fontSize:'0.95em',
+                          cursor:'pointer',
+                          minWidth:'36px'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#e8e8e8'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
+                      ><u>U</u></button>
+                      
+                      {/* Font Size */}
+                      <select
+                        value={fontSize}
+                        onChange={(e) => handleFontSize(e.target.value)}
+                        title="Font Size"
+                        style={{
+                          background:'#fff',
+                          color:'#222',
+                          padding:'0.35em 0.5em',
+                          borderRadius:4,
+                          border:'1px solid #ccc',
+                          fontSize:'0.9em',
+                          cursor:'pointer',
+                          fontWeight:600
+                        }}
+                      >
+                        <option value="12">12px</option>
+                        <option value="14">14px</option>
+                        <option value="16">16px</option>
+                        <option value="18">18px</option>
+                        <option value="20">20px</option>
+                        <option value="24">24px</option>
+                        <option value="28">28px</option>
+                        <option value="32">32px</option>
+                      </select>
+                      
+                      {/* Font Color */}
+                      <div style={{display:'flex', alignItems:'center', gap:4}}>
+                        <label style={{fontSize:'0.85em', fontWeight:600, color:'#555'}}>Colour:</label>
+                        <div style={{display:'flex', gap:4}}>
+                          {['#000000', '#FF0000', '#0000FF', '#00FF00', '#FF6600', '#9966FF', '#FF3366', '#88DD00'].map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => handleFontColor(color)}
+                              title={`Font colour ${color}`}
+                              style={{
+                                width:'28px',
+                                height:'28px',
+                                borderRadius:4,
+                                backgroundColor:color,
+                                border: fontColor === color ? '3px solid #222' : '2px solid #ccc',
+                                cursor:'pointer',
+                                boxShadow: fontColor === color ? '0 2px 4px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.2)',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (fontColor !== color) {
+                                  e.currentTarget.style.transform = 'scale(1.1)';
+                                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.25)';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (fontColor !== color) {
+                                  e.currentTarget.style.transform = 'scale(1)';
+                                  e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
+                                }
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Highlight Color */}
+                      <div style={{display:'flex', alignItems:'center', gap:4}}>
+                        <label style={{fontSize:'0.85em', fontWeight:600, color:'#555'}}>Highlight:</label>
+                        <div style={{display:'flex', gap:4, alignItems:'center'}}>
+                          {['#FFFF00', '#FFE066', '#FFCC99', '#FF9999', '#99CCFF', '#99FF99'].map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => handleHighlight(color)}
+                              title={`Highlight ${color}${isHighlightActive && highlightColor === color ? ' (click to remove)' : ''}`}
+                              style={{
+                                width:'28px',
+                                height:'28px',
+                                borderRadius:4,
+                                backgroundColor:color,
+                                border: (isHighlightActive && highlightColor === color) ? '3px solid #222' : '2px solid #ccc',
+                                cursor:'pointer',
+                                boxShadow: (isHighlightActive && highlightColor === color) ? '0 2px 4px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.2)',
+                                transition: 'all 0.2s',
+                                opacity: (isHighlightActive && highlightColor === color) ? 1 : 0.8
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!(isHighlightActive && highlightColor === color)) {
+                                  e.currentTarget.style.transform = 'scale(1.1)';
+                                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.25)';
+                                  e.currentTarget.style.opacity = '1';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!(isHighlightActive && highlightColor === color)) {
+                                  e.currentTarget.style.transform = 'scale(1)';
+                                  e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
+                                  e.currentTarget.style.opacity = '0.8';
+                                }
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                      <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                        <button
+                          type="button"
+                          onClick={handleResetText}
+                          style={{fontWeight:600,background:'#f8f8ff',color:'#cc3400',padding:'0.29em 1.08em',borderRadius:5,border:'1px solid #e0e0e0',fontSize:'1em',cursor:'pointer'}}
+                        >Reset</button>
+                        <button
+                          type="button"
+                          onClick={handleCopyText}
+                          style={{
+                            fontWeight:600,
+                            background: copySuccess ? '#27c379' : '#f8f8ff',
+                            color: copySuccess ? '#fff' : '#205568',
+                            padding:'0.29em 1.08em',
+                            borderRadius:5,
+                            border:'1px solid #e0e0e0',
+                            fontSize:'1em',
+                            cursor:'pointer',
+                            transition: 'background 0.2s, color 0.2s'
+                          }}
+                        >{copySuccess ? 'Copied!' : 'Copy'}</button>
+                        <button
+                          type="button"
+                          onClick={handleDownloadText}
+                          style={{fontWeight:600,background:'#f8f8ff',color:'#205568',padding:'0.29em 1.08em',borderRadius:5,border:'1px solid #e0e0e0',fontSize:'1em',cursor:'pointer'}}
+                        >Download</button>
+                      </div>
+                      <div style={{fontSize:'0.9em', color:'#666', marginTop:4}}>
+                        Tip: Copy preserves formatting (paste into Google Docs, Word, etc.). Download saves as plain text (.txt).
+                      </div>
                     </div>
                   </div>
-                  <textarea
+                  
+                  {/* Rich Text Editor */}
+                  <div
+                    ref={textEditorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={handleTextEditorChange}
                     className={`${styles.textarea} w-full border-4 border-gray-900 rounded-none p-4 text-base focus:outline-none focus:ring-2 focus:ring-blue-600 game-shadow-hard`}
                     style={{
                       flex: '1 1 auto',
                       minHeight: 0,
-                      resize: 'none'
+                      resize: 'none',
+                      overflowY: 'auto',
+                      fontSize: '16px', // Default font size - individual selections will override
+                      lineHeight: '1.6',
+                      whiteSpace: 'pre-wrap',
+                      wordWrap: 'break-word'
                     }}
-                    value={textValue}
-                    onChange={e => setTextValue(e.target.value)}
-                    placeholder="Type your explanation, reasoning, or answer here..."
-                    spellCheck={true}
+                    data-placeholder="Type your explanation, reasoning, or answer here..."
                   />
+                  <style>{`
+                    [contenteditable][data-placeholder]:empty:before {
+                      content: attr(data-placeholder);
+                      color: #999;
+                      font-style: italic;
+                    }
+                  `}</style>
                 </div>
               </div>
             </div>
