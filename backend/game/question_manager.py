@@ -112,7 +112,7 @@ class QuestionManager:
             print(f"[QUESTION_MANAGER] Selected behavioural question (id={selected_question.id}) for role={role}, level={level}")
             
             return {
-                "question_id": f"behavioural_{selected_question.id}_{question_index or 0}",
+                "question_id": selected_question.id,  # Use actual database ID for lookup
                 "question": selected_question.question,
                 "phase": "behavioural",
                 "question_index": question_index or 0,
@@ -163,10 +163,11 @@ class QuestionManager:
             print(f"[QUESTION_MANAGER] Selected technical theory question (id={selected_question.id}) for role={role}, level={level}")
             
             return {
-                "question_id": f"technical_theory_{selected_question.id}",
+                "question_id": selected_question.id,  # Use actual database ID for lookup
                 "question": selected_question.question,
                 "correct_answer": selected_question.correct_answer,
                 "incorrect_answers": selected_question.incorrect_answers,
+                "difficulty": selected_question.difficulty,  # Include difficulty from database
                 "phase": "technical_theory",
                 "role": selected_question.role,
                 "level": selected_question.level
@@ -237,10 +238,11 @@ class QuestionManager:
             result = []
             for idx, selected_question in enumerate(selected_questions):
                 result.append({
-                    "question_id": f"technical_theory_{selected_question.id}_{idx}",
+                    "question_id": selected_question.id,  # Use actual database ID for lookup
                     "question": selected_question.question,
                     "correct_answer": selected_question.correct_answer,
                     "incorrect_answers": selected_question.incorrect_answers,
+                    "difficulty": selected_question.difficulty,  # Include difficulty from database
                     "phase": "technical_theory",
                     "question_index": idx,
                     "role": selected_question.role,
@@ -292,8 +294,9 @@ class QuestionManager:
             print(f"[QUESTION_MANAGER] Selected technical practical question (id={selected_question.id}) for role={role}, level={level}")
             
             return {
-                "question_id": f"technical_practical_{selected_question.id}",
+                "question_id": selected_question.id,  # Use actual database ID for lookup
                 "question": selected_question.question,
+                "difficulty": selected_question.difficulty,  # Include difficulty if available
                 "phase": "technical_practical",
                 "role": selected_question.role,
                 "level": selected_question.level

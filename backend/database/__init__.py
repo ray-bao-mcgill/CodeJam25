@@ -36,6 +36,7 @@ class OngoingMatch(Base):
     
     # LLM-generated summary (only populated when match is completed)
     match_summary_text = Column(Text, nullable=True)
+    match_summary_json = Column(JSON, nullable=True)  # Condensed summary data for Comparison page
     winner_id = Column(String, nullable=True, index=True)
     
     # Metadata
@@ -54,6 +55,7 @@ class OngoingMatch(Base):
             "players": self.players,
             "game_state": self.game_state or {},
             "match_summary_text": self.match_summary_text,
+            "match_summary_json": self.match_summary_json,
             "winner_id": self.winner_id,
             "total_questions": self.total_questions,
             "duration_seconds": self.duration_seconds
@@ -90,6 +92,7 @@ class TechnicalTheoryPool(Base):
     question = Column(Text, nullable=False)
     correct_answer = Column(Text, nullable=False)  # The correct answer
     incorrect_answers = Column(JSON, nullable=False)  # List of incorrect answer options
+    difficulty = Column(Integer, nullable=True)  # Difficulty value from JSON (0-100)
     used_count = Column(Integer, default=0)  # Track how many times this question has been used
     
     def to_dict(self):
@@ -100,6 +103,7 @@ class TechnicalTheoryPool(Base):
             "question": self.question,
             "correct_answer": self.correct_answer,
             "incorrect_answers": self.incorrect_answers,
+            "difficulty": self.difficulty,
             "used_count": self.used_count
         }
 
@@ -112,6 +116,7 @@ class TechnicalPracticalPool(Base):
     role = Column(String, nullable=False, index=True)  # e.g., "software engineering", "backend"
     level = Column(String, nullable=False, index=True)  # e.g., "intern", "junior", "midlevel", "senior", "lead"
     question = Column(Text, nullable=False)
+    difficulty = Column(Integer, nullable=True)  # Difficulty value from JSON (0-100) if available
     used_count = Column(Integer, default=0)  # Track how many times this question has been used
     
     def to_dict(self):
@@ -120,6 +125,7 @@ class TechnicalPracticalPool(Base):
             "role": self.role,
             "level": self.level,
             "question": self.question,
+            "difficulty": self.difficulty,
             "used_count": self.used_count
         }
 
