@@ -43,9 +43,21 @@ const getLanguageFromFilename = (filename: string) => {
   return 'javascript'; // fallback
 }
 
-const CANVAS_WIDTH = 540;
-const CANVAS_HEIGHT = 320;
 const MONACO_LOADER_SRC = "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js";
+
+// Color options for the drawing canvas
+const DRAWING_COLORS = [
+  '#000000', // Black
+  '#FF0000', // Red
+  '#0000FF', // Blue
+  '#00FF00', // Green
+  '#FFFF00', // Yellow
+  '#FF00FF', // Magenta
+  '#00FFFF', // Cyan
+  '#FFA500', // Orange
+  '#800080', // Purple
+  '#A52A2A', // Brown
+];
 
 function loadMonacoLoaderScript(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -117,6 +129,13 @@ const TechnicalPractical: React.FC = () => {
   const [isResizing, setIsResizing] = useState(false);
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
   const resizerRef = useRef<HTMLDivElement | null>(null);
+  
+  // Store initial mouse position and panel width when resizing starts
+  const resizeStartRef = useRef<{ x: number; leftWidth: number } | null>(null);
+  
+  // Drawing color state
+  const [selectedColor, setSelectedColor] = useState(DRAWING_COLORS[0]); // Default to black
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
   
   // Get question text
   const question = gameState?.question || 'Outline a production ML architecture including data ingestion, training, inference, and monitoring, with example configs.';
@@ -262,7 +281,7 @@ const TechnicalPractical: React.FC = () => {
   }
   // -- END sidebar logic --
 
-  // Draw tab logic (unchanged)
+  // Draw tab logic with color support
   useEffect(() => {
     if (activeTab !== TAB_DRAW) return;
     const canvas = canvasRef.current;
@@ -272,25 +291,30 @@ const TechnicalPractical: React.FC = () => {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.lineWidth = 3;
-    ctx.strokeStyle = '#222';
+    ctx.strokeStyle = selectedColor;
     let mouseDownListener: (e: MouseEvent) => void;
     let mouseMoveListener: (e: MouseEvent) => void;
     let mouseUpListener: (e: MouseEvent) => void;
     let mouseLeaveListener: (e: MouseEvent) => void;
     mouseDownListener = (e) => {
       const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
       lastPoint.current = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY,
       };
       drawing.current = true;
     };
     mouseMoveListener = (e) => {
       if (!drawing.current) return;
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
       if (lastPoint.current && ctx) {
+        ctx.strokeStyle = selectedColor; // Update color on each stroke
         ctx.beginPath();
         ctx.moveTo(lastPoint.current.x, lastPoint.current.y);
         ctx.lineTo(x, y);
@@ -316,30 +340,61 @@ const TechnicalPractical: React.FC = () => {
       window.removeEventListener('mouseup', mouseUpListener);
       canvas.removeEventListener('mouseleave', mouseLeaveListener);
     };
-  }, [activeTab]);
+  }, [activeTab, selectedColor]);
+  
+  // Initialize canvas size
+  useEffect(() => {
+    if (activeTab !== TAB_DRAW) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    // Set a high-resolution canvas that will be scaled down via CSS
+    // This preserves drawing quality while allowing responsive sizing
+    if (canvas.width === 0 || canvas.height === 0) {
+      canvas.width = 1200;
+      canvas.height = 675;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = selectedColor;
+      }
+    }
+  }, [activeTab, selectedColor]);
+  
   useEffect(() => {
     if (activeTab !== TAB_DRAW && canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d');
-      if (ctx) ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      if (ctx) {
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
     }
   }, [activeTab]);
 
   // Handle resizer drag
   useEffect(() => {
-    if (!isResizing) return;
+    if (!isResizing) {
+      return;
+    }
 
     const handleMouseMove = (e: MouseEvent) => {
       // Find the active split container (works for both IDE and TEXT tabs)
       const container = splitContainerRef.current;
-      if (!container) return;
+      if (!container || !resizeStartRef.current) return;
       
       const containerRect = container.getBoundingClientRect();
       const totalWidth = containerRect.width;
-      // Calculate left panel width as percentage
-      const leftPanelPixels = e.clientX - containerRect.left;
-      const newLeftWidth = (leftPanelPixels / totalWidth) * 100;
-      // Constrain between 20% and 40% for left panel
-      const constrainedWidth = Math.max(20, Math.min(40, newLeftWidth));
+      
+      // Calculate delta from start position
+      const deltaX = e.clientX - resizeStartRef.current.x;
+      const deltaPercent = (deltaX / totalWidth) * 100;
+      
+      // Calculate new width based on initial width + delta
+      const newLeftWidth = resizeStartRef.current.leftWidth + deltaPercent;
+      
+      // Constrain between 15% and 60% for left panel (more flexible)
+      const constrainedWidth = Math.max(15, Math.min(60, newLeftWidth));
       setLeftPanelWidth(constrainedWidth);
       
       // Update Monaco editor layout during resize (only for IDE tab)
@@ -352,6 +407,7 @@ const TechnicalPractical: React.FC = () => {
 
     const handleMouseUp = () => {
       setIsResizing(false);
+      resizeStartRef.current = null;
       // Final layout update after resize completes
       if (monacoEditorRef.current && activeTab === TAB_IDE) {
         setTimeout(() => {
@@ -360,12 +416,18 @@ const TechnicalPractical: React.FC = () => {
       }
     };
 
+    // Prevent text selection while resizing
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
     };
   }, [isResizing, activeTab]);
 
@@ -434,11 +496,12 @@ const TechnicalPractical: React.FC = () => {
             className={styles.questionPanel}
             style={{ 
               flex: `0 0 ${leftPanelWidth}%`,
-              minWidth: '250px',
-              maxWidth: '500px',
+              minWidth: '200px',
+              maxWidth: 'none',
               display: 'flex',
               flexDirection: 'column',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              transition: isResizing ? 'none' : 'flex-basis 0.1s ease-out'
             }}
           >
             <div className={styles.questionContent}>
@@ -467,15 +530,23 @@ const TechnicalPractical: React.FC = () => {
             onMouseDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              const container = splitContainerRef.current;
+              if (container) {
+                resizeStartRef.current = {
+                  x: e.clientX,
+                  leftWidth: leftPanelWidth
+                };
+              }
               setIsResizing(true);
             }}
             style={{
               flex: '0 0 8px',
               cursor: 'col-resize',
-              backgroundColor: '#ddd',
+              backgroundColor: isResizing ? '#999' : '#ddd',
               position: 'relative',
               zIndex: 10,
-              userSelect: 'none'
+              userSelect: 'none',
+              transition: isResizing ? 'none' : 'background-color 0.2s'
             }}
           >
             <div style={{
@@ -484,10 +555,11 @@ const TechnicalPractical: React.FC = () => {
               left: '50%',
               transform: 'translate(-50%, -50%)',
               width: '4px',
-              height: '40px',
-              backgroundColor: '#999',
+              height: '60px',
+              backgroundColor: isResizing ? '#666' : '#999',
               borderRadius: '2px',
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              transition: isResizing ? 'none' : 'background-color 0.2s'
             }} />
           </div>
 
@@ -496,10 +568,11 @@ const TechnicalPractical: React.FC = () => {
             className={styles.editorPanel}
             style={{ 
               flex: '1 1 auto',
-              minWidth: '400px',
+              minWidth: '300px',
               display: 'flex',
               flexDirection: 'column',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              transition: isResizing ? 'none' : 'flex-basis 0.1s ease-out'
             }}
           >
             <div className={styles.tabpanel} style={{display:'flex', flexDirection:'row', width:'100%', flex: '1 1 auto', minHeight: 0, height: 'calc(100vh - 180px)'}}>
@@ -768,11 +841,12 @@ const TechnicalPractical: React.FC = () => {
                 className={styles.questionPanel}
                 style={{ 
                   flex: `0 0 ${leftPanelWidth}%`,
-                  minWidth: '250px',
-                  maxWidth: '500px',
+                  minWidth: '200px',
+                  maxWidth: 'none',
                   display: 'flex',
                   flexDirection: 'column',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  transition: isResizing ? 'none' : 'flex-basis 0.1s ease-out'
                 }}
               >
                 <div className={styles.questionContent}>
@@ -801,15 +875,23 @@ const TechnicalPractical: React.FC = () => {
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  const container = splitContainerRef.current;
+                  if (container) {
+                    resizeStartRef.current = {
+                      x: e.clientX,
+                      leftWidth: leftPanelWidth
+                    };
+                  }
                   setIsResizing(true);
                 }}
                 style={{
                   flex: '0 0 8px',
                   cursor: 'col-resize',
-                  backgroundColor: '#ddd',
+                  backgroundColor: isResizing ? '#999' : '#ddd',
                   position: 'relative',
                   zIndex: 10,
-                  userSelect: 'none'
+                  userSelect: 'none',
+                  transition: isResizing ? 'none' : 'background-color 0.2s'
                 }}
               >
                 <div style={{
@@ -818,10 +900,11 @@ const TechnicalPractical: React.FC = () => {
                   left: '50%',
                   transform: 'translate(-50%, -50%)',
                   width: '4px',
-                  height: '40px',
-                  backgroundColor: '#999',
+                  height: '60px',
+                  backgroundColor: isResizing ? '#666' : '#999',
                   borderRadius: '2px',
-                  pointerEvents: 'none'
+                  pointerEvents: 'none',
+                  transition: isResizing ? 'none' : 'background-color 0.2s'
                 }} />
               </div>
 
@@ -830,10 +913,11 @@ const TechnicalPractical: React.FC = () => {
                 className={styles.editorPanel}
                 style={{ 
                   flex: '1 1 auto',
-                  minWidth: '400px',
+                  minWidth: '300px',
                   display: 'flex',
                   flexDirection: 'column',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  transition: isResizing ? 'none' : 'flex-basis 0.1s ease-out'
                 }}
               >
                 <div className="px-4 py-2" style={{flex:1, minWidth:0, width:'auto', display:'flex', flexDirection:'column', minHeight:0}}>
@@ -855,17 +939,174 @@ const TechnicalPractical: React.FC = () => {
             </div>
           )}
         {activeTab === TAB_DRAW && (
-          <div className="px-4 py-2 flex flex-col items-center w-full">
-            <label className="block font-bold mb-2 text-gray-700">Whiteboard:</label>
-            <div className={styles.drawcanvascontainer}>
-              <canvas
-                ref={canvasRef}
-                className={styles.drawcanvas}
-                width={CANVAS_WIDTH}
-                height={CANVAS_HEIGHT}
-                style={{ border: '4px solid #222', background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}
-              />
-              <div className="mt-2 text-xs text-gray-500">🖊 Draw with your mouse!</div>
+          <div 
+            ref={splitContainerRef}
+            className={styles.splitContainer}
+            style={{ 
+              display: 'flex', 
+              flexDirection: 'row', 
+              width: '100%', 
+              height: '100%',
+              flex: '1 1 auto',
+              minHeight: 0
+            }}
+          >
+            {/* Left Panel - Question */}
+            <div 
+              className={styles.questionPanel}
+              style={{ 
+                flex: `0 0 ${leftPanelWidth}%`,
+                minWidth: '200px',
+                maxWidth: 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                transition: isResizing ? 'none' : 'flex-basis 0.1s ease-out'
+              }}
+            >
+              <div className={styles.questionContent}>
+                <div className="game-paper px-6 py-5 game-shadow-hard-lg" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <div className={styles.questionLabel} style={{ flexShrink: 0 }}>QUESTION</div>
+                  <div 
+                    className="font-bold text-gray-800 whitespace-pre-wrap"
+                    style={{ 
+                      flex: '1 1 auto',
+                      overflowY: 'auto',
+                      paddingRight: '0.5rem',
+                      lineHeight: '1.7',
+                      minHeight: 0
+                    }}
+                  >
+                    {question}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Resizer */}
+            <div
+              ref={resizerRef}
+              className={styles.resizer}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const container = splitContainerRef.current;
+                if (container) {
+                  resizeStartRef.current = {
+                    x: e.clientX,
+                    leftWidth: leftPanelWidth
+                  };
+                }
+                setIsResizing(true);
+              }}
+              style={{
+                flex: '0 0 8px',
+                cursor: 'col-resize',
+                backgroundColor: isResizing ? '#999' : '#ddd',
+                position: 'relative',
+                zIndex: 10,
+                userSelect: 'none',
+                transition: isResizing ? 'none' : 'background-color 0.2s'
+              }}
+            >
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '4px',
+                height: '60px',
+                backgroundColor: isResizing ? '#666' : '#999',
+                borderRadius: '2px',
+                pointerEvents: 'none',
+                transition: isResizing ? 'none' : 'background-color 0.2s'
+              }} />
+            </div>
+
+            {/* Right Panel - Drawing Canvas */}
+            <div 
+              className={styles.editorPanel}
+              style={{ 
+                flex: '1 1 auto',
+                minWidth: '300px',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                transition: isResizing ? 'none' : 'flex-basis 0.1s ease-out'
+              }}
+            >
+              <div style={{flex:1, minWidth:0, width:'auto', display:'flex', flexDirection:'column', minHeight:0, padding: '1rem'}}>
+                {/* Color Picker */}
+                <div style={{ flexShrink: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <label className="block font-bold text-gray-700" style={{ fontSize: '1rem' }}>Color:</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {DRAWING_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setSelectedColor(color)}
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          backgroundColor: color,
+                          border: selectedColor === color ? '3px solid #222' : '2px solid #ccc',
+                          cursor: 'pointer',
+                          boxShadow: selectedColor === color ? '0 2px 8px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.2)',
+                          transition: 'all 0.2s',
+                          padding: 0,
+                          outline: 'none'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (selectedColor !== color) {
+                            e.currentTarget.style.transform = 'scale(1.1)';
+                            e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.25)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (selectedColor !== color) {
+                            e.currentTarget.style.transform = 'scale(1)';
+                            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
+                          }
+                        }}
+                        aria-label={`Select color ${color}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Canvas Container */}
+                <div 
+                  ref={canvasContainerRef}
+                  style={{
+                    flex: '1 1 auto',
+                    minHeight: 0,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    overflow: 'hidden',
+                    width: '100%'
+                  }}
+                >
+                  <canvas
+                    ref={canvasRef}
+                    className={styles.drawcanvas}
+                    width={1200}
+                    height={675}
+                    style={{ 
+                      border: '4px solid #222', 
+                      background: '#fff', 
+                      borderRadius: 8, 
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain'
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         )}

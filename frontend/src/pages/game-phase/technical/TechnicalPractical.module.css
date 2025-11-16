@@ -98,12 +98,18 @@
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .resizer:hover {
   background: #bbb;
 }
 .resizer:active {
   background: #999;
+}
+.resizer:hover > div {
+  background: #777 !important;
 }
 .editorPanel {
   background: #fdfaee;
