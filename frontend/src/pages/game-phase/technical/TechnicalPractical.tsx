@@ -817,9 +817,9 @@ const TechnicalPractical: React.FC = () => {
   return (
     <div className="game-bg w-full" style={{ minHeight: '100vh', padding: '1rem 0.5rem 4rem', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <div className="mb-4 flex flex-col items-center" style={{ flexShrink: 0 }}>
+      <div className="mb-4 flex items-center justify-between" style={{ flexShrink: 0, width: '100%', padding: '0 2rem' }}>
         <div 
-          className="game-shadow-hard-lg mb-3 inline-block"
+          className="game-shadow-hard-lg inline-block"
           style={{
             background: 'var(--game-yellow)',
             padding: '1.5rem 3rem',
@@ -831,6 +831,20 @@ const TechnicalPractical: React.FC = () => {
             TECHNICAL PRACTICAL
           </h1>
         </div>
+        
+        {/* Submit Button - Top Right */}
+        <button
+          type="button"
+          className="game-sharp game-block-blue px-8 py-3 text-base font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover"
+          style={{ 
+            border: '4px solid var(--game-text-primary)', 
+            color: 'var(--game-text-white)',
+            transform: 'rotate(1deg)',
+            flexShrink: 0
+          }}
+        >
+          Submit
+        </button>
       </div>
 
       {/* TABS */}
@@ -1828,15 +1842,6 @@ const TechnicalPractical: React.FC = () => {
         </div>
       )}
 
-      <div className="flex justify-center mt-4" style={{ flexShrink: 0 }}>
-        <button
-          type="button"
-          className="game-sharp game-block-blue px-12 py-4 text-lg font-black uppercase tracking-widest game-shadow-hard-lg game-button-hover"
-          style={{ border: '6px solid var(--game-text-primary)', color: 'var(--game-text-white)' }}
-        >
-          Submit Answer
-        </button>
-      </div>
 
       {/* Modals for file create, delete, and reset must remain in parent div! */}
       {showFileModal && (
