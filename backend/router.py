@@ -2396,20 +2396,59 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                             cached_question = questions_cache_check.get(f"{phase}_{question_index}")
                                             if cached_question:
                                                 print(f"[QUESTION] Returning cached technical theory question {question_index}")
-                                                await lobby_manager.broadcast_game_message(
-                                                    lobby_id,
-                                                    {
-                                                        "type": "question_received",
-                                                        "phase": phase,
-                                                        "question_index": question_index,
-                                                        "question": cached_question.get("question"),
-                                                        "question_id": cached_question.get("question_id"),
-                                                        "correct_answer": cached_question.get("correct_answer"),
-                                                        "incorrect_answers": cached_question.get("incorrect_answers"),
-                                                        "role": cached_question.get("role"),
-                                                        "level": cached_question.get("level")
-                                                    }
-                                                )
+                                                
+                                                # If this is question_index 0, also broadcast all questions loaded
+                                                # This ensures late-joining clients get all questions at once
+                                                if question_index == 0:
+                                                    print(f"[QUESTION] Question index 0 requested with cached questions, broadcasting all {cached_count} questions")
+                                                    
+                                                    # Collect all cached questions
+                                                    broadcast_questions = []
+                                                    for i in range(cached_count):
+                                                        cached_q = questions_cache_check.get(f"{phase}_{i}")
+                                                        if cached_q:
+                                                            broadcast_questions.append({
+                                                                "question": cached_q.get("question"),
+                                                                "question_id": cached_q.get("question_id"),
+                                                                "correct_answer": cached_q.get("correct_answer"),
+                                                                "incorrect_answers": cached_q.get("incorrect_answers"),
+                                                                "question_index": cached_q.get("question_index", i),
+                                                                "role": cached_q.get("role"),
+                                                                "level": cached_q.get("level"),
+                                                                "shuffled_answers": cached_q.get("shuffled_answers"),
+                                                                "option_mapping": cached_q.get("option_mapping"),
+                                                                "correct_option_id": cached_q.get("correct_option_id")
+                                                            })
+                                                    
+                                                    # Broadcast all questions loaded message
+                                                    await lobby_manager.broadcast_game_message(
+                                                        lobby_id,
+                                                        {
+                                                            "type": "technical_theory_questions_loaded",
+                                                            "phase": phase,
+                                                            "question_count": cached_count,
+                                                            "questions": broadcast_questions
+                                                        }
+                                                    )
+                                                else:
+                                                    # For non-zero indices, just send the individual question
+                                                    await lobby_manager.broadcast_game_message(
+                                                        lobby_id,
+                                                        {
+                                                            "type": "question_received",
+                                                            "phase": phase,
+                                                            "question_index": question_index,
+                                                            "question": cached_question.get("question"),
+                                                            "question_id": cached_question.get("question_id"),
+                                                            "correct_answer": cached_question.get("correct_answer"),
+                                                            "incorrect_answers": cached_question.get("incorrect_answers"),
+                                                            "role": cached_question.get("role"),
+                                                            "level": cached_question.get("level"),
+                                                            "shuffled_answers": cached_question.get("shuffled_answers"),
+                                                            "option_mapping": cached_question.get("option_mapping"),
+                                                            "correct_option_id": cached_question.get("correct_option_id")
+                                                        }
+                                                    )
                                                 continue
                                             else:
                                                 print(f"[QUESTION] ERROR: Question {question_index} not found in cache")

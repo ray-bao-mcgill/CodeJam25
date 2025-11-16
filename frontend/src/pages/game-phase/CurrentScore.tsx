@@ -202,118 +202,266 @@ const CurrentScore: React.FC = () => {
   }, [currentPhase])
   
   const totalPlayers = lobby?.players.length || 0
-  const allReady = readyCount >= totalPlayers && totalPlayers > 0
-  const allReadyToContinue = readyToContinueCount >= totalPlayers && totalPlayers > 0
   
+  const getPhaseTitle = () => {
+    switch (currentPhase) {
+      case 'behavioural_score':
+        return 'BEHAVIOURAL ROUND SCORES'
+      case 'technical_theory_score':
+        return 'TECHNICAL THEORY ROUND SCORES'
+      case 'technical_score':
+        return 'TECHNICAL ROUND SCORES'
+      default:
+        return 'CURRENT SCORES'
+    }
+  }
+
   // Render loading state
   if (isLoading || Object.keys(scores).length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen game-bg p-6">
-        <div className={`game-paper px-8 py-6 game-shadow-hard-lg text-center transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
-          <h1 className="game-title text-3xl mb-4">LOADING SCORES...</h1>
-          <div className="game-label-text text-sm mb-2">
-            Waiting for players: {readyCount} / {totalPlayers}
-          </div>
-          {!allReady && (
-            <div className="text-xs opacity-70">
-              Waiting for all players to be ready...
+      <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg">
+        <div className="game-paper px-8 py-6 game-shadow-hard-lg">
+          <div className="text-center space-y-4">
+            <div className="text-2xl font-black mb-4">WAITING FOR OTHER PLAYERS...</div>
+            <div className="text-lg">
+              Calculating scores...
             </div>
-          )}
+            {lobby?.players && (
+              <div className="text-sm text-gray-600 mt-4">
+                <div className="text-lg font-bold mb-2">
+                  {readyCount} / {totalPlayers} players ready
+                </div>
+                <div className="text-xs">
+                  {readyCount < totalPlayers 
+                    ? `Waiting for ${totalPlayers - readyCount} more player${totalPlayers - readyCount === 1 ? '' : 's'}...`
+                    : 'All players ready!'}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     )
   }
-  
-  // Render scores
+
+  // Sort players by score (descending)
   const sortedPlayers = lobby?.players
-    .map(p => ({
-      id: typeof p === 'object' ? p.id : p,
-      name: typeof p === 'object' ? p.name : 'Player'
-    }))
-    .sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0)) || []
-  
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen game-bg p-6">
-      <div className={`w-full max-w-4xl transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="game-paper px-8 py-6 game-shadow-hard-lg mb-6">
-          <h1 className="game-title text-3xl mb-4 text-center">
-            {currentPhase === 'behavioural_score' && 'BEHAVIOURAL ROUND SCORES'}
-            {currentPhase === 'technical_theory_score' && 'TECHNICAL THEORY ROUND SCORES'}
-            {currentPhase === 'technical_score' && 'FINAL SCORES'}
-          </h1>
-          
-          <div className="space-y-4">
-            {sortedPlayers.map((player, index) => {
-              const playerScore = scores[player.id] || 0
-              const phaseScore = phaseScores[player.id] || 0
-              const isCurrentPlayer = player.id === playerId
-              
-              return (
-                <div
-                  key={player.id}
-                  className={`game-sharp px-6 py-4 game-shadow-hard-sm ${
-                    isCurrentPlayer ? 'border-4 border-[var(--game-blue)]' : ''
-                  }`}
-                  style={{
-                    border: isCurrentPlayer ? '4px solid var(--game-blue)' : '3px solid var(--game-text-primary)',
-                    background: isCurrentPlayer ? 'var(--game-blue)' : 'var(--game-paper-bg)',
-                    color: isCurrentPlayer ? 'var(--game-text-white)' : 'var(--game-text-primary)',
-                    transform: `rotate(${index % 2 === 0 ? '-0.5deg' : '0.5deg'})`
-                  }}
-                >
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                      <span className="text-2xl font-black">#{index + 1}</span>
-                      <span className="text-lg font-black">{player.name}</span>
-                      {isCurrentPlayer && <span className="text-xs">(YOU)</span>}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xl font-black">{playerScore} pts</div>
-                      {phaseScore > 0 && (
-                        <div className="text-xs opacity-70">+{phaseScore} this round</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+    ? [...lobby.players].sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0))
+    : []
+
+  // VS-style results page (for 2 players)
+  if (sortedPlayers.length === 2 && !isLoading && Object.keys(scores).length > 0) {
+    const player1 = sortedPlayers[0]
+    const player2 = sortedPlayers[1]
+    const score1 = scores[player1.id] || 0
+    const score2 = scores[player2.id] || 0
+    
+    return (
+      <div className="flex items-center justify-center min-h-screen game-bg relative overflow-hidden">
+        {/* Continuous Vertical Line - perfectly centered */}
+        <div className="absolute top-0 bottom-0 left-1/2 w-2 bg-[var(--game-text-primary)] transform -translate-x-1/2 shadow-[2px_2px_0px_rgba(0,0,0,0.3)]" />
+        
+        {/* Title at top - absolute positioning */}
+        <div className="absolute top-8 left-1/2 transform -translate-x-1/2 z-10">
+          <div className="game-label-text text-3xl game-shadow-hard">
+            {getPhaseTitle()}
           </div>
         </div>
-        
-        {/* Continue Button */}
-        <div className="text-center">
+
+        {/* Bottom loading indicator - absolute positioning */}
+        {(readyToContinueCount > 0 || timeRemaining > 0) && (
+          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
+            <div className="game-label-text text-xl game-shadow-hard-sm animate-pulse">
+              {readyToContinueCount > 0 
+                ? `WAITING FOR PLAYERS... (${readyToContinueCount} / ${lobby?.players.length || 0})`
+                : timeRemaining > 0
+                  ? `AUTO-ADVANCING IN ${timeRemaining}S...`
+                  : 'NEXT ROUND STARTING SOON...'}
+            </div>
+          </div>
+        )}
+
+        {/* Main VS Content - Perfectly Centered */}
+        <div className="relative z-10 flex items-center justify-between w-full max-w-[1600px] px-16">
+          {/* Player 1 Score - Left Side */}
+          <div className="flex flex-col items-center animate-stamp-in" style={{ animationDelay: '0.2s' }}>
+            <div className="game-label-text text-lg mb-3 game-shadow-hard-sm bg-[var(--game-blue)] px-4 py-1 text-white">
+              {player1.name.toUpperCase()}{player1.id === playerId && ' (ME)'}
+            </div>
+            <div className="px-10 py-7 game-sharp game-shadow-hard-lg border-6 border-[var(--game-blue)] bg-gradient-to-br from-blue-100 to-blue-200 score-display">
+              <div 
+                className="text-6xl font-black text-[var(--game-blue)] leading-none"
+                style={{ fontFamily: 'Impact, sans-serif' }}
+              >
+                {score1}
+              </div>
+            </div>
+            {/* Round Score Increase Display */}
+            {phaseScores[player1.id] > 0 && (
+              <div className="mt-3 px-4 py-2 bg-green-500 text-white rounded-md text-lg font-bold">
+                +{phaseScores[player1.id]}
+              </div>
+            )}
+          </div>
+
+          {/* VS in Circle - perfectly centered on the line */}
+          <div className="flex items-center justify-center absolute left-1/2 transform -translate-x-1/2 animate-stamp-in-vs" style={{ animationDelay: '0.6s' }}>
+            {/* VS Text in Circle */}
+            <div className="rounded-full flex items-center justify-center w-[180px] h-[180px] bg-gradient-to-br from-yellow-300 via-[var(--game-yellow)] to-orange-400 border-[10px] border-[var(--game-text-primary)] shadow-[10px_10px_0px_rgba(0,0,0,0.4)]">
+              <div className="text-[5rem] font-black text-[var(--game-text-primary)] leading-none drop-shadow-lg" style={{ fontFamily: 'Impact, sans-serif' }}>
+                VS
+              </div>
+            </div>
+          </div>
+
+          {/* Player 2 Score - Right Side */}
+          <div className="flex flex-col items-center animate-stamp-in" style={{ animationDelay: '0.4s' }}>
+            <div className="game-label-text text-lg mb-3 game-shadow-hard-sm bg-[var(--game-red)] px-4 py-1 text-white">
+              {player2.name.toUpperCase()}{player2.id === playerId && ' (ME)'}
+            </div>
+            <div className="px-10 py-7 game-sharp game-shadow-hard-lg border-6 border-[var(--game-red)] bg-gradient-to-br from-red-100 to-red-200 score-display">
+              <div 
+                className="text-6xl font-black text-[var(--game-red)] leading-none"
+                style={{ fontFamily: 'Impact, sans-serif' }}
+              >
+                {score2}
+              </div>
+            </div>
+            {/* Round Score Increase Display */}
+            {phaseScores[player2.id] > 0 && (
+              <div className="mt-3 px-4 py-2 bg-green-500 text-white rounded-md text-lg font-bold">
+                +{phaseScores[player2.id]}
+              </div>
+            )}
+          </div>
+        </div>
+
+
+        {/* Continue Button - positioned at bottom */}
+        <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-10">
           <button
             onClick={handleContinue}
             disabled={hasSentContinueRef.current[currentPhase] || timeRemaining > 0}
             className={`game-sharp px-10 py-5 text-lg font-black uppercase tracking-widest game-shadow-hard-lg ${
-              hasSentContinueRef.current[currentPhase] || timeRemaining > 0
-                ? 'opacity-60 cursor-not-allowed'
-                : 'game-button-hover'
+              hasSentContinueRef.current[currentPhase] || timeRemaining > 0 ? '' : 'game-button-hover'
             }`}
             style={{
               border: '6px solid var(--game-text-primary)',
-              backgroundColor: hasSentContinueRef.current[currentPhase] || timeRemaining > 0
-                ? 'var(--game-bg-alt)'
-                : 'var(--game-green)',
-              color: hasSentContinueRef.current[currentPhase] || timeRemaining > 0
-                ? 'var(--game-text-dim)'
-                : 'var(--game-text-white)'
+              backgroundColor: (hasSentContinueRef.current[currentPhase] || timeRemaining > 0) ? 'var(--game-bg-alt)' : 'var(--game-green)',
+              color: (hasSentContinueRef.current[currentPhase] || timeRemaining > 0) ? 'var(--game-text-dim)' : 'var(--game-text-white)',
+              cursor: (hasSentContinueRef.current[currentPhase] || timeRemaining > 0) ? 'not-allowed' : 'pointer',
+              opacity: (hasSentContinueRef.current[currentPhase] || timeRemaining > 0) ? 0.6 : 1
             }}
           >
-            {hasSentContinueRef.current[currentPhase]
-              ? 'WAITING FOR OTHERS...'
+            {hasSentContinueRef.current[currentPhase] 
+              ? 'WAITING FOR OTHERS...' 
               : timeRemaining > 0
-              ? `WAIT ${timeRemaining}S...`
-              : currentPhase === 'technical_score'
-              ? 'VIEW RESULTS'
-              : 'CONTINUE'}
+                ? `WAIT ${timeRemaining}S...`
+                : currentPhase === 'technical_score' 
+                  ? 'VIEW RESULTS' 
+                  : 'CONTINUE'}
           </button>
-          
-          {readyToContinueCount > 0 && (
-            <div className="mt-4 text-sm opacity-70">
-              {readyToContinueCount} / {totalPlayers} players ready
+        </div>
+      </div>
+    )
+  }
+
+  // Fallback to list view for non-2-player games
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 game-bg">
+      <div
+        className="w-full max-w-4xl space-y-8"
+        style={{
+          transform: isVisible ? 'scale(1)' : 'scale(0.8)',
+          opacity: isVisible ? 1 : 0,
+          transition: 'transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.6s ease-out'
+        }}
+      >
+        {/* Title */}
+        <div className="text-center">
+          <div className="game-paper px-8 py-4 game-shadow-hard-lg game-hand-drawn inline-block">
+            <h1 className="game-title text-3xl sm:text-4xl">{getPhaseTitle()}</h1>
+          </div>
+        </div>
+
+        {/* Scores */}
+        <div className="space-y-4">
+          {sortedPlayers.map((player, index) => {
+            const score = scores[player.id] || 0
+            const isWinner = index === 0 && sortedPlayers.length > 1
+            return (
+              <div
+                key={player.id}
+                className={`game-paper px-6 py-5 game-shadow-hard-lg ${
+                  isWinner ? 'game-block-yellow' : ''
+                }`}
+                style={{
+                  border: '4px solid var(--game-text-primary)',
+                  transform: `rotate(${index % 2 === 0 ? '-0.5deg' : '0.5deg'})`,
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="text-2xl font-black">#{index + 1}</div>
+                    <div className="text-xl font-bold">
+                      {player.name}
+                      {player.id === playerId && <span className="ml-2 text-base opacity-75">(me)</span>}
+                    </div>
+                    {isWinner && <span className="text-xl">👑</span>}
+                  </div>
+                  <div className="text-3xl font-black">{score}</div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Continue Button */}
+        <div className="flex flex-col items-center gap-4">
+          {/* 7-second timer */}
+          {!isLoading && Object.keys(scores).length > 0 && (
+            <div className="text-sm text-gray-600">
+              Auto-advancing in {timeRemaining} second{timeRemaining !== 1 ? 's' : ''}...
             </div>
           )}
+          
+          {readyToContinueCount > 0 && (
+            <div className="game-paper px-6 py-4 game-shadow-hard-lg">
+              <div className="text-center">
+                <div className="game-label-text text-sm mb-2">WAITING FOR OTHER PLAYERS</div>
+                <div className="text-lg font-bold">
+                  {readyToContinueCount} / {lobby?.players.length || 0} players ready
+                </div>
+                {readyToContinueCount < (lobby?.players.length || 0) && (
+                  <div className="text-sm text-gray-600 mt-2">
+                    Waiting for {lobby && lobby.players ? lobby.players.length - readyToContinueCount : 0} more player{lobby && lobby.players && (lobby.players.length - readyToContinueCount) !== 1 ? 's' : ''}...
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <button
+            onClick={handleContinue}
+            disabled={hasSentContinueRef.current[currentPhase] || timeRemaining > 0}
+            className={`game-sharp px-10 py-5 text-lg font-black uppercase tracking-widest game-shadow-hard-lg ${
+              hasSentContinueRef.current[currentPhase] || timeRemaining > 0 ? '' : 'game-button-hover'
+            }`}
+            style={{
+              border: '6px solid var(--game-text-primary)',
+              backgroundColor: (hasSentContinueRef.current[currentPhase] || timeRemaining > 0) ? 'var(--game-bg-alt)' : 'var(--game-green)',
+              color: (hasSentContinueRef.current[currentPhase] || timeRemaining > 0) ? 'var(--game-text-dim)' : 'var(--game-text-white)',
+              cursor: (hasSentContinueRef.current[currentPhase] || timeRemaining > 0) ? 'not-allowed' : 'pointer',
+              opacity: (hasSentContinueRef.current[currentPhase] || timeRemaining > 0) ? 0.6 : 1
+            }}
+          >
+            {hasSentContinueRef.current[currentPhase] 
+              ? 'WAITING FOR OTHERS...' 
+              : timeRemaining > 0
+                ? `WAIT ${timeRemaining}S...`
+                : currentPhase === 'technical_score' 
+                  ? 'VIEW RESULTS' 
+                  : 'CONTINUE'}
+          </button>
         </div>
       </div>
     </div>
