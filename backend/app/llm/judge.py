@@ -121,7 +121,11 @@ class PracticalJudge:
             results["ide"] = await self.judge_ide(question, ide_code, score_max)
         if text_ans:
             results["text"] = await self.judge_text(question, text_ans, score_max)
-        results["total_score"] = self._calculate_total_score(results)
+        total_score = self._calculate_total_score(results)
+        results["total_score"] = total_score
+        # Generate one overall reasoning string for the whole practical round (0-3000 scale)
+        if results.get("ide") or results.get("text"):
+            results["reasoning"] = await self._generate_overall_reasoning(question, results, total_score)
         return results
 
     async def judge_ide(self, question: dict, ide_code: str, score_max: int) -> IDEJudgeResult:
@@ -241,3 +245,29 @@ class PracticalJudge:
         if isinstance(text, TextJudgeResult):
             total += text.completeness + text.clarity + text.correctness
         return total
+
+    async def _generate_overall_reasoning(self, question: dict, results: dict, total_score: int) -> str:
+        """Ask the LLM for a single overall reasoning string based on the 0-3000 total score."""
+        system = render_prompt("role/technical_practical/judge/system_prompt.jinja")
+        ide = results.get("ide")
+        text = results.get("text")
+        # Convert Pydantic models to plain dicts for the template
+        ide_dict = ide.dict() if isinstance(ide, IDEJudgeResult) else None
+        text_dict = text.dict() if isinstance(text, TextJudgeResult) else None
+        prompt = render_prompt(
+            "role/technical_practical/judge/summary_user_prompt.jinja",
+            question=question,
+            ide=ide_dict,
+            text=text_dict,
+            total_score=total_score,
+        )
+        llm_resp = await self.client.generate_text(
+            LLMTextRequest(
+                prompt=prompt,
+                system=system,
+                temperature=0.4,
+                max_tokens=200,
+            )
+        )
+        # We expect a plain text reasoning string, no JSON
+        return (llm_resp.text or "").strip()

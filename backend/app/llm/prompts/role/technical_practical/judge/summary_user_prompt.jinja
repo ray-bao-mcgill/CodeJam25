@@ -1,0 +1,21 @@
+You have already evaluated a practical technical question and scored the user's answer.
+
+Question: {{ question }}
+
+Scores:
+{% if ide %}
+- IDE tab: completeness={{ ide.completeness }}, correctness={{ ide.correctness }}, efficiency={{ ide.efficiency }}
+{% endif %}
+{% if text %}
+- Text tab: completeness={{ text.completeness }}, clarity={{ text.clarity }}, correctness={{ text.correctness }}
+{% endif %}
+- Total practical score (0-3000): {{ total_score }}
+
+Now write a single short reasoning string for the whole practical round in a cartoony hire-or-fire tone based on the total score:
+- 2001–3000: very positive, excited, like "hire them now / ship this".
+- 1001–2000: calm, balanced, pointing out both strengths and gaps.
+-    0–1000: clearly roasting the solution for what it misses or breaks ("do not deploy this"), but no slurs or hateful language.
+
+Output ONLY the reasoning text, no JSON, no extra commentary.
+
+
