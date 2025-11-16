@@ -329,18 +329,20 @@ const TechnicalPractical: React.FC = () => {
     if (!isResizing) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!splitContainerRef.current) return;
-      const containerRect = splitContainerRef.current.getBoundingClientRect();
-      const resizerWidth = 8; // Resizer width in pixels
+      // Find the active split container (works for both IDE and TEXT tabs)
+      const container = splitContainerRef.current;
+      if (!container) return;
+      
+      const containerRect = container.getBoundingClientRect();
       const totalWidth = containerRect.width;
-      // Calculate left panel width as percentage, accounting for resizer
+      // Calculate left panel width as percentage
       const leftPanelPixels = e.clientX - containerRect.left;
       const newLeftWidth = (leftPanelPixels / totalWidth) * 100;
       // Constrain between 20% and 40% for left panel
       const constrainedWidth = Math.max(20, Math.min(40, newLeftWidth));
       setLeftPanelWidth(constrainedWidth);
       
-      // Update Monaco editor layout during resize
+      // Update Monaco editor layout during resize (only for IDE tab)
       if (monacoEditorRef.current && activeTab === TAB_IDE) {
         requestAnimationFrame(() => {
           monacoEditorRef.current?.layout();
@@ -425,7 +427,7 @@ const TechnicalPractical: React.FC = () => {
         <div 
           ref={splitContainerRef}
           className={styles.splitContainer}
-          style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', width: '100%' }}
+          style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', width: '100%', height: '100%' }}
         >
           {/* Left Panel - Question */}
           <div 
@@ -464,6 +466,7 @@ const TechnicalPractical: React.FC = () => {
             className={styles.resizer}
             onMouseDown={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               setIsResizing(true);
             }}
             style={{
@@ -471,7 +474,8 @@ const TechnicalPractical: React.FC = () => {
               cursor: 'col-resize',
               backgroundColor: '#ddd',
               position: 'relative',
-              zIndex: 10
+              zIndex: 10,
+              userSelect: 'none'
             }}
           >
             <div style={{
@@ -482,7 +486,8 @@ const TechnicalPractical: React.FC = () => {
               width: '4px',
               height: '40px',
               backgroundColor: '#999',
-              borderRadius: '2px'
+              borderRadius: '2px',
+              pointerEvents: 'none'
             }} />
           </div>
 
@@ -497,7 +502,7 @@ const TechnicalPractical: React.FC = () => {
               overflow: 'hidden'
             }}
           >
-            <div className={styles.tabpanel} style={{display:'flex', flexDirection:'row', width:'100%', height: '100%', flex: '1 1 auto', minHeight: 0}}>
+            <div className={styles.tabpanel} style={{display:'flex', flexDirection:'row', width:'100%', flex: '1 1 auto', minHeight: 0, height: 'calc(100vh - 180px)'}}>
               {/* -- Minimal file sidebar, only in IDE tab -- */}
               <aside style={{minWidth:120, maxWidth:220, flexShrink:0, background:'#f5f5f5', borderRight:'2px solid #ddd', padding:'1rem 0.5rem', display:'flex', flexDirection:'column', alignItems:'stretch', gap:2}}>
                 <div style={{marginBottom:5, fontWeight:700, fontSize:'1.08em'}}>Files</div>
@@ -744,19 +749,111 @@ const TechnicalPractical: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className={styles.tabpanel} style={{display:'flex', flexDirection:'row', width:'100%', flex: '1 1 auto', minHeight: 0}}>
+        <div className={styles.tabpanel} style={{display:'flex', flexDirection:'row', width:'100%', flex: '1 1 auto', minHeight: 0, height: 'calc(100vh - 180px)'}}>
           {activeTab === TAB_TEXT && (
-          <div className="px-4 py-2 w-full">
-            <label className="block font-bold mb-2 text-gray-700">Text Answer:</label>
-            <textarea
-              className={`${styles.textarea} w-full min-h-[180px] border-4 border-gray-900 rounded-none p-4 text-base focus:outline-none focus:ring-2 focus:ring-blue-600 game-shadow-hard`}
-              value={textValue}
-              onChange={e => setTextValue(e.target.value)}
-              placeholder="Type your explanation, reasoning, or answer here..."
-              spellCheck={true}
-            />
-          </div>
-        )}
+            <div 
+              ref={splitContainerRef}
+              className={styles.splitContainer}
+              style={{ 
+                display: 'flex', 
+                flexDirection: 'row', 
+                width: '100%', 
+                height: '100%',
+                flex: '1 1 auto',
+                minHeight: 0
+              }}
+            >
+              {/* Left Panel - Question */}
+              <div 
+                className={styles.questionPanel}
+                style={{ 
+                  flex: `0 0 ${leftPanelWidth}%`,
+                  minWidth: '250px',
+                  maxWidth: '500px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden'
+                }}
+              >
+                <div className={styles.questionContent}>
+                  <div className="game-paper px-6 py-5 game-shadow-hard-lg" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <div className={styles.questionLabel} style={{ flexShrink: 0 }}>QUESTION</div>
+                    <div 
+                      className="font-bold text-gray-800 whitespace-pre-wrap"
+                      style={{ 
+                        flex: '1 1 auto',
+                        overflowY: 'auto',
+                        paddingRight: '0.5rem',
+                        lineHeight: '1.7',
+                        minHeight: 0
+                      }}
+                    >
+                      {question}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Resizer */}
+              <div
+                ref={resizerRef}
+                className={styles.resizer}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsResizing(true);
+                }}
+                style={{
+                  flex: '0 0 8px',
+                  cursor: 'col-resize',
+                  backgroundColor: '#ddd',
+                  position: 'relative',
+                  zIndex: 10,
+                  userSelect: 'none'
+                }}
+              >
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: '4px',
+                  height: '40px',
+                  backgroundColor: '#999',
+                  borderRadius: '2px',
+                  pointerEvents: 'none'
+                }} />
+              </div>
+
+              {/* Right Panel - Text Editor */}
+              <div 
+                className={styles.editorPanel}
+                style={{ 
+                  flex: '1 1 auto',
+                  minWidth: '400px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden'
+                }}
+              >
+                <div className="px-4 py-2" style={{flex:1, minWidth:0, width:'auto', display:'flex', flexDirection:'column', minHeight:0}}>
+                  <label className="block font-bold mb-2 text-gray-700" style={{ flexShrink: 0 }}>Text Answer:</label>
+                  <textarea
+                    className={`${styles.textarea} w-full border-4 border-gray-900 rounded-none p-4 text-base focus:outline-none focus:ring-2 focus:ring-blue-600 game-shadow-hard`}
+                    style={{
+                      flex: '1 1 auto',
+                      minHeight: 0,
+                      resize: 'none'
+                    }}
+                    value={textValue}
+                    onChange={e => setTextValue(e.target.value)}
+                    placeholder="Type your explanation, reasoning, or answer here..."
+                    spellCheck={true}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         {activeTab === TAB_DRAW && (
           <div className="px-4 py-2 flex flex-col items-center w-full">
             <label className="block font-bold mb-2 text-gray-700">Whiteboard:</label>
