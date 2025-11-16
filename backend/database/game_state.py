@@ -869,14 +869,26 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
                 player_scores = technical_theory_scores.get(player_id, {})
                 
                 if isinstance(player_scores, dict):
-                    # Count correct answers and multiply by 200 (Python logic)
-                    correct_count = sum(
-                        1 for s in player_scores.values()
-                        if isinstance(s, dict) and s.get("is_correct", False)
-                    )
+                    # Get question count from phase_metadata to iterate through all questions
+                    # This ensures we count correctly even if some questions aren't answered yet
+                    question_count = 10  # Default fallback
+                    phase_metadata = game_state_read.get("phase_metadata", {})
+                    if "technical_theory" in phase_metadata:
+                        question_count = phase_metadata["technical_theory"].get("question_count", 10)
+                    
+                    # Count correct answers by iterating through all question indices
+                    # This is robust and handles unanswered questions correctly
+                    correct_count = 0
+                    for q_idx in range(question_count):
+                        q_idx_str = str(q_idx)
+                        score_data = player_scores.get(q_idx_str)
+                        # Only count if question was answered AND is correct
+                        if isinstance(score_data, dict) and score_data.get("is_correct", False):
+                            correct_count += 1
+                    
                     phase_scores[player_id] = correct_count * 200
                     
-                    print(f"[SCORES] Technical theory for player {player_id}: {correct_count} correct answers = {phase_scores[player_id]} points (correct_count * 200)")
+                    print(f"[SCORES] Technical theory for player {player_id}: {correct_count}/{question_count} correct answers = {phase_scores[player_id]} points (correct_count * 200)")
                 else:
                     print(f"[SCORES] WARNING: player_scores for {player_id} is not a dict: {type(player_scores)}")
                     phase_scores[player_id] = 0
@@ -920,22 +932,27 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
                         total_value = player_scores["_total"]
                         if isinstance(total_value, (int, float)):
                             phase_scores[player_id] = int(total_value)
+                            print(f"[SCORES] Using _total for player {player_id}: {phase_scores[player_id]}")
                         else:
-                            # Calculate from individual scores
-                            total = sum(
-                                s.get("score", 0)
-                                for s in player_scores.values()
-                                if isinstance(s, dict) and "score" in s
-                            )
+                            # Calculate from individual scores (exclude "_total" key)
+                            total = 0
+                            for key, score_data in player_scores.items():
+                                if key == "_total":
+                                    continue  # Skip _total key
+                                if isinstance(score_data, dict) and "score" in score_data:
+                                    total += int(score_data.get("score", 0))
                             phase_scores[player_id] = total
+                            print(f"[SCORES] Calculated from individual scores for player {player_id}: {total}")
                     else:
-                        # Calculate from individual scores
-                        total = sum(
-                            s.get("score", 0)
-                            for s in player_scores.values()
-                            if isinstance(s, dict) and "score" in s
-                        )
+                        # Calculate from individual scores (exclude "_total" key)
+                        total = 0
+                        for key, score_data in player_scores.items():
+                            if key == "_total":
+                                continue  # Skip _total key
+                            if isinstance(score_data, dict) and "score" in score_data:
+                                total += int(score_data.get("score", 0))
                         phase_scores[player_id] = total
+                        print(f"[SCORES] Calculated from individual scores (no _total) for player {player_id}: {total}")
                 else:
                     print(f"[SCORES] WARNING: player_scores for {player_id} is not a dict: {type(player_scores)}")
                     phase_scores[player_id] = 0
@@ -946,6 +963,76 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
                 import traceback
                 traceback.print_exc()
                 # Fallback to 0 if scoring fails
+                phase_scores[player_id] = 0
+    elif answer_phase == "technical":
+        # For "technical" phase (when phase is "technical_score"), combine technical_theory + technical_practical
+        # Read game_state without holding lock
+        db_read: Session = SessionLocal()
+        try:
+            match_record_read = db_read.query(OngoingMatch).filter(
+                OngoingMatch.match_id == match_id
+            ).first()
+            if match_record_read:
+                game_state_read = match_record_read.game_state or {}
+                if isinstance(game_state_read, dict):
+                    technical_theory_scores = game_state_read.get("technical_theory_scores", {})
+                    technical_practical_scores = game_state_read.get("technical_practical_scores", {})
+                else:
+                    technical_theory_scores = {}
+                    technical_practical_scores = {}
+            else:
+                technical_theory_scores = {}
+                technical_practical_scores = {}
+        finally:
+            db_read.close()
+        
+        if not isinstance(technical_theory_scores, dict):
+            technical_theory_scores = {}
+        if not isinstance(technical_practical_scores, dict):
+            technical_practical_scores = {}
+        
+        for player_id in player_ids:
+            try:
+                # Get technical theory score
+                theory_score = 0
+                player_theory_scores = technical_theory_scores.get(player_id, {})
+                if isinstance(player_theory_scores, dict):
+                    question_count = 10  # Default fallback
+                    phase_metadata = game_state_read.get("phase_metadata", {}) if match_record_read else {}
+                    if "technical_theory" in phase_metadata:
+                        question_count = phase_metadata["technical_theory"].get("question_count", 10)
+                    
+                    correct_count = 0
+                    for q_idx in range(question_count):
+                        q_idx_str = str(q_idx)
+                        score_data = player_theory_scores.get(q_idx_str)
+                        if isinstance(score_data, dict) and score_data.get("is_correct", False):
+                            correct_count += 1
+                    theory_score = correct_count * 200
+                
+                # Get technical practical score
+                practical_score = 0
+                player_practical_scores = technical_practical_scores.get(player_id, {})
+                if isinstance(player_practical_scores, dict):
+                    if "_total" in player_practical_scores:
+                        total_value = player_practical_scores["_total"]
+                        if isinstance(total_value, (int, float)):
+                            practical_score = int(total_value)
+                    else:
+                        # Calculate from individual scores
+                        for key, score_data in player_practical_scores.items():
+                            if key == "_total":
+                                continue
+                            if isinstance(score_data, dict) and "score" in score_data:
+                                practical_score += int(score_data.get("score", 0))
+                
+                # Combine both scores
+                phase_scores[player_id] = theory_score + practical_score
+                print(f"[SCORES] Technical (combined) for player {player_id}: theory={theory_score} + practical={practical_score} = {phase_scores[player_id]}")
+            except Exception as e:
+                print(f"[SCORES] Error getting combined technical score for player {player_id}: {e}")
+                import traceback
+                traceback.print_exc()
                 phase_scores[player_id] = 0
     else:
         # For other phases, use standard scoring module
@@ -982,10 +1069,25 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
             latest_existing_scores = {}
         
         # Calculate cumulative scores (add phase score to existing)
+        # SPECIAL CASE: If phase is "technical_score", we need to subtract previous technical_theory
+        # because base_score already includes it, and phase_score includes theory + practical
         scores: Dict[str, int] = {}
         for player_id in player_ids:
             base_score = latest_existing_scores.get(player_id, 0)
             phase_score = phase_scores.get(player_id, 0)
+            
+            if phase == "technical_score":
+                # Subtract previous technical_theory score from base_score to avoid double-counting
+                # Get previous technical_theory score from phase-specific scores
+                previous_technical_theory = current_game_state.get("technical_theory_scores", {})
+                if isinstance(previous_technical_theory, dict):
+                    player_theory_data = previous_technical_theory.get(player_id, {})
+                    if isinstance(player_theory_data, dict) and "_total" in player_theory_data:
+                        theory_total = player_theory_data["_total"]
+                        if isinstance(theory_total, (int, float)):
+                            base_score -= int(theory_total)
+                            print(f"[SCORES] Subtracted previous technical_theory score ({theory_total}) from base_score for player {player_id}")
+            
             scores[player_id] = base_score + phase_score
         
         # Store cumulative scores (this updates the main "scores" field)

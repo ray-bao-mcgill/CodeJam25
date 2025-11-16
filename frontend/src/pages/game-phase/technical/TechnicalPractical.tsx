@@ -243,7 +243,6 @@ const TechnicalPractical: React.FC = () => {
   useEffect(() => {
     if (showResults && gameState?.showResults && gameState?.phaseComplete) {
       // Phase complete, navigate to score display
-      sessionStorage.setItem('currentRound', 'technical')
       setTimeout(() => {
         navigate('/current-score')
       }, 1000)
