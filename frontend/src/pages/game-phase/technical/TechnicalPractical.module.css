@@ -7,31 +7,33 @@
   background: #f6f6f6;
   margin-bottom: -3px;
   cursor: pointer;
-  border: none;
+  border: 2px solid var(--game-text-primary);
   outline: none;
   position: relative;
   box-shadow: 0 2px 4px rgba(0,0,0,0.04);
   letter-spacing: 0.03em;
   color: var(--game-text-primary, #111);
-  transition: background 0.12s, color 0.15s;
+  transition: background 0.12s, color 0.15s, border-color 0.15s;
 }
 .tab:hover,
 .tab:focus {
-  background: var(--game-yellow, #ffe838);
-  color: var(--game-text-primary, #111);
+  background: var(--game-yellow);
+  color: var(--game-text-primary);
+  border-color: var(--game-text-primary);
 }
 .active {
-  background: var(--game-yellow, #ffe838);
-  border-bottom: 3px solid var(--game-yellow, #ffe838);
-  box-shadow: 0 3px 12px rgba(255,232,56,0.10);
+  background: var(--game-yellow);
+  border-bottom: 3px solid var(--game-yellow);
+  border: 2px solid var(--game-text-primary);
+  box-shadow: 0 3px 12px rgba(255,235,59,0.20);
   z-index: 1;
-  color: #222;
+  color: var(--game-text-primary);
 }
 .inactive {
   background: #f6f6f6;
   color: #111;
   opacity: 0.8;
-  border-bottom: 3px solid transparent;
+  border-bottom: 2px solid transparent;
 }
 .tabpanel {
   width: 100%;

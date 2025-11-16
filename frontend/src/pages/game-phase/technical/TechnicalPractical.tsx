@@ -578,8 +578,18 @@ const TechnicalPractical: React.FC = () => {
     <div className="game-bg w-full" style={{ minHeight: '100vh', padding: '1rem 0.5rem 4rem', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div className="mb-4 flex flex-col items-center" style={{ flexShrink: 0 }}>
-        <div className="game-paper px-10 py-4 game-shadow-hard-lg mb-3">
-          <h1 className="game-title text-3xl sm:text-4xl">TECHNICAL PRACTICAL</h1>
+        <div 
+          className="game-shadow-hard-lg mb-3 inline-block"
+          style={{
+            background: 'var(--game-yellow)',
+            padding: '1.5rem 3rem',
+            transform: 'rotate(-2deg)',
+            border: '4px solid var(--game-text-primary)',
+          }}
+        >
+          <h1 className="game-title text-3xl sm:text-4xl" style={{ color: 'var(--game-text-primary)' }}>
+            TECHNICAL PRACTICAL
+          </h1>
         </div>
       </div>
 
