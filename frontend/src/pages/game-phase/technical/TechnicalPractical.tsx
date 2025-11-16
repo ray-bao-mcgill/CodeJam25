@@ -214,39 +214,22 @@ const TechnicalPractical: React.FC = () => {
     setFiles(f => {
       const arr = [...f];
       let code = arr[currentFileIdx].code;
-      const trimmed = code.trim();
       
-      // If code is empty or just a placeholder comment, replace with language-appropriate placeholder
-      if (!trimmed || trimmed === '// Start coding here...' || trimmed === '# Start coding here...' || 
-          trimmed === '/* Start coding here... */' || trimmed === '<!-- Start coding here... -->') {
-        if (lang === 'python' || lang === 'shell') {
-          code = '# Start coding here...\n';
-        } else if (lang === 'javascript' || lang === 'typescript') {
-          code = '// Start coding here...\n';
-        } else if (lang === 'html') {
-          code = '<!-- Start coding here... -->\n';
-        } else if (lang === 'css') {
-          code = '/* Start coding here... */\n';
-        } else {
-          code = '// Start coding here...\n';
+      // Clean up invalid comment lines for the new language
+      const lines = code.split('\n');
+      const cleanedLines = lines.map(line => {
+        const trimmedLine = line.trim();
+        // Remove JavaScript-style comments if switching to Python/Shell
+        if ((lang === 'python' || lang === 'shell') && trimmedLine.startsWith('//')) {
+          return line.replace(/^\s*\/\/\s*/, '# ');
         }
-      } else {
-        // Clean up invalid comment lines for the new language
-        const lines = code.split('\n');
-        const cleanedLines = lines.map(line => {
-          const trimmedLine = line.trim();
-          // Remove JavaScript-style comments if switching to Python/Shell
-          if ((lang === 'python' || lang === 'shell') && trimmedLine.startsWith('//')) {
-            return line.replace(/^\s*\/\/\s*/, '# ');
-          }
-          // Remove Python-style comments if switching to JavaScript/TypeScript
-          if ((lang === 'javascript' || lang === 'typescript') && trimmedLine.startsWith('#')) {
-            return line.replace(/^\s*#\s*/, '// ');
-          }
-          return line;
-        });
-        code = cleanedLines.join('\n');
-      }
+        // Remove Python-style comments if switching to JavaScript/TypeScript
+        if ((lang === 'javascript' || lang === 'typescript') && trimmedLine.startsWith('#')) {
+          return line.replace(/^\s*#\s*/, '// ');
+        }
+        return line;
+      });
+      code = cleanedLines.join('\n');
       
       arr[currentFileIdx] = { ...arr[currentFileIdx], language: lang, code };
       return arr;
@@ -262,20 +245,7 @@ const TechnicalPractical: React.FC = () => {
     }
     // Guess default language by extension
     const lang = getLanguageFromFilename(fname);
-    // Set appropriate initial comment based on language
-    let initialCode = '';
-    if (lang === 'python' || lang === 'shell') {
-      initialCode = '# Start coding here...\n';
-    } else if (lang === 'javascript' || lang === 'typescript') {
-      initialCode = '// Start coding here...\n';
-    } else if (lang === 'html') {
-      initialCode = '<!-- Start coding here... -->\n';
-    } else if (lang === 'css') {
-      initialCode = '/* Start coding here... */\n';
-    } else {
-      initialCode = '// Start coding here...\n';
-    }
-    setFiles(f => [...f, { name: fname, code: initialCode, language: lang }]);
+    setFiles(f => [...f, { name: fname, code: '', language: lang }]);
     setCurrentFileIdx(files.length); // Focus new file
     setShowFileModal(false);
     setFileInput('');
@@ -798,22 +768,9 @@ const TechnicalPractical: React.FC = () => {
               <button type="button" onClick={()=>setShowClearModal(false)} style={{fontWeight:600,color:'#666',background:'#efefef',border:'1px solid #bbb',borderRadius:4,padding:'0.23em 0.92em'}}>Cancel</button>
               <button type="button" style={{fontWeight:700,background:'#ffe838',color:'#cc3300',borderRadius:4,border:'none',padding:'0.23em 1.36em'}}
                 onClick={()=> {
-                  const lang = files[currentFileIdx].language;
-                  let emptyCode = '';
-                  if (lang === 'python' || lang === 'shell') {
-                    emptyCode = '# Start coding here...\n';
-                  } else if (lang === 'javascript' || lang === 'typescript') {
-                    emptyCode = '// Start coding here...\n';
-                  } else if (lang === 'html') {
-                    emptyCode = '<!-- Start coding here... -->\n';
-                  } else if (lang === 'css') {
-                    emptyCode = '/* Start coding here... */\n';
-                  } else {
-                    emptyCode = '// Start coding here...\n';
-                  }
-                  setFiles(f=>{const arr=[...f];arr[currentFileIdx]={...arr[currentFileIdx],code:emptyCode};return arr;});
+                  setFiles(f=>{const arr=[...f];arr[currentFileIdx]={...arr[currentFileIdx],code:''};return arr;});
                   setShowClearModal(false);
-                  if(monacoEditorRef.current) monacoEditorRef.current.setValue(emptyCode);
+                  if(monacoEditorRef.current) monacoEditorRef.current.setValue('');
                 }}>Reset</button>
             </div>
           </div>
