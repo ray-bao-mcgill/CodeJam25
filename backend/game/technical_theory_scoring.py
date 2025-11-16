@@ -142,14 +142,28 @@ async def score_technical_theory_answer(
         # Calculate total score: count correct answers and multiply by 200
         # This ensures we're using the Python logic: correct_answers * 200
         player_scores = game_state["technical_theory_scores"][player_id]
-        correct_count = sum(
-            1 for s in player_scores.values()
-            if isinstance(s, dict) and s.get("is_correct", False)
-        )
+        
+        # Get question count from phase_metadata to iterate through all questions
+        # This ensures we count correctly even if some questions aren't answered yet
+        question_count = 10  # Default fallback
+        phase_metadata = game_state.get("phase_metadata", {})
+        if "technical_theory" in phase_metadata:
+            question_count = phase_metadata["technical_theory"].get("question_count", 10)
+        
+        # Count correct answers by iterating through all question indices
+        # This is robust and handles unanswered questions correctly
+        correct_count = 0
+        for q_idx in range(question_count):
+            q_idx_str = str(q_idx)
+            score_data = player_scores.get(q_idx_str)
+            # Only count if question was answered AND is correct
+            if isinstance(score_data, dict) and score_data.get("is_correct", False):
+                correct_count += 1
+        
         cumulative_score = correct_count * 200
         game_state["technical_theory_scores"][player_id]["_total"] = cumulative_score
         
-        print(f"[TECHNICAL_THEORY_SCORING] Player {player_id}: {correct_count} correct answers = {cumulative_score} points (correct_count * 200)")
+        print(f"[TECHNICAL_THEORY_SCORING] Player {player_id}: {correct_count}/{question_count} correct answers = {cumulative_score} points (correct_count * 200)")
         
         # Use flag_modified to ensure SQLAlchemy tracks the change
         from sqlalchemy.orm.attributes import flag_modified

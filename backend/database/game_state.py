@@ -869,14 +869,26 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
                 player_scores = technical_theory_scores.get(player_id, {})
                 
                 if isinstance(player_scores, dict):
-                    # Count correct answers and multiply by 200 (Python logic)
-                    correct_count = sum(
-                        1 for s in player_scores.values()
-                        if isinstance(s, dict) and s.get("is_correct", False)
-                    )
+                    # Get question count from phase_metadata to iterate through all questions
+                    # This ensures we count correctly even if some questions aren't answered yet
+                    question_count = 10  # Default fallback
+                    phase_metadata = game_state_read.get("phase_metadata", {})
+                    if "technical_theory" in phase_metadata:
+                        question_count = phase_metadata["technical_theory"].get("question_count", 10)
+                    
+                    # Count correct answers by iterating through all question indices
+                    # This is robust and handles unanswered questions correctly
+                    correct_count = 0
+                    for q_idx in range(question_count):
+                        q_idx_str = str(q_idx)
+                        score_data = player_scores.get(q_idx_str)
+                        # Only count if question was answered AND is correct
+                        if isinstance(score_data, dict) and score_data.get("is_correct", False):
+                            correct_count += 1
+                    
                     phase_scores[player_id] = correct_count * 200
                     
-                    print(f"[SCORES] Technical theory for player {player_id}: {correct_count} correct answers = {phase_scores[player_id]} points (correct_count * 200)")
+                    print(f"[SCORES] Technical theory for player {player_id}: {correct_count}/{question_count} correct answers = {phase_scores[player_id]} points (correct_count * 200)")
                 else:
                     print(f"[SCORES] WARNING: player_scores for {player_id} is not a dict: {type(player_scores)}")
                     phase_scores[player_id] = 0
@@ -920,22 +932,27 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
                         total_value = player_scores["_total"]
                         if isinstance(total_value, (int, float)):
                             phase_scores[player_id] = int(total_value)
+                            print(f"[SCORES] Using _total for player {player_id}: {phase_scores[player_id]}")
                         else:
-                            # Calculate from individual scores
-                            total = sum(
-                                s.get("score", 0)
-                                for s in player_scores.values()
-                                if isinstance(s, dict) and "score" in s
-                            )
+                            # Calculate from individual scores (exclude "_total" key)
+                            total = 0
+                            for key, score_data in player_scores.items():
+                                if key == "_total":
+                                    continue  # Skip _total key
+                                if isinstance(score_data, dict) and "score" in score_data:
+                                    total += int(score_data.get("score", 0))
                             phase_scores[player_id] = total
+                            print(f"[SCORES] Calculated from individual scores for player {player_id}: {total}")
                     else:
-                        # Calculate from individual scores
-                        total = sum(
-                            s.get("score", 0)
-                            for s in player_scores.values()
-                            if isinstance(s, dict) and "score" in s
-                        )
+                        # Calculate from individual scores (exclude "_total" key)
+                        total = 0
+                        for key, score_data in player_scores.items():
+                            if key == "_total":
+                                continue  # Skip _total key
+                            if isinstance(score_data, dict) and "score" in score_data:
+                                total += int(score_data.get("score", 0))
                         phase_scores[player_id] = total
+                        print(f"[SCORES] Calculated from individual scores (no _total) for player {player_id}: {total}")
                 else:
                     print(f"[SCORES] WARNING: player_scores for {player_id} is not a dict: {type(player_scores)}")
                     phase_scores[player_id] = 0
