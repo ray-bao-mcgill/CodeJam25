@@ -2069,21 +2069,27 @@ async def websocket_lobby(websocket: WebSocket, lobby_id: str):
                                     cached_question = questions_cache_check.get(question_key_check)
                                     
                                     if cached_question:
-                                        # Question already selected and stored - send cached question
-                                        print(f"[QUESTION] Using cached question for {phase}_{question_index} (after lock)")
-                                        await lobby_manager.broadcast_game_message(
-                                            lobby_id,
-                                            {
-                                                "type": "question_received",
-                                                "phase": phase,
-                                                "question_index": question_index,
-                                                "question": cached_question.get("question"),
-                                                "question_id": cached_question.get("question_id"),
-                                                "role": cached_question.get("role"),
-                                                "level": cached_question.get("level")
-                                            }
-                                        )
-                                        continue
+                                        # For technical_theory, skip generic handler - let technical_theory handler process it
+                                        # This ensures technical_theory gets proper answer fields and broadcasts all questions
+                                        if phase == "technical_theory":
+                                            print(f"[QUESTION] Cached technical_theory question found, skipping generic handler to use technical_theory-specific handler")
+                                            # Don't continue here - let it fall through to technical_theory handler
+                                        else:
+                                            # Question already selected and stored - send cached question
+                                            print(f"[QUESTION] Using cached question for {phase}_{question_index} (after lock)")
+                                            await lobby_manager.broadcast_game_message(
+                                                lobby_id,
+                                                {
+                                                    "type": "question_received",
+                                                    "phase": phase,
+                                                    "question_index": question_index,
+                                                    "question": cached_question.get("question"),
+                                                    "question_id": cached_question.get("question_id"),
+                                                    "role": cached_question.get("role"),
+                                                    "level": cached_question.get("level")
+                                                }
+                                            )
+                                            continue
                                     
                                     # No cached question - proceed to select/generate
                                     print(f"[QUESTION] No cached question found, selecting/generating for {phase}_{question_index}")

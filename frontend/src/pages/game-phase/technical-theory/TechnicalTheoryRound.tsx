@@ -243,6 +243,33 @@ const TechnicalTheoryRound: React.FC = () => {
       }
       // Handle individual question received (fallback)
       else if (message.type === 'question_received' && message.phase === 'technical_theory') {
+        console.log('[TECHNICAL_THEORY] Received question_received message:', {
+          hasCorrectAnswer: !!message.correct_answer,
+          hasIncorrectAnswers: !!message.incorrect_answers,
+          questionIndex: message.question_index
+        })
+        
+        // If we receive question_index 0 without answer fields, we need to request all questions
+        // This happens when backend sends a single question before broadcasting all questions
+        if (message.question_index === 0 && (!message.correct_answer || !message.incorrect_answers)) {
+          console.warn('[TECHNICAL_THEORY] Received question 0 without answer fields, requesting all questions')
+          // Reset request flag and request again
+          hasRequestedQuestionsRef.current = false
+          const ws = wsRef.current
+          if (ws && ws.readyState === WebSocket.OPEN && lobbyId && playerId) {
+            setTimeout(() => {
+              ws.send(JSON.stringify({
+                type: 'request_question',
+                player_id: playerId,
+                lobby_id: lobbyId,
+                phase: 'technical_theory',
+                question_index: 0
+              }))
+            }, 500) // Small delay to avoid race condition
+          }
+          return
+        }
+        
         if (message.correct_answer && message.incorrect_answers) {
           const converted = convertQuestionToFrontendFormat(
             message.question,
@@ -257,6 +284,8 @@ const TechnicalTheoryRound: React.FC = () => {
             return newQuestions
           })
           setIsLoading(false)
+        } else {
+          console.warn('[TECHNICAL_THEORY] Received question_received without answer fields, ignoring')
         }
       }
       // Handle player finished technical theory
@@ -527,7 +556,7 @@ const TechnicalTheoryRound: React.FC = () => {
             ws.send(JSON.stringify({
               type: 'technical_theory_finished',
               player_id: playerId,
-              match_id: gameState?.matchId,
+              lobby_id: lobbyId,
               is_dead: true  // Mark as dead so backend knows
             }))
             console.log('[TECHNICAL_THEORY] Sent finish message to server (dead)')
