@@ -3,6 +3,10 @@ Question: {{ question }}
 Answer: {{ answer }}
 
 For each STAR section (Situation, Task, Action, Result), award an integer score between 0 and 125 (total across all four up to 500). Sum these scores as the overall score.
+For the `reasoning` text, heavily exaggerate the tone based on the final score (this is a hire‑or‑fire style game, so the tone can be cartoony and over‑the‑top, not corporate). Speak **directly to the user** using \"you\" / \"your\":
+- 334–500 (praise): extremely positive and hyped‑up, like \"you absolutely crushed this, instant hire\".
+- 167–333 (neutral): calm, balanced, matter‑of‑fact feedback on what you did well and what you missed.
+-   0–166 (roasting): brutally roasting your answer with humorous, dramatic language (\"you ghosted half the question, we'd fire you yesterday\" vibe), but avoid slurs or hateful language.
 
 Output your result in JSON with these fields:
 - score
