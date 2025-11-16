@@ -499,7 +499,7 @@ const TechnicalPractical: React.FC = () => {
                     </li>
                   ))}
                 </ul>
-                <button onClick={handleAddFile} style={{marginTop:10, width:'100%', background:'#e3e3e9',border:'1px solid #bbb', borderRadius:5, cursor:'pointer', padding:'0.3em 0'}}>+ File</button>
+                <button type="button" onClick={handleAddFile} style={{marginTop:10, width:'100%', background:'#e3e3e9',border:'1px solid #bbb', borderRadius:5, cursor:'pointer', padding:'0.3em 0'}}>+ File</button>
                 {showFileModal && (
               <div style={{position:'fixed',left:0,top:0,width:'100vw',height:'100vh',background:'rgba(32,32,32,0.22)',zIndex:40,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={handleFileModalCancel}>
                 <form onSubmit={handleFileModalSubmit} style={{background:'#fff', minWidth:270, borderRadius:10, boxShadow:'0 8px 32px #0003', padding:'2rem 1.6rem', zIndex:50, display:'flex',flexDirection:'column', gap:14}} onClick={e => e.stopPropagation()}>
@@ -553,9 +553,16 @@ const TechnicalPractical: React.FC = () => {
               <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
                 <button
                   type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
                   onClick={async (e)=>{
                     e.preventDefault();
                     e.stopPropagation();
+                    if (e.nativeEvent) {
+                      e.nativeEvent.stopImmediatePropagation();
+                    }
                     const language = files[currentFileIdx].language;
                     const code = files[currentFileIdx].code;
                     setOutputLog(['Running...']);
