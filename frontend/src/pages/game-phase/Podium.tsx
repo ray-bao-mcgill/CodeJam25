@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useLobby } from '@/hooks/useLobby'
+import { useLobbyWebSocket } from '@/hooks/useLobbyWebSocket'
 import { Button } from '@/components/ui/button'
 
 interface PlayerRanking {
@@ -13,39 +14,90 @@ interface PlayerRanking {
 const Podium: React.FC = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const currentPlayerScore = parseInt(searchParams.get('score') || '0')
-  const currentPlayerRank = parseInt(searchParams.get('rank') || '1')
-  const { lobby, playerId } = useLobby()
+  const { lobby, playerId, lobbyId } = useLobby()
   const [rankings, setRankings] = useState<PlayerRanking[]>([])
+  
+  // Get score and rank from URL params (these are passed from WinLose page)
+  const urlScore = parseInt(searchParams.get('score') || '0')
+  const urlRank = parseInt(searchParams.get('rank') || '1')
+  
+  console.log(`[PODIUM] URL params: score=${urlScore}, rank=${urlRank}`)
 
+  // Fetch rankings from database API on mount
   useEffect(() => {
-    // Get player rankings from lobby data or create mock data
-    if (lobby && lobby.players) {
-      // TODO: Get actual scores from game state
-      const playerRankings: PlayerRanking[] = lobby.players.map((player: any, index: number) => ({
-        name: player.name,
-        score: player.id === playerId ? currentPlayerScore : Math.floor(Math.random() * 2000) + 1000,
-        rank: index + 1,
-        isCurrentPlayer: player.id === playerId
-      }))
-
-      // Sort by score descending and assign ranks
-      playerRankings.sort((a, b) => b.score - a.score)
-      playerRankings.forEach((player, index) => {
-        player.rank = index + 1
-      })
-
-      setRankings(playerRankings)
-    } else {
-      // Single player or no lobby - show just current player
-      setRankings([{
-        name: 'You',
-        score: currentPlayerScore,
-        rank: currentPlayerRank,
-        isCurrentPlayer: true
-      }])
+    const fetchRankings = async () => {
+      // Fetch from database API (only source of truth)
+      if (lobbyId) {
+        try {
+          const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://127.0.0.1:8000' : window.location.origin)
+          const response = await fetch(`${API_URL}/api/lobby/${lobbyId}/match-rankings`)
+          if (response.ok) {
+            const data = await response.json()
+            if (data.rankings && data.rankings.length > 0) {
+              const playerRankings: PlayerRanking[] = data.rankings.map((r: any) => ({
+                name: r.name || 'Unknown',
+                score: r.score || 0,
+                rank: r.rank || 1,
+                isCurrentPlayer: r.player_id === playerId
+              }))
+              playerRankings.sort((a, b) => a.rank - b.rank)
+              console.log('[PODIUM] Fetched rankings from database:', playerRankings)
+              console.log('[PODIUM] Scores from DB:', playerRankings.map(p => `${p.name}: ${p.score} (rank ${p.rank})`))
+              
+              setRankings(playerRankings)
+              return
+            }
+          } else {
+            console.error('[PODIUM] API error:', response.status, response.statusText)
+          }
+        } catch (e) {
+          console.error('[PODIUM] Error fetching rankings from API:', e)
+        }
+      }
+      
+      // Fallback: URL params (from WinLose navigation) - only if API fails
+      if (lobby && lobby.players) {
+        const playerRankings: PlayerRanking[] = lobby.players.map((player: any, index: number) => ({
+          name: player.name || player.id,
+          score: player.id === playerId ? urlScore : 0,
+          rank: index + 1,
+          isCurrentPlayer: player.id === playerId
+        }))
+        playerRankings.sort((a, b) => b.score - a.score)
+        playerRankings.forEach((player, index) => {
+          player.rank = index + 1
+        })
+        console.log('[PODIUM] Using fallback from URL params:', playerRankings)
+        setRankings(playerRankings)
+      }
     }
-  }, [lobby, playerId, currentPlayerScore, currentPlayerRank])
+    
+    fetchRankings()
+  }, [lobbyId, lobby, playerId, urlScore, urlRank])
+
+  // Listen for game_end message to get actual rankings from backend (in case it arrives late)
+  useLobbyWebSocket({
+    lobbyId: lobbyId || null,
+    enabled: !!lobbyId,
+    onLobbyUpdate: () => {},
+    onGameStarted: () => {},
+    onDisconnect: () => {},
+    onKicked: () => {},
+    currentPlayerId: playerId || null,
+    onGameMessage: (message: any) => {
+      if (message.type === 'game_end' && message.rankings) {
+        // Convert backend rankings to frontend format
+        const playerRankings: PlayerRanking[] = message.rankings.map((r: any) => ({
+          name: r.name,
+          score: r.score,
+          rank: r.rank,
+          isCurrentPlayer: r.player_id === playerId
+        }))
+        console.log('[PODIUM] Received game_end message with rankings:', playerRankings)
+        setRankings(playerRankings)
+      }
+    },
+  })
 
   const getPodiumHeight = (rank: number) => {
     if (rank === 1) return 'h-80'

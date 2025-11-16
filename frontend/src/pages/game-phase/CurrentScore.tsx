@@ -10,7 +10,8 @@ const CurrentScore: React.FC = () => {
   const { gameState, proceedToNextPhase } = useGameFlow()
   const { lobby, lobbyId, playerId } = useLobby()
   const { showResults: syncShowResults } = useGameSync()
-  const [scores, setScores] = useState<Record<string, number>>({})
+  const [scores, setScores] = useState<Record<string, number>>({}) // Cumulative scores
+  const [phaseScores, setPhaseScores] = useState<Record<string, number>>({}) // Round-specific scores from DB
   const [isLoading, setIsLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
   const [waitingForSync, setWaitingForSync] = useState(true)
@@ -68,17 +69,42 @@ const CurrentScore: React.FC = () => {
         // Server has calculated and is broadcasting synchronized scores
         // ONLY show scores when ALL players are ready (no race conditions)
         console.log('Received synchronized scores from server:', message.scores)
+        console.log('Phase scores (round-specific) from DB:', message.phase_scores)
         if (message.scores && Object.keys(message.scores).length > 0 && !scoresShownRef.current) {
-          setScores(message.scores)
+          // Store scores from backend
+          const newScores = message.scores || {} // New cumulative scores
+          const newPhaseScores = message.phase_scores || {} // Round-specific scores from DB
+          
+          setScores(newScores)
+          setPhaseScores(newPhaseScores)
           setWaitingForSync(false)
           setIsLoading(false)
           scoresShownRef.current = true
+          
           // Reset timer when scores are shown
           setTimeRemaining(7)
         }
       } else if (message.type === 'show_scores') {
         // Server says all players are ready, show scores
         setWaitingForSync(false)
+      } else if (message.type === 'game_end') {
+        // Game has ended - navigate after showing final scores
+        console.log('Game ended! Rankings:', message.rankings)
+        console.log('Final scores:', message.final_scores)
+        
+        if (message.rankings && playerId) {
+          // Find current player's rank and score
+          const playerRanking = message.rankings.find((r: any) => r.player_id === playerId)
+          if (playerRanking) {
+            const rank = playerRanking.rank
+            const score = playerRanking.score
+            console.log(`[GAME_END] Player ${playerId} rank: ${rank}, score: ${score}`)
+            // Wait for final score display (7 seconds timer) then navigate to WinLose page
+            setTimeout(() => {
+              navigate(`/win-lose?score=${score}&rank=${rank}`)
+            }, 8000) // Wait 8 seconds to allow final score display
+          }
+        }
       } else if (message.type === 'player_ready_to_continue') {
         // Player clicked continue button
         setReadyToContinuePlayers((prev) => {
@@ -112,6 +138,7 @@ const CurrentScore: React.FC = () => {
     setReadyToContinuePlayers([])
     setAllReadyToContinue(false)
     setScores({})
+    setPhaseScores({})
     setWaitingForSync(true)
     setIsLoading(true)
     hasSentReadyRef.current = false
@@ -336,11 +363,20 @@ const CurrentScore: React.FC = () => {
             <div className="game-label-text text-lg mb-3 game-shadow-hard-sm bg-[var(--game-blue)] px-4 py-1 text-white">
               {player1.name.toUpperCase()}
             </div>
-            <div className="px-10 py-7 game-sharp game-shadow-hard-lg border-6 border-[var(--game-blue)] bg-gradient-to-br from-blue-100 to-blue-200">
-              <div className="text-6xl font-black text-[var(--game-blue)] leading-none" style={{ fontFamily: 'Impact, sans-serif' }}>
+            <div className="px-10 py-7 game-sharp game-shadow-hard-lg border-6 border-[var(--game-blue)] bg-gradient-to-br from-blue-100 to-blue-200 score-display">
+              <div 
+                className="text-6xl font-black text-[var(--game-blue)] leading-none"
+                style={{ fontFamily: 'Impact, sans-serif' }}
+              >
                 {score1}
               </div>
             </div>
+            {/* Round Score Increase Display */}
+            {phaseScores[player1.id] > 0 && (
+              <div className="mt-3 px-4 py-2 bg-green-500 text-white rounded-md text-lg font-bold">
+                +{phaseScores[player1.id]}
+              </div>
+            )}
           </div>
 
           {/* VS in Circle - perfectly centered on the line */}
@@ -358,13 +394,23 @@ const CurrentScore: React.FC = () => {
             <div className="game-label-text text-lg mb-3 game-shadow-hard-sm bg-[var(--game-red)] px-4 py-1 text-white">
               {player2.name.toUpperCase()}
             </div>
-            <div className="px-10 py-7 game-sharp game-shadow-hard-lg border-6 border-[var(--game-red)] bg-gradient-to-br from-red-100 to-red-200">
-              <div className="text-6xl font-black text-[var(--game-red)] leading-none" style={{ fontFamily: 'Impact, sans-serif' }}>
+            <div className="px-10 py-7 game-sharp game-shadow-hard-lg border-6 border-[var(--game-red)] bg-gradient-to-br from-red-100 to-red-200 score-display">
+              <div 
+                className="text-6xl font-black text-[var(--game-red)] leading-none"
+                style={{ fontFamily: 'Impact, sans-serif' }}
+              >
                 {score2}
               </div>
             </div>
+            {/* Round Score Increase Display */}
+            {phaseScores[player2.id] > 0 && (
+              <div className="mt-3 px-4 py-2 bg-green-500 text-white rounded-md text-lg font-bold">
+                +{phaseScores[player2.id]}
+              </div>
+            )}
           </div>
         </div>
+
 
         {/* Continue Button - positioned at bottom */}
         <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 z-10">

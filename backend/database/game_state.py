@@ -724,20 +724,34 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
         
         if not match_record:
             print(f"Match {match_id} not found for score calculation")
-            return {pid: 0 for pid in player_ids}
+            return {pid: 0 for pid in player_ids}, {pid: 0 for pid in player_ids}
         
         # Get existing cumulative scores from database (fresh read)
+        # These are the PREVIOUS scores before this phase calculation
         existing_scores = {}
         game_state = match_record.game_state
         if game_state and isinstance(game_state, dict):
             existing_scores = game_state.get("scores", {}).copy()
         
+        # Store previous scores for animation purposes
+        previous_scores = existing_scores.copy()
+        
         # Check if scores for this phase already exist (prevent double calculation)
         phase_scores_key = f"{phase}_scores"
         if game_state and isinstance(game_state, dict) and phase_scores_key in game_state:
             print(f"[SCORES] Scores for {phase} already calculated, returning existing cumulative scores")
-            # Return existing cumulative scores, not phase-specific
-            return existing_scores
+            # Return existing cumulative scores from game_state (should be up to date)
+            # Make sure we return scores for all requested players
+            cumulative_scores = game_state.get("scores", {})
+            if not isinstance(cumulative_scores, dict):
+                cumulative_scores = {}
+            # Ensure all players have scores (even if 0)
+            result_scores = {}
+            for pid in player_ids:
+                result_scores[pid] = cumulative_scores.get(pid, 0)
+            print(f"[SCORES] Returning cumulative scores: {result_scores}")
+            # Also return previous scores for animation
+            return result_scores, previous_scores
         
         # Normalize phase name (remove "_score" suffix if present for answer lookup)
         answer_phase = phase.replace("_score", "") if phase.endswith("_score") else phase
@@ -818,6 +832,54 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
                     traceback.print_exc()
                     # Fallback to 0 if scoring fails
                     phase_scores[player_id] = 0
+        elif answer_phase == "technical_practical":
+            # For technical_practical, use pre-calculated scores (scored incrementally as submissions were submitted)
+            phase_scores = {}
+            
+            # Get technical_practical_scores from the current game_state (already locked)
+            technical_practical_scores = game_state.get("technical_practical_scores", {}) if isinstance(game_state, dict) else {}
+            
+            if not isinstance(technical_practical_scores, dict):
+                print(f"[SCORES] WARNING: technical_practical_scores is not a dict: {type(technical_practical_scores)}")
+                technical_practical_scores = {}
+            
+            for player_id in player_ids:
+                try:
+                    player_scores = technical_practical_scores.get(player_id, {})
+                    
+                    if isinstance(player_scores, dict):
+                        # Get pre-calculated total if available
+                        if "_total" in player_scores:
+                            total_value = player_scores["_total"]
+                            if isinstance(total_value, (int, float)):
+                                phase_scores[player_id] = int(total_value)
+                            else:
+                                # Calculate from individual scores
+                                total = sum(
+                                    s.get("score", 0)
+                                    for s in player_scores.values()
+                                    if isinstance(s, dict) and "score" in s
+                                )
+                                phase_scores[player_id] = total
+                        else:
+                            # Calculate from individual scores
+                            total = sum(
+                                s.get("score", 0)
+                                for s in player_scores.values()
+                                if isinstance(s, dict) and "score" in s
+                            )
+                            phase_scores[player_id] = total
+                    else:
+                        print(f"[SCORES] WARNING: player_scores for {player_id} is not a dict: {type(player_scores)}")
+                        phase_scores[player_id] = 0
+                    
+                    print(f"[SCORES] Retrieved pre-calculated technical practical score for player {player_id}: {phase_scores[player_id]}")
+                except Exception as e:
+                    print(f"[SCORES] Error getting technical practical score for player {player_id}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # Fallback to 0 if scoring fails
+                    phase_scores[player_id] = 0
         else:
             # For other phases, use standard scoring module
             from game.scoring import calculate_phase_scores
@@ -830,6 +892,7 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
             )
         
         # Calculate cumulative scores (add phase score to existing)
+        # This is correct - we want cumulative scores across all phases
         scores: Dict[str, int] = {}
         for player_id in player_ids:
             base_score = existing_scores.get(player_id, 0)
@@ -843,15 +906,15 @@ async def calculate_and_store_scores(match_id: str, phase: str, player_ids: List
         if not isinstance(current_state, dict):
             current_state = {}
         
-        # Merge scores properly
-        merged_scores = existing_scores.copy()
-        for player_id, new_score in scores.items():
-            existing_score = merged_scores.get(player_id, 0)
-            merged_scores[player_id] = max(existing_score, new_score)
+        # Use the newly calculated cumulative scores directly (don't use max() which can hide bugs)
+        merged_scores = scores.copy()
         
         # Update scores in the existing game_state dict (preserve all other structures like technical_theory_scores)
         current_state["scores"] = merged_scores
-        current_state[phase_scores_key] = scores.copy()
+        # Store phase-specific scores separately (just for this phase, not cumulative)
+        current_state[phase_scores_key] = phase_scores.copy()
+        # Store previous scores for animation purposes (before this phase)
+        current_state["previous_scores"] = previous_scores.copy()
         current_state["scores_updated_at"] = datetime.utcnow().isoformat()
         
         # CRITICAL: Create a new dict to ensure SQLAlchemy detects the change

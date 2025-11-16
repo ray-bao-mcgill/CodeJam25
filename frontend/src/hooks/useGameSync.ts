@@ -148,6 +148,22 @@ export function useGameSync() {
           submittedPlayers: newSubmitted
         }
       })
+    } else if (message.type === 'question_received') {
+      // Handle question received from database (for technical_practical and other phases)
+      setGameState((prev) => {
+        return {
+          ...(prev || {
+            phase: message.phase || 'unknown',
+            submittedPlayers: [],
+            allPlayersSubmitted: false,
+            showResults: false
+          }),
+          question: message.question,
+          questionId: message.question_id,
+          questionIndex: message.question_index,
+          phase: message.phase || prev?.phase
+        }
+      })
     }
   }, [lobby?.players.length])
 
