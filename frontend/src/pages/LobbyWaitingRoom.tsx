@@ -317,7 +317,7 @@ export default function LobbyWaitingRoom({
     >
       <span>{lobby.id}</span>
       <span className="text-xs sm:text-sm flex-shrink-0" style={{ opacity: copied ? 1 : 0.7 }}>
-        {copied ? '✓' : '📋'}
+        {copied ? '✓' : ''}
       </span>
     </div>
   </div>
