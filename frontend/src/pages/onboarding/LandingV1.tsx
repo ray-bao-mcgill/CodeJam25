@@ -1,320 +1,177 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
-// LandingV1 (Adjusted): Closer to original layout, retains yellow hero note but
-// applies thick black border, removes emojis, uses green/orange palette from quickfire.
-
 const LandingV1: React.FC = () => {
   const navigate = useNavigate();
-
-  // Animation styles
-  const heroAnimationStyle = {
-    animation: "float 3s ease-in-out infinite, sway 6s ease-in-out infinite",
-  };
-
-  const shadowPulseStyle = {
-    animation: "shadowPulse 3s ease-in-out infinite",
-  };
-
-  const letterStaggerStyle = (index: number) => ({
-    display: "inline-block",
-    animation: `fadeIn 0.6s ease-out ${index * 0.1}s both`,
-  });
-
-  // Light pulse styles for HIRE (indices 0-3) and FIRE (indices 5-8)
-  const lightPulseStyle = (index: number) => {
-    // HIRE letters: H=0, I=1, R=2, E=3
-    // FIRE letters: F=5, I=6, R=7, E=8
-    const delay = index * 0.08; // 0.08s between each letter for smooth wave
-    return {
-      display: "inline-block",
-      position: "relative" as const,
-      animation: `fadeIn 0.6s ease-out ${
-        index * 0.1
-      }s both, lightSweep 8s ease-in-out ${5 + delay}s infinite`,
-    };
-  };
 
   return (
     <>
       <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-8px); }
-        }
-        
-        @keyframes sway {
-          0%, 100% { transform: rotate(-3deg); }
-          50% { transform: rotate(-1deg); }
-        }
-        
-        @keyframes shadowPulse {
-          0%, 100% { box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.2), 10px 10px 0 rgba(0, 0, 0, 0.15); }
-          50% { box-shadow: 15px 15px 0 rgba(0, 0, 0, 0.2), 12px 12px 0 rgba(0, 0, 0, 0.15); }
-        }
-        
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
+        @keyframes fire-flicker {
+          0%, 100% {
+            text-shadow: 
+              0 0 15px #ff4500,
+              0 0 30px #ff4500,
+              0 0 45px #ff6347,
+              0 0 60px #ff6347,
+              0 0 75px #ff8c00,
+              0 0 90px #ff8c00;
+            filter: brightness(1.1);
           }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        @keyframes lightSweep {
-          0% {
-            filter: brightness(1);
-            text-shadow: none;
-          }
-          5% {
+          25% {
+            text-shadow: 
+              0 0 25px #ff4500,
+              0 0 40px #ff4500,
+              0 0 55px #ff6347,
+              0 0 70px #ff6347,
+              0 0 90px #ff8c00,
+              0 0 110px #ff8c00;
             filter: brightness(1.4);
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.5), 0 0 25px rgba(255, 255, 255, 0.3);
           }
-          10% {
-            filter: brightness(1.4);
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.5), 0 0 25px rgba(255, 255, 255, 0.3);
+          50% {
+            text-shadow: 
+              0 0 12px #ff4500,
+              0 0 25px #ff4500,
+              0 0 38px #ff6347,
+              0 0 50px #ff6347,
+              0 0 65px #ff8c00,
+              0 0 80px #ff8c00;
+            filter: brightness(0.85);
           }
-          15% {
-            filter: brightness(1);
-            text-shadow: none;
-          }
-          100% {
-            filter: brightness(1);
-            text-shadow: none;
+          75% {
+            text-shadow: 
+              0 0 20px #ff4500,
+              0 0 35px #ff4500,
+              0 0 50px #ff6347,
+              0 0 65px #ff6347,
+              0 0 85px #ff8c00,
+              0 0 105px #ff8c00;
+            filter: brightness(1.3);
           }
         }
-        
-        @keyframes buttonGlow {
-          0%, 100% { box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.2), 6px 6px 0 rgba(0, 0, 0, 0.15); }
-          50% { box-shadow: 8px 8px 0 #7744ff; }
+
+        @keyframes hire-glow {
+          0%, 100% {
+            text-shadow: 
+              0 0 15px rgba(19, 138, 54, 1),
+              0 0 30px rgba(19, 138, 54, 0.9),
+              0 0 45px rgba(19, 138, 54, 0.7),
+              0 0 60px rgba(34, 197, 94, 0.6),
+              0 0 75px rgba(34, 197, 94, 0.4);
+            filter: brightness(1.1);
+          }
+          50% {
+            text-shadow: 
+              0 0 25px rgba(19, 138, 54, 1),
+              0 0 50px rgba(19, 138, 54, 0.9),
+              0 0 75px rgba(19, 138, 54, 0.8),
+              0 0 100px rgba(34, 197, 94, 0.7),
+              0 0 125px rgba(34, 197, 94, 0.5);
+            filter: brightness(1.35);
+          }
         }
-        
-        .tutorial-button-animated:hover {
-          animation: buttonGlow 0.6s ease-in-out infinite;
+
+        .fire-effect {
+          animation: fire-flicker 1.5s ease-in-out infinite;
+        }
+
+        .hire-glow-effect {
+          animation: hire-glow 2s ease-in-out infinite;
         }
       `}</style>
-      <div className="flex flex-col items-center justify-center min-h-screen p-8 game-bg relative">
-        {/* Tutorial button - top left - giant ? square */}
-        <button
-          className="game-sharp font-black game-button-hover tutorial-button-animated absolute top-8 left-8 z-10 flex items-center justify-center"
-          style={{
-            background: "#9966ff",
-            border: "6px solid #000",
-            color: "#fff",
-            boxShadow:
-              "8px 8px 0 rgba(0, 0, 0, 0.2), 6px 6px 0 rgba(0, 0, 0, 0.15)",
-            width: "80px",
-            height: "80px",
-            fontSize: "3rem",
-          }}
-          onClick={() => navigate("/tutorial")}
-          aria-label="How to Play Tutorial"
-        >
-          ?
-        </button>
+    <div className="flex flex-col items-center justify-center min-h-screen p-8 game-bg">
+      {/* Tutorial button - top left */}
+      <button
+        className="game-sharp font-black transition-all duration-300 ease-out hover:scale-110 hover:-rotate-6 absolute top-8 left-8 z-10 flex items-center justify-center opacity-0 animate-[fadeIn_0.6s_ease-out_1.8s_both]"
+        style={{
+          background: "#9966ff",
+          border: "6px solid var(--game-text-primary)",
+          color: "#fff",
+          boxShadow: "8px 8px 0 rgba(0, 0, 0, 0.5)",
+          width: "80px",
+          height: "80px",
+          fontSize: "3rem",
+        }}
+        onClick={() => navigate("/tutorial")}
+        aria-label="How to Play Tutorial"
+      >
+        ?
+      </button>
 
-        <div className="text-center space-y-16 relative">
-          {/* Hero sticky note with dark border */}
-          <div className="relative inline-block" style={heroAnimationStyle}>
-            <div
-              className="px-20 py-16 game-shadow-hard-lg"
+      <div className="text-center space-y-16">
+        {/* Title with dynamic stamp effects */}
+        <div className="flex items-center justify-center gap-16 flex-wrap">
+          {/* HIRE with stamp animation */}
+          <div className="animate-stamp-in" style={{ animationDelay: '0.2s' }}>
+            <div 
+              className="px-16 py-12 inline-block relative game-sharp transition-all duration-500 ease-out hover:scale-110 hover:rotate-[-12deg] cursor-pointer"
               style={{
-                background: "#ffe63b",
-                border: "10px solid #000",
-                ...shadowPulseStyle,
+                backgroundColor: 'var(--game-green)',
+                border: '10px solid var(--game-text-primary)',
+                transform: 'rotate(-8deg)',
+                boxShadow: '12px 12px 0px rgba(0, 0, 0, 0.5)'
               }}
             >
-              <h1 className="game-title text-7xl sm:text-8xl font-black leading-[1.05] tracking-tight">
-                <span style={{ display: "inline-block" }}>
-                  <span style={{ color: "#138a36", ...lightPulseStyle(0) }}>
-                    H
-                  </span>
-                  <span style={{ color: "#138a36", ...lightPulseStyle(1) }}>
-                    I
-                  </span>
-                  <span style={{ color: "#138a36", ...lightPulseStyle(2) }}>
-                    R
-                  </span>
-                  <span style={{ color: "#138a36", ...lightPulseStyle(3) }}>
-                    E
-                  </span>
-                </span>
-                <span
-                  className="mx-4"
-                  style={{
-                    fontSize: "0.5em",
-                    color: "#000",
-                    ...letterStaggerStyle(4),
-                  }}
-                >
-                  OR
-                </span>
-                <span style={{ display: "inline-block" }}>
-                  <span
-                    style={{ color: "var(--game-red)", ...lightPulseStyle(5) }}
-                  >
-                    F
-                  </span>
-                  <span
-                    style={{ color: "var(--game-red)", ...lightPulseStyle(6) }}
-                  >
-                    I
-                  </span>
-                  <span
-                    style={{ color: "var(--game-red)", ...lightPulseStyle(7) }}
-                  >
-                    R
-                  </span>
-                  <span
-                    style={{ color: "var(--game-red)", ...lightPulseStyle(8) }}
-                  >
-                    E
-                  </span>
-                </span>
-              </h1>
-            </div>
-            {/* Pencil SVG - commented out for now */}
-            {/* <div className="absolute -top-6 -right-10" aria-hidden="true">
-            <svg width="80" height="80" viewBox="0 0 120 120" fill="none">
-              <rect
-                x="20"
-                y="10"
-                width="80"
-                height="22"
-                rx="3"
-                fill="#FFD700"
-                stroke="#000"
-                strokeWidth="4"
-              />
-              <rect
-                x="20"
-                y="32"
-                width="80"
-                height="12"
-                fill="#C0C0C0"
-                stroke="#000"
-                strokeWidth="4"
-              />
-              <rect
-                x="20"
-                y="44"
-                width="80"
-                height="22"
-                rx="3"
-                fill="#FF6B9D"
-                stroke="#000"
-                strokeWidth="4"
-              />
-              <path
-                d="M 60 66 L 40 95 L 80 95 Z"
-                fill="#F4A460"
-                stroke="#000"
-                strokeWidth="4"
-              />
-              <path
-                d="M 60 90 L 52 95 L 68 95 Z"
-                fill="#2F4F4F"
-                stroke="#000"
-                strokeWidth="3"
-              />
-            </svg>
-          </div> */}
-          </div>
-
-          {/* Subtitle - bigger and more prominent */}
-          <div className="flex justify-center">
-            <div
-              className="px-12 py-5 game-shadow-hard-lg game-label-text text-xl sm:text-2xl"
-              style={{
-                background: "#000",
-                border: "8px solid #000",
-                color: "#fff",
-                letterSpacing: "0.2em",
-                fontWeight: "900",
-              }}
-            >
-              INTERVIEW BATTLE
+              <span className="font-black text-white block hire-glow-effect" style={{ fontFamily: 'Impact, sans-serif', letterSpacing: '0.15em', fontSize: '7rem', lineHeight: '1' }}>
+                HIRE
+              </span>
             </div>
           </div>
-
-          {/* CTA - Start Game button only (blue) */}
-          <div className="pt-4 flex flex-col items-center gap-8">
-            <button
-              className="game-sharp px-16 py-7 text-2xl font-black uppercase tracking-widest game-button-hover game-block-blue"
+          
+          {/* OR with smooth fade */}
+          <span 
+            className="opacity-0 animate-[fadeIn_0.6s_ease-out_0.5s_both] font-black"
+            style={{ 
+              fontSize: '4rem',
+              color: 'var(--game-text-primary)',
+              fontFamily: 'Impact, sans-serif',
+              textShadow: '4px 4px 0px rgba(0, 0, 0, 0.2)'
+            }}
+          >
+            OR
+          </span>
+          
+          {/* FIRE with stamp animation */}
+          <div className="animate-stamp-in" style={{ animationDelay: '0.8s' }}>
+            <div 
+              className="px-16 py-12 inline-block relative game-sharp transition-all duration-500 ease-out hover:scale-110 hover:rotate-[8deg] cursor-pointer"
               style={{
-                border: "8px solid #000",
-                color: "#fff",
-                boxShadow:
-                  "10px 10px 0 rgba(0, 0, 0, 0.2), 8px 8px 0 rgba(0, 0, 0, 0.15)",
+                backgroundColor: 'var(--game-red)',
+                border: '10px solid var(--game-text-primary)',
+                transform: 'rotate(5deg)',
+                boxShadow: '12px 12px 0px rgba(0, 0, 0, 0.5)'
               }}
-              onClick={() => navigate("/lobby-creation")}
             >
-              Start Game
-            </button>
+              <span className="font-black text-white block fire-effect" style={{ fontFamily: 'Impact, sans-serif', letterSpacing: '0.15em', fontSize: '7rem', lineHeight: '1' }}>
+                FIRE
+              </span>
+            </div>
           </div>
-
-          {/* Briefcase SVG - commented out for now */}
-          {/* <div className="absolute bottom-24 right-14" aria-hidden="true">
-          <svg width="120" height="120" viewBox="0 0 140 140" fill="none">
-            <rect
-              x="15"
-              y="45"
-              width="110"
-              height="70"
-              rx="8"
-              fill="#8B4513"
-              stroke="#000"
-              strokeWidth="5"
-            />
-            <rect
-              x="15"
-              y="40"
-              width="110"
-              height="12"
-              rx="4"
-              fill="#A0522D"
-              stroke="#000"
-              strokeWidth="5"
-            />
-            <rect
-              x="50"
-              y="25"
-              width="40"
-              height="18"
-              rx="6"
-              fill="#654321"
-              stroke="#000"
-              strokeWidth="4"
-            />
-            <path
-              d="M 55 25 Q 70 10 85 25"
-              fill="none"
-              stroke="#000"
-              strokeWidth="5"
-              strokeLinecap="round"
-            />
-            <rect
-              x="65"
-              y="70"
-              width="10"
-              height="15"
-              rx="2"
-              fill="#FFD700"
-              stroke="#000"
-              strokeWidth="3"
-            />
-            <circle cx="70" cy="75" r="3" fill="#000" />
-            <circle cx="25" cy="55" r="4" fill="#FFD700" stroke="#000" strokeWidth="2" />
-            <circle cx="115" cy="55" r="4" fill="#FFD700" stroke="#000" strokeWidth="2" />
-            <circle cx="25" cy="105" r="4" fill="#FFD700" stroke="#000" strokeWidth="2" />
-            <circle cx="115" cy="105" r="4" fill="#FFD700" stroke="#000" strokeWidth="2" />
-          </svg>
-        </div> */}
+        </div>
+        
+        {/* Label maker subtitle */}
+        <div className="flex justify-center opacity-0 animate-[fadeIn_0.6s_ease-out_1.1s_both]">
+          <div className="game-label-text text-3xl game-shadow-hard-sm px-8 py-3">
+            INTERVIEW BATTLE
+          </div>
+        </div>
+        
+        {/* Start button - flat color block */}
+        <div className="pt-8 opacity-0 animate-[fadeIn_0.6s_ease-out_1.3s_both]">
+          <button
+            className="game-sharp game-block-blue px-12 py-6 text-xl font-black uppercase tracking-widest game-shadow-hard-lg transition-all duration-300 ease-out hover:scale-105 hover:-translate-y-1 active:scale-95 active:translate-y-0"
+            style={{
+              border: '6px solid var(--game-text-primary)',
+              color: 'var(--game-text-white)',
+              letterSpacing: '0.15em'
+            }}
+            onClick={() => navigate('/lobby-creation')}
+          >
+            START GAME
+          </button>
         </div>
       </div>
+    </div>
     </>
   );
 };
