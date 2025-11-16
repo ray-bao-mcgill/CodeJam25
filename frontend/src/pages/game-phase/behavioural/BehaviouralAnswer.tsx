@@ -5,6 +5,7 @@ import { useGameSync } from "@/hooks/useGameSync";
 import { useLobby } from "@/hooks/useLobby";
 import { useLobbyWebSocket } from "@/hooks/useLobbyWebSocket";
 import { API_URL } from "@/config";
+import VideoRecorder from "@/components/VideoRecorder";
 
 const ANSWER_SECONDS = 60;
 
@@ -20,7 +21,10 @@ const BehaviouralAnswer: React.FC = () => {
     showResults,
   } = useGameSync();
   const [remaining, setRemaining] = useState(ANSWER_SECONDS);
+  const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [answer, setAnswer] = useState("");
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState("");
   // Initialize questionIndex from sessionStorage if Q0 is already complete
   const initialQuestionIndex = sessionStorage.getItem("behavioural_q0_complete") === "true" ? 1 : 0;
@@ -225,6 +229,18 @@ const BehaviouralAnswer: React.FC = () => {
     }
   }, [timeRemaining]);
 
+  // Auto-submit when timer reaches 0
+  useEffect(() => {
+    if (remaining === 0 && !hasSubmittedCurrent && !isTranscribing && answer.trim()) {
+      console.log("[BEHAVIOURAL_A] Timer reached 0, auto-submitting answer");
+      handleSubmit();
+    } else if (remaining === 0 && !hasSubmittedCurrent && !isTranscribing && !answer.trim()) {
+      console.log("[BEHAVIOURAL_A] Timer reached 0 but no answer to submit - marking as submitted");
+      // Mark as submitted even if empty so player can move forward
+      setHasSubmittedCurrent(true);
+    }
+  }, [remaining, hasSubmittedCurrent, isTranscribing, answer]);
+
   // Navigation logic
   useEffect(() => {
     // PRIORITY: Check phase complete FIRST (both Q0 and Q1 done) - navigate to results
@@ -263,35 +279,147 @@ const BehaviouralAnswer: React.FC = () => {
   ]);
 
   const handleSubmit = async () => {
-    if (!answer.trim() || hasSubmittedCurrent) return;
+    console.log("\n" + "=".repeat(80));
+    console.log("📹 [BEHAVIOURAL_A] handleSubmit() called");
+    console.log("=".repeat(80));
+    console.log(`📊 answer exists: ${!!answer}`);
+    console.log(`📊 hasSubmittedCurrent: ${hasSubmittedCurrent}`);
+    console.log(`📊 questionIndex: ${questionIndex}`);
+    
+    if (!answer.trim()) {
+      console.log("❌ [BEHAVIOURAL_A] No answer text - cannot submit");
+      return;
+    }
+    
+    if (hasSubmittedCurrent) {
+      console.log("❌ [BEHAVIOURAL_A] Already submitted - cannot submit again");
+      return;
+    }
 
-    if (questionIndex === 0) {
-      // Submit Q0 answer
-      console.log("[BEHAVIOURAL_A] Submitting Q0 answer");
-      await submitAnswer(answer);
-      syncSubmitAnswer(
-        answer,
-        gameState?.questionId || "behavioural_q0",
-        "behavioural",
-        0
-      );
+    console.log("✅ [BEHAVIOURAL_A] Submitting answer text...");
+    console.log(`📊 [BEHAVIOURAL_A] Answer length: ${answer.length} characters`);
+    console.log(`📊 [BEHAVIOURAL_A] Answer preview: ${answer.substring(0, 100)}...`);
+
+    try {
+      // Video was already uploaded and transcribed in handleVideoRecorded
+      // The transcription text is stored in the answer state
+      const questionId = questionIndex === 0 ? "behavioural_q0" : "behavioural_q1";
+      const transcriptionText = answer.trim();
+      
+      if (questionIndex === 0) {
+        // Submit Q0 answer
+        console.log("📤 [BEHAVIOURAL_A] Submitting Q0 transcription to game flow");
+        await submitAnswer(transcriptionText);
+        syncSubmitAnswer(
+          transcriptionText,
+          questionId,
+          "behavioural",
+          0
+        );
+        console.log("✅ [BEHAVIOURAL_A] Q0 transcription submitted to game flow!");
+      } else {
+        // Submit Q1 answer
+        console.log("📤 [BEHAVIOURAL_A] Submitting Q1 transcription to game flow");
+        await submitFollowUpAnswer(transcriptionText);
+        syncSubmitAnswer(
+          transcriptionText,
+          questionId,
+          "behavioural",
+          1
+        );
+        console.log("✅ [BEHAVIOURAL_A] Q1 transcription submitted to game flow!");
+      }
+      
       setHasSubmittedCurrent(true);
-      setAnswer(""); // Clear answer
-    } else {
-      // Submit Q1 answer
-      console.log("[BEHAVIOURAL_A] Submitting Q1 answer");
-      await submitFollowUpAnswer(answer);
-      syncSubmitAnswer(
-        answer,
-        gameState?.questionId || "behavioural_q1",
-        "behavioural",
-        1
-      );
-      setHasSubmittedCurrent(true);
+      setVideoBlob(null); // Clear video
+      
+    } catch (error) {
+      console.error("\n" + "=".repeat(80));
+      console.error("❌ [BEHAVIOURAL_A] Error during answer submission:");
+      console.error("=".repeat(80));
+      console.error(error);
+      console.error("=".repeat(80) + "\n");
     }
   };
 
-  const handleClear = () => setAnswer("");
+  const handleVideoRecorded = async (blob: Blob) => {
+    setVideoBlob(blob);
+    setIsTranscribing(true);
+    setAnswer("Transcribing your video...");
+    
+    console.log("\n" + "=".repeat(80));
+    console.log("📹 [BEHAVIOURAL_A] Video recorded, starting transcription");
+    console.log("=".repeat(80));
+    console.log(`📦 Video blob size: ${blob.size} bytes`);
+    console.log(`📦 Video blob type: ${blob.type}`);
+
+    try {
+      // Create FormData with video file and metadata
+      const formData = new FormData();
+      const questionId = questionIndex === 0 ? "behavioural_q0" : "behavioural_q1";
+      const videoFilename = `${playerId || 'unknown'}_${questionId}_${Date.now()}.webm`;
+      
+      formData.append('video', blob, videoFilename);
+      formData.append('player_id', playerId || 'unknown');
+      formData.append('question_id', questionId);
+      
+      console.log("\n" + "=".repeat(80));
+      console.log("📤 [BEHAVIOURAL_A] Uploading to /api/video/upload");
+      console.log("=".repeat(80));
+      console.log(`📄 Filename: ${videoFilename}`);
+      console.log(`👤 Player ID: ${playerId || 'unknown'}`);
+      console.log(`❓ Question ID: ${questionId}`);
+      console.log("=".repeat(80) + "\n");
+      
+      // Upload video to backend endpoint
+      const response = await fetch(`${API_URL}/api/video/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const result = await response.json();
+      
+      console.log("\n" + "=".repeat(80));
+      console.log("✅ [BEHAVIOURAL_A] Server response received!");
+      console.log("=".repeat(80));
+      console.log(`📊 Success: ${result.success}`);
+      console.log(`📊 Message: ${result.message}`);
+      console.log(`📁 Video saved to: ${result.video_path || 'N/A'}`);
+      console.log(`📝 Transcription saved to: ${result.transcription_path || 'N/A'}`);
+      console.log(`📊 Transcription length: ${result.transcription_text?.length || 0} characters`);
+      console.log(`📊 Word count: ${result.word_count || 0}`);
+      console.log(`📄 Transcription preview: ${result.transcription_text?.substring(0, 100) || 'N/A'}...`);
+      console.log("=".repeat(80) + "\n");
+      
+      if (!result.success) {
+        console.error("❌ [BEHAVIOURAL_A] Upload failed:", result.message);
+        setAnswer("Error: Failed to transcribe video. Please try again.");
+        setIsTranscribing(false);
+        return;
+      }
+      
+      // Set the transcription text in the textarea for user to review/edit
+      const transcriptionText = result.transcription_text || '';
+      setAnswer(transcriptionText);
+      setIsTranscribing(false);
+      
+      console.log("✅ [BEHAVIOURAL_A] Transcription loaded into text box for review");
+      
+    } catch (error) {
+      console.error("\n" + "=".repeat(80));
+      console.error("❌ [BEHAVIOURAL_A] Error during video upload:");
+      console.error("=".repeat(80));
+      console.error(error);
+      console.error("=".repeat(80) + "\n");
+      setAnswer("Error: Failed to transcribe video. Please try recording again.");
+      setIsTranscribing(false);
+    }
+  };
+
+  const handleClear = () => {
+    setAnswer("");
+    setVideoBlob(null);
+  };
 
   if (isLoading) {
     return (
@@ -359,10 +487,29 @@ const BehaviouralAnswer: React.FC = () => {
           </p>
         </div>
 
-        {/* Answer Area */}
+        {/* Answer Area - Video Recorder */}
+        <section className="space-y-3">
+          <div className="game-label-text text-xs">RECORD YOUR ANSWER</div>
+          
+          <VideoRecorder 
+            onRecordingComplete={handleVideoRecorded}
+            onRecordingStart={() => setIsRecording(true)}
+            onRecordingStop={() => setIsRecording(false)}
+            maxDuration={remaining}
+            disabled={isWaitingForOthers || hasSubmittedCurrent || isTranscribing}
+          />
+        </section>
+
+        {/* Transcription Text Area */}
         <section className="space-y-3">
           <div className="flex items-end justify-between gap-4 flex-wrap">
-            <div className="game-label-text text-xs">YOUR ANSWER</div>
+            <div className="game-label-text text-xs">
+              {isRecording 
+                ? "RECORDING... (TEXT BOX DISABLED)" 
+                : isTranscribing 
+                ? "TRANSCRIBING..." 
+                : "YOUR ANSWER (EDIT IF NEEDED)"}
+            </div>
             <div className="flex items-center gap-4">
               <button
                 className="game-sharp px-4 py-2 text-xs font-black uppercase tracking-widest game-shadow-hard-sm game-button-hover"
@@ -370,32 +517,40 @@ const BehaviouralAnswer: React.FC = () => {
                   background: "var(--game-paper-bg, #fffbe6)",
                   border: "3px solid var(--game-text-primary)",
                   color: "var(--game-text-primary)",
+                  opacity: isTranscribing || hasSubmittedCurrent || isRecording ? 0.5 : 1,
                 }}
                 onClick={handleClear}
+                disabled={isTranscribing || hasSubmittedCurrent || isRecording}
               >
                 Clear
               </button>
             </div>
           </div>
 
-          <textarea
-            value={answer}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-              setAnswer(e.target.value)
-            }
-            placeholder="Type your answer here..."
-            className="game-sharp game-paper w-full block game-shadow-hard min-h-[40vh] md:min-h-[320px]"
-            style={{
-              border: "6px solid var(--game-text-primary)",
-              color: "var(--game-text-primary)",
-              padding: "1rem",
-              fontSize: "1.125rem",
-              lineHeight: 1.6,
-              letterSpacing: "0.01em",
-              resize: "vertical",
-            }}
-            disabled={isWaitingForOthers || hasSubmittedCurrent}
-          />
+          <div className="relative">
+            <textarea
+              value={answer}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                setAnswer(e.target.value)
+              }
+              placeholder={isRecording 
+                ? "Recording in progress... Text editing will be available after transcription." 
+                : "Record a video above to see the transcription here. You can edit the text before submitting."}
+              className="game-sharp game-paper w-full block game-shadow-hard min-h-[40vh] md:min-h-[320px]"
+              style={{
+                border: "6px solid var(--game-text-primary)",
+                color: "var(--game-text-primary)",
+                padding: "1rem",
+                fontSize: "1.125rem",
+                lineHeight: 1.6,
+                letterSpacing: "0.01em",
+                resize: "vertical",
+                opacity: isRecording || isTranscribing ? 0.6 : 1,
+                cursor: isRecording || isTranscribing ? 'not-allowed' : 'text',
+              }}
+              disabled={isWaitingForOthers || hasSubmittedCurrent || isTranscribing || isRecording}
+            />
+          </div>
         </section>
 
         {/* Waiting for others indicator */}
@@ -422,36 +577,30 @@ const BehaviouralAnswer: React.FC = () => {
               color: "var(--game-text-white)",
               minWidth: "220px",
               opacity:
-                !answer.trim() || isWaitingForOthers || hasSubmittedCurrent
+                !answer.trim() || isWaitingForOthers || hasSubmittedCurrent || isTranscribing
                   ? 0.5
                   : 1,
               cursor:
-                !answer.trim() || isWaitingForOthers || hasSubmittedCurrent
+                !answer.trim() || isWaitingForOthers || hasSubmittedCurrent || isTranscribing
                   ? "not-allowed"
                   : "pointer",
             }}
             onClick={handleSubmit}
             disabled={
-              !answer.trim() || isWaitingForOthers || hasSubmittedCurrent
+              !answer.trim() || isWaitingForOthers || hasSubmittedCurrent || isTranscribing
             }
           >
             {hasSubmittedCurrent
               ? "SUBMITTED"
               : isWaitingForOthers
               ? "WAITING FOR OTHERS..."
+              : isTranscribing
+              ? "TRANSCRIBING..."
               : "Submit Answer"}
           </button>
         </div>
 
-        {/* Decorative sticky notes */}
-        <div className="flex justify-end">
-          <div
-            className="game-sticky-note-alt px-4 py-2 game-shadow-hard-sm"
-            style={{ transform: "rotate(2deg)" }}
-          >
-            <div className="text-xs font-bold uppercase">Answer Phase</div>
-          </div>
-        </div>
+       
       </div>
     </div>
   );

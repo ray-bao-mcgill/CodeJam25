@@ -4,12 +4,18 @@ import sys
 from .schemas import BehaviouralJudgeResult, TheoreticalJudgeResult, IDEJudgeResult, TextJudgeResult
 from .client import LLMTextRequest
 from .prompts.renderer import render as render_prompt
+from .video_processor import VideoProcessor
 
 class BehaviouralJudge:
     def __init__(self, openai_client):
         self.client = openai_client
+        self.video_processor = VideoProcessor(openai_client)
 
     async def judge(self, question: str, answer: str) -> BehaviouralJudgeResult:
+        # Check if answer is video data and transcribe if needed
+        if self.video_processor.is_video_data(answer):
+            answer = await self.video_processor.transcribe_video(answer)
+        
         system = render_prompt("role/behavioural/judge/system_prompt.jinja")
         prompt = render_prompt(
             "role/behavioural/judge/user_prompt.jinja", question=question, answer=answer
